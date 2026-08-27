@@ -18,6 +18,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
+  createFakeGatewaySseEncoder,
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
   fakeGatewaySerializedToolCall,
@@ -26,6 +27,8 @@ import {
   hasEmptyComposer,
   isEmptyComposerLine,
   isVolatileTokenStatusRow,
+  normalizedOpenAiPromptParts,
+  openAiChatMessages,
   paneExitMatches,
   startFakeGateway,
   TmuxSession,
@@ -171,6 +174,7 @@ type HoldState = {
 
 function heldGatewayResponse(state: HoldState): Response {
   const encoder = new TextEncoder();
+  const sse = createFakeGatewaySseEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   return new Response(
     new ReadableStream<Uint8Array>({
@@ -178,7 +182,11 @@ function heldGatewayResponse(state: HoldState): Response {
         state.started = true;
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ type: "text-delta", id: "held", delta: "SESSION_PICKER_ACTIVE_STREAM" })}\n\n`,
+            sse.event({
+              type: "text-delta",
+              id: "held",
+              delta: "SESSION_PICKER_ACTIVE_STREAM",
+            }),
           ),
         );
         timer = setInterval(() => {
@@ -196,6 +204,7 @@ function heldGatewayResponse(state: HoldState): Response {
 
 function streamedTextResponse(text: string): Response {
   const encoder = new TextEncoder();
+  const sse = createFakeGatewaySseEncoder();
   return new Response(
     new ReadableStream<Uint8Array>({
       async start(controller) {
@@ -203,21 +212,21 @@ function streamedTextResponse(text: string): Response {
           const delta = text.slice(offset, offset + 24);
           controller.enqueue(
             encoder.encode(
-              `data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta })}\n\n`,
+              sse.event({ type: "text-delta", id: "answer_1", delta }),
             ),
           );
           await Bun.sleep(10);
         }
         controller.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({
+            sse.event({
               type: "finish",
               finishReason: { unified: "stop", raw: "stop" },
               usage: {
                 inputTokens: { total: 3 },
                 outputTokens: { total: 5 },
               },
-            })}\n\ndata: [DONE]\n\n`,
+            }) + sse.done(),
           ),
         );
         controller.close();
@@ -1669,12 +1678,7 @@ while :; do :; done
         timeout,
       );
 
-      const followRequest = JSON.parse(gateway.requests[1]!.body) as {
-        prompt: Array<{ role: string; content: unknown }>;
-      };
-      const parts = followRequest.prompt.flatMap((message) =>
-        Array.isArray(message.content) ? message.content : []
-      ) as Array<Record<string, unknown>>;
+      const parts = normalizedOpenAiPromptParts(gateway.requests[1]!.body);
       const calls = parts.filter((part) =>
         part.type === "tool-call" &&
         part.toolCallId === callId &&
@@ -2312,13 +2316,10 @@ test.skipIf(!tmuxAvailable())(
       await active.sendKeys("Enter");
       await active.waitForText(followUpDone, TIMEOUT);
       const followUpBody = gateway.requests[1]?.body ?? "";
-      const messages = JSON.parse(followUpBody).prompt as Array<{
-        role: string;
-        content: Array<{ type: string; text?: string }>;
-      }>;
+      const messages = openAiChatMessages(followUpBody);
       const finalUser = messages[messages.length - 1];
       expect(finalUser?.role).toBe("user");
-      expect(finalUser?.content[0]?.text).toBe(fullViewDraft);
+      expect(finalUser?.content).toBe(fullViewDraft);
       const afterSubmit = await active.capturePane();
       expect(afterSubmit).toContain(firstDone);
       expect(afterSubmit).toContain(followUpDone);
@@ -3327,6 +3328,7 @@ test.skipIf(!tmuxAvailable())(
     const markdown = markdownLines.join("\n");
     const streamedMarkdown = () => {
       const encoder = new TextEncoder();
+      const sse = createFakeGatewaySseEncoder();
       const chunks = Array.from(
         { length: Math.ceil(markdown.length / 240) },
         (_, index) => markdown.slice(index * 240, (index + 1) * 240),
@@ -3335,15 +3337,17 @@ test.skipIf(!tmuxAvailable())(
         new ReadableStream<Uint8Array>({
           async start(controller) {
             for (const chunk of chunks) {
-              controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta: chunk })}\n\n`));
+              controller.enqueue(encoder.encode(
+                sse.event({ type: "text-delta", id: "answer_1", delta: chunk }),
+              ));
               await Bun.sleep(10);
             }
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+            controller.enqueue(encoder.encode(sse.event({
               type: "finish",
               finishReason: { unified: "stop", raw: "stop" },
               usage: { inputTokens: { total: 3 }, outputTokens: { total: 5 } },
-            })}\n\n`));
-            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+            })));
+            controller.enqueue(encoder.encode(sse.done()));
             controller.close();
           },
         }),

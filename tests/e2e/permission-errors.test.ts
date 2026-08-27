@@ -16,6 +16,7 @@ import {
   fakeGatewayFinalText,
   fakeGatewayPermissionDecision,
   fakeGatewayToolCall,
+  findOpenAiToolResult,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -55,17 +56,10 @@ function parseY2Json(result: { stdout: string; stderr: string; code: number | nu
 }
 
 function toolResultText(body: string, toolCallId: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: Array<Record<string, unknown>> }>;
-  };
-  const result = (request.prompt ?? [])
-    .flatMap((message) => message.content ?? [])
-    .find((part) => part.type === "tool-result" && part.toolCallId === toolCallId);
+  const result = findOpenAiToolResult(body, toolCallId);
   expect(result).toBeDefined();
-  const output = result!.output as Record<string, unknown>;
-  expect(output.type).toBe("text");
-  expect(typeof output.value).toBe("string");
-  return output.value as string;
+  expect(typeof result!.content).toBe("string");
+  return result!.content as string;
 }
 
 function permissionEnv(

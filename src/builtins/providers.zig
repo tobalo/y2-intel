@@ -27,3 +27,9 @@ pub const native = provider_set.Set{
         .permission_reviewer = xai_grok_permission_reviewer.provider,
     },
 };
+
+pub fn configured() provider_set.Set {
+    var providers = native;
+    providers.gateway.capabilities.vision_fallback = gateway.usesDirectOpenAiEndpoint();
+    return providers;
+}

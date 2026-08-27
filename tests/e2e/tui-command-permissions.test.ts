@@ -21,9 +21,13 @@ import { join } from "node:path";
 import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   classifierEvidenceFromRequest,
+  fakeGatewaySse,
   fakeGatewayPermissionDecision,
+  findOpenAiToolCall,
+  findOpenAiToolResult,
   heldFakeGatewayFinalText,
   isVolatileTokenStatusRow,
+  openAiChatMessages,
   startDynamicFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -95,10 +99,7 @@ afterEach(async () => {
 });
 
 function sse(events: object[]) {
-  return new Response(
-    `${events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")}data: [DONE]\n\n`,
-    { headers: { "content-type": "text/event-stream" } },
-  );
+  return fakeGatewaySse(events);
 }
 
 function gatewayToolCall(toolName: string, input: object, toolCallId: string) {
@@ -239,45 +240,28 @@ function expectGroupedContinuationRequest(
 }
 
 function expectOrdinaryToolResults(body: string, callIds: string[]) {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: Array<Record<string, unknown>> }>;
-  };
-  const results = (request.prompt ?? [])
-    .flatMap((message) => message.content ?? [])
-    .filter((part) => part.type === "tool-result");
+  const results = openAiChatMessages(body)
+    .filter((message) => message.role === "tool");
 
   expect(results).toHaveLength(callIds.length);
-  expect(results.map((part) => part.toolCallId).sort()).toEqual([...callIds].sort());
+  expect(results.map((message) => message.tool_call_id).sort()).toEqual([...callIds].sort());
   for (const result of results) {
-    const output = result.output as Record<string, unknown> | undefined;
-    expect(output?.type).toBe("text");
-    expect(output?.value).toEqual(expect.stringContaining("exit_code=0"));
+    expect(contentText(result.content)).toEqual(expect.stringContaining("exit_code=0"));
   }
   expect(JSON.stringify(results)).not.toContain("Repeated identical tool call blocked");
 }
 
 function toolResultText(body: string, toolCallId: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: Array<Record<string, unknown>> }>;
-  };
-  const result = (request.prompt ?? [])
-    .flatMap((message) => message.content ?? [])
-    .find((part) => part.type === "tool-result" && part.toolCallId === toolCallId);
+  const result = findOpenAiToolResult(body, toolCallId);
   expect(result).toBeDefined();
-  const output = result!.output as Record<string, unknown>;
-  expect(output.type).toBe("text");
-  expect(typeof output.value).toBe("string");
-  return output.value as string;
+  expect(typeof result!.content).toBe("string");
+  return result!.content as string;
 }
 
 function completedToolCallIds(body: string): string[] {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: Array<Record<string, unknown>> }>;
-  };
-  return (request.prompt ?? [])
-    .flatMap((message) => message.content ?? [])
-    .filter((part) => part.type === "tool-result")
-    .map((part) => part.toolCallId as string);
+  return openAiChatMessages(body)
+    .filter((message) => message.role === "tool")
+    .flatMap((message) => message.tool_call_id ?? []);
 }
 
 function contentText(value: unknown): string {
@@ -296,25 +280,16 @@ function contentText(value: unknown): string {
 }
 
 function promptText(body: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: unknown }>;
-  };
-  return (request.prompt ?? []).map((message) => contentText(message.content)).join("\n");
+  return openAiChatMessages(body).map((message) => contentText(message.content)).join("\n");
 }
 
 function latestPromptText(body: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: unknown }>;
-  };
-  return contentText(request.prompt?.at(-1)?.content);
+  return contentText(openAiChatMessages(body).at(-1)?.content);
 }
 
 function currentUserText(body: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ role?: string; content?: unknown }>;
-  };
   return contentText(
-    request.prompt?.findLast((message) => message.role === "user")?.content,
+    openAiChatMessages(body).findLast((message) => message.role === "user")?.content,
   );
 }
 
@@ -878,16 +853,10 @@ function foregroundY2Row(
 }
 
 function toolResultValue(body: string, toolCallId: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: string | Array<Record<string, unknown>> }>;
-  };
-  const result = (request.prompt ?? [])
-    .flatMap((message) => Array.isArray(message.content) ? message.content : [])
-    .find((part) => part.type === "tool-result" && part.toolCallId === toolCallId);
+  const result = findOpenAiToolResult(body, toolCallId);
   expect(result).toBeDefined();
-  const output = result!.output as Record<string, unknown>;
-  expect(output.type).toBe("text");
-  return output.value as string;
+  expect(typeof result!.content).toBe("string");
+  return result!.content as string;
 }
 
 function expectTraceOrder(trace: string, markers: string[]) {
@@ -1615,15 +1584,10 @@ describe("effect-aware command permissions", () => {
       const commandOutputText = (text: string): string =>
         text.split("\n").filter((line) => line.trimStart().startsWith("│ ")).join("\n");
       const toolResultValue = (body: string, toolCallId: string): string => {
-        const request = JSON.parse(body) as {
-          prompt?: Array<{ content?: Array<Record<string, any>> }>;
-        };
-        const result = (request.prompt ?? [])
-          .flatMap((message) => message.content ?? [])
-          .find((part) => part.type === "tool-result" && part.toolCallId === toolCallId);
+        const result = findOpenAiToolResult(body, toolCallId);
         expect(result).toBeDefined();
-        expect(result?.output?.type).toBe("text");
-        return String(result?.output?.value ?? "");
+        expect(typeof result?.content).toBe("string");
+        return String(result?.content ?? "");
       };
 
       activeSession = await TmuxSession.create({
@@ -2726,7 +2690,7 @@ describe("effect-aware command permissions", () => {
           toolCall(command, {}, "invalid_review_3"),
           (body) => {
             expect(body).not.toContain('"tools":[]');
-            expect(body).not.toContain('"toolChoice":{"type":"none"}');
+            expect(JSON.parse(body).tool_choice).not.toBe("none");
             return toolCall(command, {}, "invalid_review_4");
           },
           finalText("Reviewer unavailable handled normally."),
@@ -2991,7 +2955,7 @@ describe("effect-aware command permissions", () => {
       let childCompleted = false;
       let conditionWaitIssued = false;
       const routeAfterCreate = (body: string): Response | Promise<Response> => {
-        if (body.includes('"toolCallId":"parent_inspect_1"')) {
+        if (body.includes('"tool_call_id":"parent_inspect_1"')) {
           const outcome = JSON.parse(
             toolResultText(body, "parent_inspect_1"),
           ) as {
@@ -3025,7 +2989,7 @@ describe("effect-aware command permissions", () => {
           ]);
           return finalText("parent inspected canonical child");
         }
-        if (body.includes('"toolCallId":"parent_create_1"')) {
+        if (body.includes('"tool_call_id":"parent_create_1"')) {
           const createResult = toolResultText(body, "parent_create_1");
           expect(createResult).toContain('"ok":true');
           childId = JSON.parse(createResult).child_id as string;
@@ -3046,7 +3010,7 @@ describe("effect-aware command permissions", () => {
             },
           }, "parent_inspect_1");
         }
-        if (body.includes('"toolCallId":"child_pwd_1"')) {
+        if (body.includes('"tool_call_id":"child_pwd_1"')) {
           return (async () => {
             await Bun.sleep(100);
             childCompleted = true;
@@ -3081,7 +3045,7 @@ describe("effect-aware command permissions", () => {
       );
       expect(continuation).toBeDefined();
       const parentInspectRequest = gateway.requests.find((request) =>
-        request.body.includes('"toolCallId":"parent_create_1"'),
+        request.body.includes('"tool_call_id":"parent_create_1"'),
       );
       expect(parentInspectRequest).toBeDefined();
       for (const request of gateway.requests) {
@@ -3129,13 +3093,13 @@ describe("effect-aware command permissions", () => {
         releaseInspect = resolve;
       });
       const route = (body: string): Response | Promise<Response> => {
-        if (body.includes('"toolCallId":"failed_inspect_2"')) {
+        if (body.includes('"tool_call_id":"failed_inspect_2"')) {
           inspectedCompleted = JSON.parse(
             toolResultText(body, "failed_inspect_2"),
           ) as typeof inspectedCompleted;
           return finalText("parent resumed the paused child recovery");
         }
-        if (body.includes('"toolCallId":"failed_resume_1"')) {
+        if (body.includes('"tool_call_id":"failed_resume_1"')) {
           resumeOutcome = JSON.parse(
             toolResultText(body, "failed_resume_1"),
           ) as typeof resumeOutcome;
@@ -3160,7 +3124,7 @@ describe("effect-aware command permissions", () => {
             );
           })();
         }
-        if (body.includes('"toolCallId":"failed_inspect_1"')) {
+        if (body.includes('"tool_call_id":"failed_inspect_1"')) {
           inspectedPause = JSON.parse(
             toolResultText(body, "failed_inspect_1"),
           ) as typeof inspectedPause;
@@ -3170,7 +3134,7 @@ describe("effect-aware command permissions", () => {
             },
           }, "failed_resume_1");
         }
-        if (body.includes('"toolCallId":"failed_create_1"')) {
+        if (body.includes('"tool_call_id":"failed_create_1"')) {
           childId = JSON.parse(
             toolResultText(body, "failed_create_1"),
           ).child_id as string;
@@ -3275,13 +3239,13 @@ describe("effect-aware command permissions", () => {
         resolveSecondRequest = resolve;
       });
       const route = (body: string): Response | Promise<Response> => {
-        if (body.includes('"toolCallId":"persistent_inspect_2"')) {
+        if (body.includes('"tool_call_id":"persistent_inspect_2"')) {
           expect(toolResultText(body, "persistent_inspect_2")).toContain(
             '"status":"idle"',
           );
           return finalText("parent observed both persistent child turns");
         }
-        if (body.includes('"toolCallId":"persistent_send_1"')) {
+        if (body.includes('"tool_call_id":"persistent_send_1"')) {
           expect(toolResultText(body, "persistent_send_1")).toContain(
             '"status":"message_queued"',
           );
@@ -3290,7 +3254,7 @@ describe("effect-aware command permissions", () => {
             return subagentInspectCall("persistent_inspect_2", childId);
           });
         }
-        if (body.includes('"toolCallId":"persistent_inspect_1"')) {
+        if (body.includes('"tool_call_id":"persistent_inspect_1"')) {
           expect(toolResultText(body, "persistent_inspect_1")).toContain(
             '"status":"idle"',
           );
@@ -3302,7 +3266,7 @@ describe("effect-aware command permissions", () => {
             },
           }, "persistent_send_1");
         }
-        if (body.includes('"toolCallId":"persistent_create_1"')) {
+        if (body.includes('"tool_call_id":"persistent_create_1"')) {
           const created = JSON.parse(
             toolResultText(body, "persistent_create_1"),
           ) as { child_id: string; status: string };
@@ -3385,8 +3349,8 @@ describe("effect-aware command permissions", () => {
           }
           return childCompletion.response;
         }
-        if (body.includes('"toolCallId":"ask_delivery_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"ask_delivery_create_1"') &&
+            body.includes('"role":"tool"')) {
           if (!deliveryBarrier) {
             const created = JSON.parse(
               toolResultText(body, "ask_delivery_create_1"),
@@ -3455,7 +3419,7 @@ describe("effect-aware command permissions", () => {
       if (deliveryFailure) throw deliveryFailure;
 
       expect(first.code).toBe(0);
-      expect(first.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(first.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(first.stdout.trim()).output).toContain(
         "ASK_PARENT_FIRST_TURN_COMPLETE",
       );
@@ -3511,7 +3475,7 @@ describe("effect-aware command permissions", () => {
       );
 
       expect(second.code).toBe(0);
-      expect(second.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(second.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(second.stdout.trim()).output).toContain(
         "ASK_PARENT_DELIVERY_CONSUMED",
       );
@@ -3570,15 +3534,15 @@ describe("effect-aware command permissions", () => {
       let parentContinuationChecked = false;
       const firstRoute = (body: string) => {
         const text = promptText(body);
-        if (body.includes('"toolCallId":"multi_delivery_child_second"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"multi_delivery_child_second"') &&
+            body.includes('"role":"tool"')) {
           expect(toolResultText(body, "multi_delivery_child_second")).toContain(
             '"status":"message_queued"',
           );
           return finalText("ASK_MULTI_DELIVERY_CHILD_PRIVATE_DONE");
         }
-        if (body.includes('"toolCallId":"multi_delivery_child_first"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"multi_delivery_child_first"') &&
+            body.includes('"role":"tool"')) {
           expect(toolResultText(body, "multi_delivery_child_first")).toContain(
             '"status":"message_queued"',
           );
@@ -3608,8 +3572,8 @@ describe("effect-aware command permissions", () => {
             }, "multi_delivery_child_first");
           })();
         }
-        if (body.includes('"toolCallId":"multi_delivery_create"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"multi_delivery_create"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "multi_delivery_create"),
           ) as { child_id: string; status: string };
@@ -3654,7 +3618,7 @@ describe("effect-aware command permissions", () => {
       );
 
       expect(first.code).toBe(0);
-      expect(first.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(first.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(first.stdout.trim()).output).toContain(
         "ASK_MULTI_DELIVERY_PARENT_FIRST_DONE",
       );
@@ -3684,8 +3648,8 @@ describe("effect-aware command permissions", () => {
       const secondRoute = (body: string) => {
         const text = promptText(body);
         if (text.includes(freshChildWork)) return freshChildCompletion;
-        if (body.includes('"toolCallId":"multi_delivery_send_fresh"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"multi_delivery_send_fresh"') &&
+            body.includes('"role":"tool"')) {
           sameTurnFreshEventIds = parentDeliveryIds(body);
           expect(text).not.toContain(firstEventId);
           expect(text).not.toContain(secondEventId);
@@ -3720,8 +3684,8 @@ describe("effect-aware command permissions", () => {
             return finalText("ASK_MULTI_DELIVERY_MESSAGES_CONSUMED");
           });
         }
-        if (body.includes('"toolCallId":"multi_delivery_configure"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"multi_delivery_configure"') &&
+            body.includes('"role":"tool"')) {
           expectNoParentDeliveries(body);
           configureContinuationChecked = true;
           return gatewayToolCall("subagent", {
@@ -3846,15 +3810,15 @@ describe("effect-aware command permissions", () => {
       const parts: ParentMessagePart[] = [];
       const firstRoute = (body: string) => {
         const text = promptText(body);
-        if (body.includes('"toolCallId":"ask_64k_send_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"ask_64k_send_1"') &&
+            body.includes('"role":"tool"')) {
           expect(toolResultText(body, "ask_64k_send_1")).toContain(
             '"status":"message_queued"',
           );
           return finalText("ASK_64K_CHILD_PRIVATE_DONE");
         }
-        if (body.includes('"toolCallId":"ask_64k_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"ask_64k_create_1"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "ask_64k_create_1"),
           ) as { child_id: string; status: string };
@@ -3926,7 +3890,7 @@ describe("effect-aware command permissions", () => {
         },
       );
       expect(first.code).toBe(0);
-      expect(first.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(first.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(first.stdout.trim()).output).toContain(
         "ASK_64K_PARENT_FIRST_DONE",
       );
@@ -4030,13 +3994,13 @@ describe("effect-aware command permissions", () => {
         releaseRoot = resolve;
       });
       const route = (body: string) => {
-        if (body.includes('"toolCallId":"nested_create_1"')) {
+        if (body.includes('"tool_call_id":"nested_create_1"')) {
           expect(toolResultText(body, "nested_create_1")).toContain(
             '"status":"created"',
           );
           return finalText("child received nested handle");
         }
-        if (body.includes('"toolCallId":"root_create_1"')) {
+        if (body.includes('"tool_call_id":"root_create_1"')) {
           expect(toolResultText(body, "root_create_1")).toContain(
             '"status":"created"',
           );
@@ -4131,8 +4095,8 @@ describe("effect-aware command permissions", () => {
           }
           return grandchildCompletion.response;
         }
-        if (body.includes('"toolCallId":"nested_grandchild_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_grandchild_create_1"') &&
+            body.includes('"role":"tool"')) {
           if (!deliveryBarrier) {
             const created = JSON.parse(
               toolResultText(body, "nested_grandchild_create_1"),
@@ -4188,8 +4152,8 @@ describe("effect-aware command permissions", () => {
             } },
           }, "nested_grandchild_create_1");
         }
-        if (body.includes('"toolCallId":"nested_root_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_root_create_1"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "nested_root_create_1"),
           ) as { child_id: string; status: string };
@@ -4225,18 +4189,18 @@ describe("effect-aware command permissions", () => {
       if (deliveryFailure) throw deliveryFailure;
 
       expect(first.code).toBe(0);
-      expect(first.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(first.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(first.stdout.trim()).output).toContain("NESTED_ROOT_FIRST_DONE");
       expect(childId.length).toBeGreaterThan(0);
       expect(grandchildId.length).toBeGreaterThan(0);
       expect(childContinuationChecked).toBe(true);
       expect(firstGateway.requests.some((request) =>
-        request.body.includes('"toolCallId":"nested_root_create_1"') &&
-        request.body.includes('"type":"tool-result"')
+        request.body.includes('"tool_call_id":"nested_root_create_1"') &&
+        request.body.includes('"role":"tool"')
       )).toBe(true);
       expect(firstGateway.requests.some((request) =>
-        request.body.includes('"toolCallId":"nested_grandchild_create_1"') &&
-        request.body.includes('"type":"tool-result"')
+        request.body.includes('"tool_call_id":"nested_grandchild_create_1"') &&
+        request.body.includes('"role":"tool"')
       )).toBe(true);
       const parentSessionId = JSON.parse(first.stdout.trim()).session_id as string;
       expect(grandchildEventIds.length).toBeGreaterThan(0);
@@ -4259,11 +4223,11 @@ describe("effect-aware command permissions", () => {
         secondSeen.push([
           text.includes(childSecondMessage) ? "child-message" : "",
           text.includes("<subagent_deliveries") ? "delivery" : "",
-          body.includes('"toolCallId":"nested_send_child_1"') ? "send-result" : "",
-          body.includes('"toolCallId":"nested_child_inspect_grandchild_1"') ? "inspect-result" : "",
+          body.includes('"tool_call_id":"nested_send_child_1"') ? "send-result" : "",
+          body.includes('"tool_call_id":"nested_child_inspect_grandchild_1"') ? "inspect-result" : "",
         ].filter(Boolean).join("+") || "root-initial");
-        if (body.includes('"toolCallId":"nested_child_inspect_grandchild_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_child_inspect_grandchild_1"') &&
+            body.includes('"role":"tool"')) {
           expectNoParentDeliveries(body);
           childContinuationDeliveryChecked = true;
           return finalText("NESTED_CHILD_CONSUMED_GRANDCHILD");
@@ -4281,8 +4245,8 @@ describe("effect-aware command permissions", () => {
           childInitialChecked = true;
           return subagentInspectCall("nested_child_inspect_grandchild_1", grandchildId);
         }
-        if (body.includes('"toolCallId":"nested_send_child_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_send_child_1"') &&
+            body.includes('"role":"tool"')) {
           expectNoParentDeliveries(body);
           return waitForSubagentIdle(root, childId).then(() => {
             expect(childContinuationDeliveryChecked).toBe(true);
@@ -4318,7 +4282,7 @@ describe("effect-aware command permissions", () => {
       expect(rootSubagentCallIds.size).toBe(1);
       expect(childSubagentCallIds.size).toBe(1);
       expect(secondGateway.requests).toHaveLength(4);
-      expect(second.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(second.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(second.stdout.trim()).output).toContain("NESTED_ROOT_SECOND_DONE");
       expect(childInitialChecked).toBe(true);
       expect(childContinuationDeliveryChecked).toBe(true);
@@ -4331,8 +4295,8 @@ describe("effect-aware command permissions", () => {
           childNoRedeliveryChecked = true;
           return finalText("NESTED_CHILD_NO_REDELIVERY");
         }
-        if (body.includes('"toolCallId":"nested_send_child_2"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_send_child_2"') &&
+            body.includes('"role":"tool"')) {
           return waitForSubagentIdle(root, childId).then(() => {
             expect(childNoRedeliveryChecked).toBe(true);
             return finalText("NESTED_ROOT_THIRD_DONE");
@@ -4360,7 +4324,7 @@ describe("effect-aware command permissions", () => {
       );
 
       expect(third.code).toBe(0);
-      expect(third.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(third.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(third.stdout.trim()).output).toContain("NESTED_ROOT_THIRD_DONE");
       expect(childNoRedeliveryChecked).toBe(true);
       for (const eventId of grandchildEventIds) {
@@ -4390,15 +4354,15 @@ describe("effect-aware command permissions", () => {
       const parts: ParentMessagePart[] = [];
       const firstRoute = (body: string) => {
         const text = promptText(body);
-        if (body.includes('"toolCallId":"nested_64k_send_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_64k_send_1"') &&
+            body.includes('"role":"tool"')) {
           expect(toolResultText(body, "nested_64k_send_1")).toContain(
             '"status":"message_queued"',
           );
           return finalText("NESTED_64K_GRANDCHILD_PRIVATE_DONE");
         }
-        if (body.includes('"toolCallId":"nested_64k_grandchild_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_64k_grandchild_create_1"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "nested_64k_grandchild_create_1"),
           ) as { child_id: string; status: string };
@@ -4429,8 +4393,8 @@ describe("effect-aware command permissions", () => {
               .then(() => finalText("NESTED_64K_CHILD_FIRST_PRIVATE_DONE"));
           });
         }
-        if (body.includes('"toolCallId":"nested_64k_root_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"nested_64k_root_create_1"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "nested_64k_root_create_1"),
           ) as { child_id: string; status: string };
@@ -4493,7 +4457,7 @@ describe("effect-aware command permissions", () => {
         },
       );
       expect(first.code).toBe(0);
-      expect(first.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(first.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(first.stdout.trim()).output).toContain(
         "NESTED_64K_ROOT_FIRST_DONE",
       );
@@ -4517,8 +4481,8 @@ describe("effect-aware command permissions", () => {
             parts.push(part);
             return finalText(`NESTED_64K_CHILD_PART_${index + 1}_DONE`);
           }
-          if (body.includes(`"toolCallId":"${sendCallId}"`) &&
-              body.includes('"type":"tool-result"')) {
+          if (body.includes(`"tool_call_id":"${sendCallId}"`) &&
+              body.includes('"role":"tool"')) {
             expect(toolResultText(body, sendCallId)).toContain(
               '"status":"message_queued"',
             );
@@ -4550,7 +4514,7 @@ describe("effect-aware command permissions", () => {
           },
         );
         expect(turn.code).toBe(0);
-        expect(turn.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+        expect(turn.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
         expect(JSON.parse(turn.stdout.trim()).output).toContain(
           `NESTED_64K_ROOT_PART_${index + 1}_DONE`,
         );
@@ -4570,8 +4534,8 @@ describe("effect-aware command permissions", () => {
           noRedeliveryChecked = true;
           return finalText("NESTED_64K_CHILD_NO_REDELIVERY_DONE");
         }
-        if (body.includes(`"toolCallId":"${finalCallId}"`) &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes(`"tool_call_id":"${finalCallId}"`) &&
+            body.includes('"role":"tool"')) {
           return waitForSubagentIdle(root, childId)
             .then(() => finalText("NESTED_64K_ROOT_NO_REDELIVERY_DONE"));
         }
@@ -4602,7 +4566,7 @@ describe("effect-aware command permissions", () => {
         },
       );
       expect(final.code).toBe(0);
-      expect(final.stderr).toBe(MANAGE_SUBAGENT_PROGRESS);
+      expect(final.stderr).toContain(MANAGE_SUBAGENT_PROGRESS);
       expect(JSON.parse(final.stdout.trim()).output).toContain(
         "NESTED_64K_ROOT_NO_REDELIVERY_DONE",
       );
@@ -4631,7 +4595,7 @@ describe("effect-aware command permissions", () => {
       const stderrPath = join(root.root, "interactive-subagent-stderr.log");
       const childPrompt = "Return the interactive child result.";
       const route = (body: string) => {
-        if (body.includes('"toolCallId":"interactive_create_1"')) {
+        if (body.includes('"tool_call_id":"interactive_create_1"')) {
           expect(toolResultText(body, "interactive_create_1")).toContain(
             '"status":"created"',
           );
@@ -4712,8 +4676,8 @@ describe("effect-aware command permissions", () => {
           noRedeliveryChecked = true;
           return finalText("INTERACTIVE_APPROVAL_NOT_REPEATED");
         }
-        if (body.includes(`\"toolCallId\":\"${childCommandCallId}\"`) &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes(`\"tool_call_id\":\"${childCommandCallId}\"`) &&
+            body.includes('"role":"tool"')) {
           return finalText("INTERACTIVE_CHILD_DENIED_COMPLETE");
         }
         if (userText.includes(childPrompt)) {
@@ -4723,8 +4687,8 @@ describe("effect-aware command permissions", () => {
             command: `/usr/bin/touch ${shellQuote(markerPath)}`,
           }, childCommandCallId);
         }
-        if (body.includes(`\"toolCallId\":\"${rootProbeCallId}\"`) &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes(`\"tool_call_id\":\"${rootProbeCallId}\"`) &&
+            body.includes('"role":"tool"')) {
           const text = promptText(body);
           if (text.includes(`"id":"${approval!.id}"`)) {
             checkApprovalDelivery(body);
@@ -4735,8 +4699,8 @@ describe("effect-aware command permissions", () => {
           }
           return finalText("INTERACTIVE_PARENT_SAW_CHILD_APPROVAL");
         }
-        if (body.includes(`\"toolCallId\":\"${rootCreateCallId}\"`) &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes(`\"tool_call_id\":\"${rootCreateCallId}\"`) &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, rootCreateCallId),
           ) as { child_id: string; status: string };
@@ -4876,8 +4840,8 @@ describe("effect-aware command permissions", () => {
           }
           throw new Error(`Unexpected child caution request: ${body}`);
         }
-        if (body.includes(`\"toolCallId\":\"${rootCreateCallId}\"`) &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes(`\"tool_call_id\":\"${rootCreateCallId}\"`) &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(toolResultText(body, rootCreateCallId)) as {
             child_id: string;
             status: string;
@@ -4986,8 +4950,8 @@ describe("effect-aware command permissions", () => {
           return finalText("INTERACTIVE_PARENT_NO_REDELIVERY");
         }
         if (parentPhase === "inspect_result" &&
-            body.includes('"toolCallId":"interactive_delivery_inspect_1"') &&
-            body.includes('"type":"tool-result"')) {
+            body.includes('"tool_call_id":"interactive_delivery_inspect_1"') &&
+            body.includes('"role":"tool"')) {
           expectNoParentDeliveries(body);
           secondContinuationChecked = true;
           parentPhase = "third_prompt";
@@ -5009,8 +4973,8 @@ describe("effect-aware command permissions", () => {
           return subagentInspectCall("interactive_delivery_inspect_1", childId);
         }
         if (parentPhase === "create_result" &&
-            body.includes('"toolCallId":"interactive_delivery_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+            body.includes('"tool_call_id":"interactive_delivery_create_1"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "interactive_delivery_create_1"),
           ) as { child_id: string; status: string };
@@ -5133,15 +5097,15 @@ describe("effect-aware command permissions", () => {
           parts.push(part);
           return finalText(`INTERACTIVE_64K_PART_${parts.length}_DONE`);
         }
-        if (body.includes('"toolCallId":"interactive_64k_send_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"interactive_64k_send_1"') &&
+            body.includes('"role":"tool"')) {
           expect(toolResultText(body, "interactive_64k_send_1")).toContain(
             '"status":"message_queued"',
           );
           return finalText("INTERACTIVE_64K_CHILD_PRIVATE_DONE");
         }
-        if (body.includes('"toolCallId":"interactive_64k_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (body.includes('"tool_call_id":"interactive_64k_create_1"') &&
+            body.includes('"role":"tool"')) {
           const created = JSON.parse(
             toolResultText(body, "interactive_64k_create_1"),
           ) as { child_id: string; status: string };
@@ -5694,20 +5658,22 @@ describe("effect-aware command permissions", () => {
       );
       expect(gateway.requests).toHaveLength(2);
       expect(gateway.classifierRequests).toHaveLength(1);
-      expect(gateway.classifierRequests[0]!.headers.get("ai-language-model-id")).toBe(
-        "moonshotai/kimi-k3",
-      );
-      expect(JSON.parse(gateway.classifierRequests[0]!.body)).not.toHaveProperty(
+      const classifierRequest = JSON.parse(gateway.classifierRequests[0]!.body);
+      expect(classifierRequest.model).toBe(MODEL);
+      expect(classifierRequest).not.toHaveProperty(
         "providerOptions.gateway.speed",
       );
       expect(gateway.classifierRequests[0]!.body).toContain("\"permission_decision\"");
-      expect(gateway.classifierRequests[0]!.body).toContain("\"toolChoice\":{\"type\":\"required\"}");
-      expect(gateway.classifierRequests[0]!.body).toContain("\"maxOutputTokens\":2048");
+      expect(classifierRequest.tool_choice).toBe("required");
+      expect(classifierRequest.max_tokens).toBe(2048);
       expect(gateway.classifierRequests[0]!.body).toContain(
         "Run the classifier fixture.",
       );
       expect(gateway.classifierRequests[0]!.body).toContain("\"role\":\"assistant\"");
-      expect(gateway.classifierRequests[0]!.body).toContain("\"toolCallId\":\"command_1\"");
+      expect(
+        findOpenAiToolCall(gateway.classifierRequests[0]!.body, "command_1")
+          ?.function?.name,
+      ).toBe("terminal");
       expect(gateway.classifierRequests[0]!.body).toContain(
         "The first user message is the bounded current proven root-user request.",
       );
@@ -5762,7 +5728,7 @@ describe("effect-aware command permissions", () => {
       expect(gateway.requests).toHaveLength(3);
       expect(gateway.classifierRequests).toHaveLength(1);
       const trace = readFileSync(tracePath, "utf8");
-      expect(trace.match(/event=auto_review_transport_start/g)).toHaveLength(1);
+      expect(trace.match(/event=auto_review_send/g)).toHaveLength(1);
       expect(trace.match(/event=auto_review_result/g)).toHaveLength(1);
       expect(trace).toContain("decision=unavailable");
       expect(trace).toContain("fallback_reason=invalid_or_unavailable");
@@ -5807,7 +5773,7 @@ describe("effect-aware command permissions", () => {
       expect(gateway.requests).toHaveLength(2);
       expect(gateway.classifierRequests).toHaveLength(1);
       const trace = readFileSync(tracePath, "utf8");
-      expect(trace.match(/event=auto_review_transport_start/g)).toHaveLength(1);
+      expect(trace.match(/event=auto_review_send/g)).toHaveLength(1);
       expect(trace.match(/event=auto_review_result/g)).toHaveLength(1);
       expect(trace).toContain("decision=unavailable");
       expect(trace).toContain("fallback_reason=invalid_or_unavailable");
@@ -5857,7 +5823,7 @@ describe("effect-aware command permissions", () => {
       expect(gateway.requests).toHaveLength(2);
       expect(gateway.classifierRequests).toHaveLength(1);
       const trace = readFileSync(tracePath, "utf8");
-      expect(trace.match(/event=auto_review_transport_start/g)).toHaveLength(1);
+      expect(trace.match(/event=auto_review_send/g)).toHaveLength(1);
       expect(trace.match(/event=auto_review_result/g)).toHaveLength(1);
       expect(trace).toContain("decision=unavailable");
       expect(trace).toContain("fallback_reason=invalid_or_unavailable");

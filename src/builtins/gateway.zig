@@ -77,8 +77,18 @@ pub fn buildAgentRequest(
     return openai_chat.buildRequest(alloc, request, .openai_compatible);
 }
 
-fn fallbackModelCapabilities(_: []const u8) model_capabilities.Capabilities {
-    return .{ .supports_tool_use = true };
+fn fallbackModelCapabilities(model: []const u8) model_capabilities.Capabilities {
+    const native_images = std.mem.startsWith(u8, model, "google/gemini") or
+        std.mem.startsWith(u8, model, "gemini");
+    return .{
+        .supports_tool_use = true,
+        .supports_vision = native_images,
+        .supports_file_input = native_images,
+    };
+}
+
+pub fn usesDirectOpenAiEndpoint() bool {
+    return openai_chat.configuredMode() == .openai_compatible;
 }
 
 pub fn chatUrl(fallback: []const u8) []const u8 {
@@ -261,4 +271,16 @@ test "Y2 provider uses direct API transport and a static model catalog" {
     try std.testing.expect(!provider_bundle.capabilities.y2_search);
     try std.testing.expect(provider_bundle.deferred_usage == null);
     try std.testing.expect(provider_bundle.credits == null);
+}
+
+test "direct model fallback preserves Gemini native image capability" {
+    const gemini = fallbackModelCapabilities("google/gemini-2.5-flash");
+    try std.testing.expect(gemini.supports_tool_use);
+    try std.testing.expect(gemini.supports_vision);
+    try std.testing.expect(gemini.supports_file_input);
+
+    const unknown = fallbackModelCapabilities("provider/text-only");
+    try std.testing.expect(unknown.supports_tool_use);
+    try std.testing.expect(!unknown.supports_vision);
+    try std.testing.expect(!unknown.supports_file_input);
 }

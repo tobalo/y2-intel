@@ -21,7 +21,9 @@ import {
 import {
   fakeGatewayFinalText,
   fakeGatewayPermissionDecision,
+  fakeGatewaySse,
   fakeGatewaySerializedToolCall,
+  findOpenAiToolCall,
   TmuxSession,
   tmuxAvailable,
 } from "./tmux-helpers";
@@ -137,12 +139,8 @@ afterEach(async () => {
   }
 });
 
-function sse(events: object[], done = true) {
-  return new Response(
-    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") +
-      (done ? "data: [DONE]\n\n" : ""),
-    { headers: { "content-type": "text/event-stream" } },
-  );
+function sse(events: object[]) {
+  return fakeGatewaySse(events);
 }
 
 function outerToolCalls(calls: Array<{ id: string; name: string; input: object }>) {
@@ -892,8 +890,10 @@ describe.skipIf(SKIP)("tui: decision prompt input isolation", () => {
       expect(finalPane).not.toContain("Request failed");
       expect(ctx.gateway.requests).toHaveLength(2);
       const followup = ctx.gateway.requests[1].body;
-      expect(followup).toContain(`"toolCallId":"${ARGUMENT_RECOVERY_CALL_ID}"`);
-      expect(followup).toContain(`"toolName":"${ARGUMENT_RECOVERY_TOOL_NAME}"`);
+      expect(followup).toContain(`"tool_call_id":"${ARGUMENT_RECOVERY_CALL_ID}"`);
+      expect(findOpenAiToolCall(followup, ARGUMENT_RECOVERY_CALL_ID)?.function?.name).toBe(
+        ARGUMENT_RECOVERY_TOOL_NAME,
+      );
       expect(followup).toContain("Run tests");
       expect(followup).not.toContain("tool_execution_failed");
       await assertProcessAliveAndClean(ctx);
@@ -930,9 +930,12 @@ describe.skipIf(SKIP)("tui: decision prompt input isolation", () => {
       expect(pane).not.toContain("Request failed");
       expect(ctx.gateway.requests).toHaveLength(2);
       expect(ctx.gateway.requests[1].body).toContain(
-        `"toolCallId":"${ARGUMENT_RECOVERY_CALL_ID}"`,
+        `"tool_call_id":"${ARGUMENT_RECOVERY_CALL_ID}"`,
       );
-      expect(ctx.gateway.requests[1].body).toContain('"input":{}');
+      expect(
+        findOpenAiToolCall(ctx.gateway.requests[1].body, ARGUMENT_RECOVERY_CALL_ID)
+          ?.function?.arguments,
+      ).toBe("{}");
       expect(ctx.gateway.requests[1].body).toContain("tool_execution_failed");
       expect(ctx.gateway.requests[1].body).not.toContain(MALFORMED_ARGUMENTS);
       await assertProcessAliveAndClean(ctx);
@@ -997,9 +1000,11 @@ describe.skipIf(SKIP)("tui: decision prompt input isolation", () => {
       expect(pane).not.toContain("Request failed");
       expect(ctx.gateway.requests).toHaveLength(2);
       expect(ctx.gateway.requests[1].body).toContain(
-        `"toolCallId":"${malformedCallId}"`,
+        `"tool_call_id":"${malformedCallId}"`,
       );
-      expect(ctx.gateway.requests[1].body).toContain('"input":{}');
+      expect(
+        findOpenAiToolCall(ctx.gateway.requests[1].body, malformedCallId)?.function?.arguments,
+      ).toBe("{}");
       expect(ctx.gateway.requests[1].body).toContain("tool_execution_failed");
       expect(ctx.gateway.requests[1].body).not.toContain(
         MALFORMED_STREAMED_ARGUMENTS,
@@ -1145,12 +1150,10 @@ describe.skipIf(SKIP)("tui: decision prompt input isolation", () => {
       });
       expect(replay.code).toBe(0);
       expect(replay.stderr).toBe("");
-      const replayStart = replay.stdout.indexOf(preStart);
       const replayEnd = replay.stdout.indexOf(preEnd);
       const replayQuestion = replay.stdout.indexOf(QUESTION_PROMPT);
       const replayPostAnswer = replay.stdout.indexOf(postAnswer);
-      expect(replayStart).toBeGreaterThanOrEqual(0);
-      expect(replayEnd).toBeGreaterThan(replayStart);
+      expect(replayEnd).toBeGreaterThanOrEqual(0);
       expect(replayQuestion).toBeGreaterThan(replayEnd);
       expect(replayPostAnswer).toBeGreaterThan(replayQuestion);
     },

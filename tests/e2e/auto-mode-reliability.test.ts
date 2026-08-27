@@ -19,6 +19,8 @@ import {
   fakeGatewayPermissionDecision,
   fakeGatewaySse,
   fakeGatewayToolCall,
+  findOpenAiToolResult,
+  openAiChatMessages,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -104,17 +106,10 @@ function cleanCommandCall(command: string, id: string) {
 }
 
 function toolResultText(body: string, toolCallId: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: Array<Record<string, unknown>> }>;
-  };
-  const result = (request.prompt ?? [])
-    .flatMap((message) => message.content ?? [])
-    .find((part) => part.type === "tool-result" && part.toolCallId === toolCallId);
+  const result = findOpenAiToolResult(body, toolCallId);
   expect(result).toBeDefined();
-  const output = result!.output as Record<string, unknown>;
-  expect(output.type).toBe("text");
-  expect(typeof output.value).toBe("string");
-  return output.value as string;
+  expect(typeof result!.content).toBe("string");
+  return result!.content as string;
 }
 
 function installRecorder(root: IsolatedRoot, name: string, marker: string) {
@@ -778,18 +773,11 @@ describe("lean auto mode reliability", () => {
       expect(current.stdout).toContain("oversized history denial handled");
       expect(existsSync(blockedMarker)).toBe(false);
       expect(gateway.classifierRequests).toHaveLength(1);
-      const reviewerPayload = JSON.parse(gateway.classifierRequests[0]!.body) as {
-        prompt: Array<{
-          role: string;
-          content: Array<{ type: string; text?: string }>;
-        }>;
-      };
-      const rootMessage = reviewerPayload.prompt[0];
+      const rootMessage = openAiChatMessages(gateway.classifierRequests[0]!.body)[0];
       expect(rootMessage?.role).toBe("user");
-      const rootContext = (rootMessage?.content ?? [])
-        .filter((part) => part.type === "text")
-        .map((part) => part.text ?? "")
-        .join("");
+      const rootContext = typeof rootMessage?.content === "string"
+        ? rootMessage.content
+        : "";
       expect(Buffer.byteLength(rootContext)).toBeLessThanOrEqual(1024);
       expect(rootContext).toContain("current-required-marker");
       expect(rootContext).not.toContain("first-required-marker");

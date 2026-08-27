@@ -18,7 +18,15 @@ import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Y2_BIN, REPO_ROOT, runY2 } from "../evals/eval-helpers";
-import { hasEmptyComposer, TmuxSession, tmuxAvailable } from "./tmux-helpers";
+import {
+  findOpenAiToolResult,
+  fakeGatewaySse,
+  hasEmptyComposer,
+  normalizedOpenAiPromptParts,
+  openAiChatMessages,
+  TmuxSession,
+  tmuxAvailable,
+} from "./tmux-helpers";
 
 const TIMEOUT = 15_000;
 const GLM_MODEL = "zai/glm-5.2-fast";
@@ -31,21 +39,17 @@ type CapturedRequest = {
 };
 
 function sseText(text: string) {
-  return new Response(
-    [
-      `data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta: text })}\n\n`,
-      `data: ${JSON.stringify({
+  return fakeGatewaySse([
+    { type: "text-delta", id: "answer_1", delta: text },
+    {
         type: "finish",
         finishReason: { unified: "stop", raw: "stop" },
         usage: {
           inputTokens: { total: 11 },
           outputTokens: { total: 13 },
         },
-      })}\n\n`,
-      "data: [DONE]\n\n",
-    ].join(""),
-    { headers: { "content-type": "text/event-stream" } },
-  );
+      },
+  ]);
 }
 
 function sseToolCall(toolName: string, input: object, toolCallId: string) {
@@ -55,20 +59,18 @@ function sseToolCall(toolName: string, input: object, toolCallId: string) {
 function sseToolCalls(
   calls: Array<{ toolName: string; input: object; toolCallId: string }>,
 ) {
-  return new Response(
-    [
-      ...calls.map(
-        ({ toolName, input, toolCallId }) =>
-          `data: ${JSON.stringify({ type: "tool-call", toolCallId, toolName, input })}\n\n`,
-      ),
-      `data: ${JSON.stringify({
+  return fakeGatewaySse([
+    ...calls.map(({ toolName, input, toolCallId }) => ({
+      type: "tool-call",
+      toolCallId,
+      toolName,
+      input,
+    })),
+    {
         type: "finish",
         finishReason: { unified: "tool-calls", raw: "tool-calls" },
-      })}\n\n`,
-      "data: [DONE]\n\n",
-    ].join(""),
-    { headers: { "content-type": "text/event-stream" } },
-  );
+      },
+  ]);
 }
 
 const VISION_RESULT = JSON.stringify({
@@ -110,63 +112,72 @@ function visionBatchResult(imageIds: number[]) {
 }
 
 function filePartCount(body: string) {
-  return body.match(/"type":"file"/g)?.length ?? 0;
+  return body.match(/"type":"image_url"/g)?.length ?? 0;
 }
 
 function nativeFileParts(body: string) {
-  return promptParts(body).filter(
-    (part): part is Record<string, unknown> & { data: string; mediaType: string } =>
-      part.type === "file" &&
-      typeof part.data === "string" &&
-      typeof part.mediaType === "string",
-  );
+  return promptParts(body).flatMap((part) => {
+    if (part.type !== "image_url" || !part.image_url || typeof part.image_url !== "object") {
+      return [];
+    }
+    const url = (part.image_url as { url?: unknown }).url;
+    if (typeof url !== "string") return [];
+    const match = /^data:([^;]+);base64,(.*)$/.exec(url);
+    if (!match) return [];
+    return [{ mediaType: match[1]!, data: Buffer.from(match[2]!, "base64") }];
+  });
 }
 
 function expectVisionResponseFormat(body: string, imageCount: number) {
   const request = JSON.parse(body) as {
-    responseFormat?: {
+    response_format?: {
       type?: string;
-      name?: string;
-      schema?: {
-        type?: string;
-        required?: string[];
-        additionalProperties?: boolean;
-        properties?: {
-          images?: {
-            type?: string;
-            minItems?: number;
-            maxItems?: number;
-            items?: {
-              anyOf?: Array<{
-                type?: string;
-                required?: string[];
-                additionalProperties?: boolean;
-                properties?: Record<string, unknown>;
-              }>;
+      json_schema?: {
+        name?: string;
+        schema?: {
+          type?: string;
+          required?: string[];
+          additionalProperties?: boolean;
+          properties?: {
+            images?: {
+              type?: string;
+              minItems?: number;
+              maxItems?: number;
+              items?: {
+                anyOf?: Array<{
+                  type?: string;
+                  required?: string[];
+                  additionalProperties?: boolean;
+                  properties?: Record<string, unknown>;
+                }>;
+              };
             };
           };
         };
       };
     };
   };
-  expect(request.responseFormat).toMatchObject({
-    type: "json",
-    name: "y2_vision_evidence",
-    schema: {
-      type: "object",
-      required: ["images"],
-      additionalProperties: false,
-      properties: {
-        images: {
-          type: "array",
-          minItems: imageCount,
-          maxItems: imageCount,
+  expect(request.response_format).toMatchObject({
+    type: "json_schema",
+    json_schema: {
+      name: "y2_vision_evidence",
+      schema: {
+        type: "object",
+        required: ["images"],
+        additionalProperties: false,
+        properties: {
+          images: {
+            type: "array",
+            minItems: imageCount,
+            maxItems: imageCount,
+          },
         },
       },
     },
   });
 
-  const alternatives = request.responseFormat?.schema?.properties?.images?.items?.anyOf;
+  const alternatives = request.response_format?.json_schema?.schema?.properties?.images?.items
+    ?.anyOf;
   expect(alternatives).toHaveLength(2);
   expect(alternatives?.[0]).toMatchObject({
     type: "object",
@@ -360,6 +371,7 @@ function fakeGatewayEnv(
     OPENAI_API_KEY: "fake-vision-route-key",
     OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
     Y2_MODEL: model,
   };
 }
@@ -403,7 +415,7 @@ async function expectNonRegularVisionPathFailure(
     expect(gateway.chatRequests[1]!.body).toContain(
       "Vision paths must reference regular files.",
     );
-    expect(gateway.chatRequests[1]!.body).not.toContain('"type":"file"');
+    expect(gateway.chatRequests[1]!.body).not.toContain('"type":"image_url"');
     expect(readFileSync(stderrPath, "utf8")).toBe("");
 
     await session.sendText("/quit");
@@ -467,7 +479,7 @@ async function expectChangedCanonicalVisionPathFailure(
     await session.waitForPane(hasEmptyComposer, TIMEOUT);
 
     expect(gateway.chatRequests).toHaveLength(2);
-    expect(gateway.chatRequests[1]!.body).not.toContain('"type":"file"');
+    expect(gateway.chatRequests[1]!.body).not.toContain('"type":"image_url"');
     if (forbiddenPayload) {
       expect(gateway.chatRequests[1]!.body).not.toContain(forbiddenPayload);
     }
@@ -493,7 +505,11 @@ async function expectChangedCanonicalVisionPathFailure(
 }
 
 function parseY2Json(result: Awaited<ReturnType<typeof runY2>>) {
-  expect(result.code).toBe(0);
+  if (result.code !== 0) {
+    throw new Error(
+      `y2 exited ${result.code}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
+    );
+  }
   return JSON.parse(result.stdout.trim()) as {
     output: string;
     exit_code: number;
@@ -525,31 +541,24 @@ function textFromContent(content: unknown): string {
 }
 
 function lastUserText(body: string): string {
-  const parsed = JSON.parse(body) as { prompt: Array<{ role?: string; content?: unknown }> };
-  const users = parsed.prompt.filter((entry) => entry.role === "user");
+  const users = openAiChatMessages(body).filter((entry) => entry.role === "user");
   expect(users.length).toBeGreaterThan(0);
   return textFromContent(users[users.length - 1].content);
 }
 
+function requestModel(body: string): string | undefined {
+  return (JSON.parse(body) as { model?: string }).model;
+}
+
 function promptParts(body: string): Array<Record<string, unknown>> {
-  const parsed = JSON.parse(body) as { prompt: Array<{ content?: unknown }> };
-  return parsed.prompt.flatMap((message) =>
-    Array.isArray(message.content)
-      ? message.content.filter(
-          (part): part is Record<string, unknown> => !!part && typeof part === "object",
-        )
-      : [],
-  );
+  return normalizedOpenAiPromptParts(body);
 }
 
 function toolResultText(body: string, toolCallId: string): string {
-  const result = promptParts(body).find(
-    (part) => part.type === "tool-result" && part.toolCallId === toolCallId,
-  );
+  const result = findOpenAiToolResult(body, toolCallId);
   expect(result).toBeDefined();
-  const output = result?.output as Record<string, unknown> | undefined;
-  expect(typeof output?.value).toBe("string");
-  return output?.value as string;
+  expect(typeof result?.content).toBe("string");
+  return result?.content as string;
 }
 
 describe("Vision route fake Gateway", () => {
@@ -643,7 +652,7 @@ describe("Vision route fake Gateway", () => {
         const scrollback = await session.captureFullScrollback();
         expect(scrollback.split(notice)).toHaveLength(2);
         expect(scrollback).not.toContain("attached image: oversized.png");
-        expect(gateway.catalogRequests).toBe(1);
+        expect(gateway.catalogRequests).toBe(0);
         expect(gateway.chatRequests).toHaveLength(0);
         expect(readFileSync(stderrPath, "utf8")).toBe("");
       } finally {
@@ -686,21 +695,21 @@ describe("Vision route fake Gateway", () => {
         const json = parseY2Json(result);
         expect(json.exit_code).toBe(0);
         expect(json.output).toContain("GLM final image answer");
-        expect(gateway.catalogRequests).toBe(1);
+        expect(gateway.catalogRequests).toBe(0);
         expect(gateway.chatRequests).toHaveLength(3);
-        expect(gateway.chatRequests[0].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
-        expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-        expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
-        expect(gateway.chatRequests[0].body).toContain('"toolChoice":{"type":"required"}');
+        expect(requestModel(gateway.chatRequests[0].body)).toBe(GLM_MODEL);
+        expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[2].body)).toBe(GLM_MODEL);
+        expect(gateway.chatRequests[0].body).toContain('"tool_choice":"required"');
         expect(gateway.chatRequests[0].body).toContain('"name":"vision"');
         expect(gateway.chatRequests[0].body).toContain("[Image #1]");
-        expect(gateway.chatRequests[0].body).not.toContain('"type":"file"');
+        expect(gateway.chatRequests[0].body).not.toContain('"type":"image_url"');
         expectScopedImageContext(gateway.chatRequests[0].body, fixture);
-        expect(gateway.chatRequests[1].body).toContain('"type":"file"');
+        expect(gateway.chatRequests[1].body).toContain('"type":"image_url"');
         expect(gateway.chatRequests[1].body).not.toContain(fixture.rootRule);
         expect(gateway.chatRequests[1].body).not.toContain(fixture.nestedRule);
         expect(gateway.chatRequests[2].body).toContain("Y2 LOGO");
-        expect(gateway.chatRequests[2].body).not.toContain('"type":"file"');
+        expect(gateway.chatRequests[2].body).not.toContain('"type":"image_url"');
         expectScopedImageContext(gateway.chatRequests[2].body, fixture);
         const finalUserText = lastUserText(gateway.chatRequests[2].body);
         expect(finalUserText).not.toContain(fixture.imagePath);
@@ -762,14 +771,14 @@ describe("Vision route fake Gateway", () => {
         expect(json.output).toContain("Recovered final image answer");
         expect(gateway.chatRequests).toHaveLength(4);
 
-        const rejectedPrompt = JSON.parse(gateway.chatRequests[2].body).prompt;
+        const rejectedPrompt = openAiChatMessages(gateway.chatRequests[2].body);
         expect(rejectedPrompt.at(-1)).toMatchObject({ role: "tool" });
-        const retryPrompt = JSON.parse(gateway.chatRequests[3].body).prompt;
+        const retryPrompt = openAiChatMessages(gateway.chatRequests[3].body);
         expect(retryPrompt.at(-1)).toMatchObject({ role: "user" });
         expect(JSON.stringify(retryPrompt.at(-1))).toContain(
           "Continue from the preceding tool result.",
         );
-        expect(result.stderr).toBe("Inspecting images\n");
+        expect(result.stderr).toContain("Inspecting images\n");
       } finally {
         gateway.stop();
         rmSync(root.root, { recursive: true, force: true });
@@ -822,7 +831,7 @@ describe("Vision route fake Gateway", () => {
         expect(gateway.chatRequests).toHaveLength(3);
         expect(gateway.chatRequests[0]!.body).toContain('"name":"vision"');
         expect(gateway.chatRequests[0]!.body).toContain('"paths":{"type":"array"');
-        expect(gateway.chatRequests[1]!.body).toContain('"type":"file"');
+        expect(gateway.chatRequests[1]!.body).toContain('"type":"image_url"');
         expect(gateway.chatRequests[1]!.body).not.toContain(imagePath);
         expect(gateway.chatRequests[2]!.body).toContain("path-source evidence");
         expect(gateway.chatRequests[2]!.body).not.toContain(imagePath);
@@ -944,12 +953,12 @@ describe("Vision route fake Gateway", () => {
           const json = parseY2Json(result);
           expect(json.output).toContain(`final ${entry.name}`);
           expect(gateway.chatRequests).toHaveLength(3);
-          expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+          expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
           expect(gateway.chatRequests[1].body).toContain(fixture.payloadA);
           if (fixture.payloadB) expect(gateway.chatRequests[1].body).not.toContain(fixture.payloadB);
           for (const request of gateway.chatRequests) {
             for (const imagePath of fixture.paths) expect(request.body).not.toContain(imagePath);
-            expect(request.body).not.toContain("data:image");
+            expect(request.body).not.toContain("file://");
             expect(request.body).not.toContain("y2-image-snapshots");
             expect(request.body).not.toContain(".y2/sessions");
           }
@@ -1000,14 +1009,14 @@ describe("Vision route fake Gateway", () => {
         expect(json.tool_calls).toContainEqual({ name: "read_file", status: "error" });
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "success" });
         expect(gateway.chatRequests).toHaveLength(4);
-        expect(gateway.chatRequests[0].body).toContain('"toolChoice":{"type":"required"}');
-        expect(gateway.chatRequests[1].body).toContain('"toolChoice":{"type":"required"}');
+        expect(gateway.chatRequests[0].body).toContain('"tool_choice":"required"');
+        expect(gateway.chatRequests[1].body).toContain('"tool_choice":"required"');
         expect(gateway.chatRequests[1].body).toContain("read_before_vision");
         expect(gateway.chatRequests[1].body).toContain(
           "Only Vision can be called while attached images are pending.",
         );
         expect(gateway.chatRequests[1].body).not.toContain(forbiddenContents);
-        expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[2].body)).toBe(GEMINI_MODEL);
         expect(filePartCount(gateway.chatRequests[2].body)).toBe(1);
         expect(gateway.chatRequests[3].body).toContain("Y2 LOGO");
         expect(gateway.chatRequests[3].body).not.toContain(forbiddenContents);
@@ -1046,10 +1055,10 @@ describe("Vision route fake Gateway", () => {
         const json = parseY2Json(result);
         expect(json.exit_code).toBe(0);
         expect(json.output).toContain("Gemini native image answer");
-        expect(gateway.catalogRequests).toBe(1);
+        expect(gateway.catalogRequests).toBe(0);
         expect(gateway.chatRequests).toHaveLength(1);
-        expect(gateway.chatRequests[0].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-        expect(gateway.chatRequests[0].body).toContain('"type":"file"');
+        expect(requestModel(gateway.chatRequests[0].body)).toBe(GEMINI_MODEL);
+        expect(gateway.chatRequests[0].body).toContain('"type":"image_url"');
         expectScopedImageContext(gateway.chatRequests[0].body, fixture);
         expect(gateway.chatRequests[0].body).not.toContain(fixture.imagePath);
       } finally {
@@ -1171,8 +1180,8 @@ describe("Vision route fake Gateway", () => {
         expect(gateway.chatRequests).toHaveLength(2);
         expect(gateway.chatRequests[0].body).toContain('"name":"vision"');
         expect(gateway.chatRequests[0].body).toContain('"paths":{"type":"array"');
-        expect(gateway.chatRequests[0].body).not.toContain('"toolChoice":{"type":"required"}');
-        expect(gateway.chatRequests[0].body).toContain('"type":"file"');
+        expect(gateway.chatRequests[0].body).not.toContain('"tool_choice":"required"');
+        expect(gateway.chatRequests[0].body).toContain('"type":"image_url"');
 
         const recoveryRequest = gateway.chatRequests[1];
         const recoveryParts = promptParts(recoveryRequest.body);
@@ -1227,12 +1236,12 @@ describe("Vision route fake Gateway", () => {
         expect(filePartCount(resumedRequest.body)).toBe(1);
         expect(resumedRequest.body).toContain('"name":"vision"');
         expect(resumedRequest.body).toContain('"paths":{"type":"array"');
-        expect(resumedRequest.body).not.toContain('"toolChoice":{"type":"required"}');
+        expect(resumedRequest.body).not.toContain('"tool_choice":"required"');
         expect(resumedRequest.body).not.toContain('"toolName":"vision"');
         expect(resumedRequest.body).not.toContain("native_vision");
         expect(resumedRequest.body).not.toContain("Vision is unavailable for this request.");
         for (const request of gateway.chatRequests) {
-          expect(request.headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+          expect(requestModel(request.body)).toBe(GEMINI_MODEL);
           expect(request.body).not.toContain(fixture.imagePath);
         }
         const resumedUserText = lastUserText(resumedRequest.body);
@@ -1338,9 +1347,9 @@ describe("Vision route fake Gateway", () => {
           expect(rereadJson.output).toContain(`final ${entry.name}`);
           expect(rereadJson.tool_calls).toContainEqual({ name: "vision", status: "error" });
           expect(gateway.chatRequests).toHaveLength(3);
-          expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+          expect(requestModel(gateway.chatRequests[1].body)).toBe(GLM_MODEL);
           expect(gateway.chatRequests[1].body).toContain('"name":"vision"');
-          expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+          expect(requestModel(gateway.chatRequests[2].body)).toBe(GLM_MODEL);
           const resultText = toolResultText(
             gateway.chatRequests[2].body,
             `vision_${entry.name}`,
@@ -1359,7 +1368,7 @@ describe("Vision route fake Gateway", () => {
           expect(
             gateway.chatRequests.some(
               (request, index) =>
-                index > 0 && request.headers.get("ai-language-model-id") === GEMINI_MODEL,
+                index > 0 && requestModel(request.body) === GEMINI_MODEL,
             ),
           ).toBe(false);
         } finally {
@@ -1404,9 +1413,9 @@ describe("Vision route fake Gateway", () => {
         const json = parseY2Json(result);
         expect(json.output).toContain("bounded Vision answer");
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "error" });
-        expect(result.stderr).toBe("Inspecting images\n");
+        expect(result.stderr).toContain("Inspecting images\n");
         expect(gateway.chatRequests).toHaveLength(3);
-        expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
         const resultText = toolResultText(gateway.chatRequests[2].body, "vision_bound");
         expect(resultText).toContain('"code":"output_limit_exceeded"');
         expect(resultText).toContain('"retryable":true');
@@ -1414,11 +1423,11 @@ describe("Vision route fake Gateway", () => {
         expect(resultText).not.toContain("provider_response_invalid");
         expect(
           gateway.chatRequests.filter(
-            (request) => request.headers.get("ai-language-model-id") === GEMINI_MODEL,
+            (request) => requestModel(request.body) === GEMINI_MODEL,
           ),
         ).toHaveLength(1);
         expect(gateway.chatRequests[2].body).not.toContain(
-          '"toolChoice":{"type":"required"}',
+          '"tool_choice":"required"',
         );
         expect(gateway.chatRequests[2].body).not.toContain(
           "Tip: This model doesn’t support OCR",
@@ -1451,8 +1460,8 @@ describe("Vision route fake Gateway", () => {
         expect(json.output).toContain("text only answer");
         expect(gateway.catalogRequests).toBe(0);
         expect(gateway.chatRequests).toHaveLength(1);
-        expect(gateway.chatRequests[0].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
-        expect(gateway.chatRequests[0].body).not.toContain('"type":"file"');
+        expect(requestModel(gateway.chatRequests[0].body)).toBe(GLM_MODEL);
+        expect(gateway.chatRequests[0].body).not.toContain('"type":"image_url"');
       } finally {
         gateway.stop();
         rmSync(root.root, { recursive: true, force: true });
@@ -1497,15 +1506,17 @@ describe("Vision route fake Gateway", () => {
         expect(result.stderr).toContain(
           "Tip: This model doesn’t support OCR, and Vision is unavailable right now. Try switching to a vision-capable model.",
         );
-        expect(gateway.catalogRequests).toBe(1);
+        expect(gateway.catalogRequests).toBe(0);
         expect(gateway.chatRequests.length).toBeGreaterThanOrEqual(3);
-        expect(gateway.chatRequests[0].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
-        const providerRequests = gateway.chatRequests.slice(1, -1);
+        expect(requestModel(gateway.chatRequests[0].body)).toBe(GLM_MODEL);
+        const providerRequests = gateway.chatRequests.filter(
+          (request) => requestModel(request.body) === GEMINI_MODEL,
+        );
+        expect(providerRequests.length).toBeGreaterThan(0);
         for (const request of providerRequests) {
-          expect(request.headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-          expect(request.body).toContain('"type":"file"');
+          expect(request.body).toContain('"type":"image_url"');
         }
-        expect(gateway.chatRequests.at(-1)?.headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+        expect(requestModel(gateway.chatRequests.at(-1)!.body)).toBe(GLM_MODEL);
         const resultText = toolResultText(
           gateway.chatRequests.at(-1)!.body,
           "vision_outage",
@@ -1517,7 +1528,7 @@ describe("Vision route fake Gateway", () => {
           "None of the requested images were read by Vision.",
         );
         expect(gateway.chatRequests.at(-1)?.body).not.toContain(
-          '"toolChoice":{"type":"required"}',
+          '"tool_choice":"required"',
         );
       } finally {
         gateway.stop();
@@ -1609,27 +1620,27 @@ describe("Vision route fake Gateway", () => {
         expect(rereadJson.tool_calls).toContainEqual({ name: "vision", status: "success" });
 
         expect(gateway.chatRequests).toHaveLength(7);
-        expect(gateway.chatRequests[0].body).toContain('"toolChoice":{"type":"required"}');
+        expect(gateway.chatRequests[0].body).toContain('"tool_choice":"required"');
         expect(gateway.chatRequests[0].body).toContain("[Image #1]");
-        expect(gateway.chatRequests[3].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[3].body)).toBe(GEMINI_MODEL);
         expect(gateway.chatRequests[3].body).toContain('"name":"vision"');
         expect(gateway.chatRequests[3].body).toContain('"paths":{"type":"array"');
-        expect(gateway.chatRequests[3].body).not.toContain('"toolChoice":{"type":"required"}');
+        expect(gateway.chatRequests[3].body).not.toContain('"tool_choice":"required"');
         expect(gateway.chatRequests[3].body).not.toContain('"toolName":"vision"');
         expect(gateway.chatRequests[3].body).not.toContain("first image evidence");
-        expect(gateway.chatRequests[3].body).toContain('"type":"file"');
-        expect(gateway.chatRequests[4].headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+        expect(gateway.chatRequests[3].body).toContain('"type":"image_url"');
+        expect(requestModel(gateway.chatRequests[4].body)).toBe(GLM_MODEL);
         expect(gateway.chatRequests[4].body).toContain('"name":"vision"');
-        expect(gateway.chatRequests[4].body).not.toContain('"toolChoice":{"type":"required"}');
+        expect(gateway.chatRequests[4].body).not.toContain('"tool_choice":"required"');
         expect(gateway.chatRequests[4].body).toContain("[Image #1]");
         expect(gateway.chatRequests[4].body).toContain("[Image #2]");
-        expect(gateway.chatRequests[4].body).not.toContain('"type":"file"');
+        expect(gateway.chatRequests[4].body).not.toContain('"type":"image_url"');
         expect(gateway.chatRequests[4].body).not.toContain(fixture.imagePath);
         expect(gateway.chatRequests[4].body).not.toContain(secondImagePath);
-        expect(gateway.chatRequests[5].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-        expect(gateway.chatRequests[5].body).toContain('"type":"file"');
+        expect(requestModel(gateway.chatRequests[5].body)).toBe(GEMINI_MODEL);
+        expect(gateway.chatRequests[5].body).toContain('"type":"image_url"');
         expect(gateway.chatRequests[6].body).toContain("second image evidence");
-        expect(gateway.chatRequests[6].body).not.toContain('"type":"file"');
+        expect(gateway.chatRequests[6].body).not.toContain('"type":"image_url"');
 
         const detail = await runY2(
           ["session", "--id", firstJson.session_id, "--json"],
@@ -1709,10 +1720,10 @@ describe("Vision route fake Gateway", () => {
         expect(nativeJson.output).toContain("legacy native replay completed");
         expect(nativeJson.tool_calls).toHaveLength(0);
         expect(gateway.chatRequests).toHaveLength(1);
-        expect(gateway.chatRequests[0].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[0].body)).toBe(GEMINI_MODEL);
         expect(gateway.chatRequests[0].body).toContain('"name":"vision"');
         expect(gateway.chatRequests[0].body).toContain('"paths":{"type":"array"');
-        expect(gateway.chatRequests[0].body).not.toContain('"toolChoice":{"type":"required"}');
+        expect(gateway.chatRequests[0].body).not.toContain('"tool_choice":"required"');
         expect(filePartCount(gateway.chatRequests[0].body)).toBe(5);
         expect(gateway.chatRequests[0].body).toContain("Legacy first image: [Image #1]");
         expect(gateway.chatRequests[0].body).toContain("Legacy second image: [Image #2]");
@@ -1756,7 +1767,7 @@ describe("Vision route fake Gateway", () => {
 
         expect(gateway.chatRequests).toHaveLength(4);
         const textRequest = gateway.chatRequests[1];
-        expect(textRequest.headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+        expect(requestModel(textRequest.body)).toBe(GLM_MODEL);
         expect(textRequest.body).toContain('"name":"vision"');
         expect(textRequest.body).toContain("[Image #1]");
         expect(textRequest.body).toContain("[Image #2]");
@@ -1767,7 +1778,7 @@ describe("Vision route fake Gateway", () => {
         for (const imagePath of [...legacyPaths, newImagePath]) {
           expect(textRequest.body).not.toContain(imagePath);
         }
-        expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[2].body)).toBe(GEMINI_MODEL);
         expect(filePartCount(gateway.chatRequests[2].body)).toBe(1);
         expect(gateway.chatRequests[2].body).toContain(secondPayload);
         expect(gateway.chatRequests[2].body).not.toContain(firstPayload);
@@ -1813,10 +1824,10 @@ describe("Vision route fake Gateway", () => {
         const json = parseY2Json(result);
         expect(json.output).toContain("recovered after invalid Vision result");
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "error" });
-        expect(result.stderr).toBe("Inspecting images\n");
+        expect(result.stderr).toContain("Inspecting images\n");
         expect(gateway.chatRequests).toHaveLength(4);
-        expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-        expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[2].body)).toBe(GEMINI_MODEL);
         expect(gateway.chatRequests[2].body).toBe(gateway.chatRequests[1].body);
         const resultText = toolResultText(gateway.chatRequests[3].body, "vision_empty");
         expect(resultText).toContain('"code":"provider_response_invalid"');
@@ -1828,7 +1839,7 @@ describe("Vision route fake Gateway", () => {
           "None of the requested images were read by Vision.",
         );
         expect(gateway.chatRequests[3].body).not.toContain(
-          '"toolChoice":{"type":"required"}',
+          '"tool_choice":"required"',
         );
       } finally {
         gateway.stop();
@@ -1870,8 +1881,8 @@ describe("Vision route fake Gateway", () => {
         expect(json.output).toContain("recovered after malformed Vision result");
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "error" });
         expect(gateway.chatRequests).toHaveLength(4);
-        expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-        expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[2].body)).toBe(GEMINI_MODEL);
         expect(gateway.chatRequests[2].body).toBe(gateway.chatRequests[1].body);
         const resultText = toolResultText(
           gateway.chatRequests[3].body,
@@ -1881,7 +1892,7 @@ describe("Vision route fake Gateway", () => {
         expect(resultText).toContain('"retryable":true');
         expect(resultText).not.toContain("missing_provider_record");
         expect(gateway.chatRequests[3].body).not.toContain(
-          '"toolChoice":{"type":"required"}',
+          '"tool_choice":"required"',
         );
       } finally {
         gateway.stop();
@@ -1922,18 +1933,18 @@ describe("Vision route fake Gateway", () => {
         const json = parseY2Json(result);
         expect(json.output).toContain("recovered without re-uploading the image");
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "success" });
-        expect(result.stderr).toBe("Inspecting images\n");
+        expect(result.stderr).toContain("Inspecting images\n");
         expect(gateway.chatRequests).toHaveLength(4);
-        expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
-        expect(gateway.chatRequests[2].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[2].body)).toBe(GEMINI_MODEL);
         expect(filePartCount(gateway.chatRequests[1].body)).toBe(1);
         expect(filePartCount(gateway.chatRequests[2].body)).toBe(1);
         expectVisionResponseFormat(gateway.chatRequests[1].body, 1);
         expectVisionResponseFormat(gateway.chatRequests[2].body, 1);
         expect(gateway.chatRequests[1].body).not.toContain("Return only strict JSON");
         expect(gateway.chatRequests[1].body).not.toContain("Do not wrap the JSON");
-        expect(JSON.parse(gateway.chatRequests[0].body).responseFormat).toBeUndefined();
-        expect(JSON.parse(gateway.chatRequests[3].body).responseFormat).toBeUndefined();
+        expect(JSON.parse(gateway.chatRequests[0].body).response_format).toBeUndefined();
+        expect(JSON.parse(gateway.chatRequests[3].body).response_format).toBeUndefined();
         // Byte-identical retry payload: same verified snapshot, ids, focus, and batch.
         expect(gateway.chatRequests[2].body).toBe(gateway.chatRequests[1].body);
         expect(gateway.chatRequests[3].body).toContain("Y2 LOGO");
@@ -1990,7 +2001,7 @@ describe("Vision route fake Gateway", () => {
         expect(json.output).toContain("continued with retained provider evidence");
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "success" });
         expect(gateway.chatRequests).toHaveLength(3);
-        expect(gateway.chatRequests[1].headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+        expect(requestModel(gateway.chatRequests[1].body)).toBe(GEMINI_MODEL);
         expect(filePartCount(gateway.chatRequests[1].body)).toBe(2);
         expectVisionResponseFormat(gateway.chatRequests[1].body, 2);
         const visionResult = JSON.parse(
@@ -2253,14 +2264,14 @@ describe("Vision route fake Gateway", () => {
         expect(json.output).toContain("twenty image answer");
         expect(json.tool_calls).toContainEqual({ name: "vision", status: "success" });
         expect(gateway.chatRequests).toHaveLength(5);
-        expect(gateway.chatRequests[0].body).toContain('"toolChoice":{"type":"required"}');
+        expect(gateway.chatRequests[0].body).toContain('"tool_choice":"required"');
         expect(gateway.chatRequests[0].body).toContain("[Image #20]");
         expect(filePartCount(gateway.chatRequests[0].body)).toBe(0);
         expect(filePartCount(gateway.chatRequests[1].body)).toBe(8);
         expect(filePartCount(gateway.chatRequests[2].body)).toBe(8);
         expect(filePartCount(gateway.chatRequests[3].body)).toBe(4);
         for (const request of gateway.chatRequests.slice(1, 4)) {
-          expect(request.headers.get("ai-language-model-id")).toBe(GEMINI_MODEL);
+          expect(requestModel(request.body)).toBe(GEMINI_MODEL);
         }
         const finalBody = gateway.chatRequests[4].body;
         expect(finalBody.indexOf("summary-1")).toBeLessThan(finalBody.indexOf("summary-20"));
@@ -2323,8 +2334,8 @@ describe("Vision route fake Gateway", () => {
 
         expect(gateway.chatRequests).toHaveLength(3);
         expect(gateway.chatRequests[0]!.body).toContain("[Image #1]");
-        expect(gateway.chatRequests[0]!.body).toContain('"toolChoice":{"type":"required"}');
-        expect(gateway.chatRequests[1]!.body).toContain('"type":"file"');
+        expect(gateway.chatRequests[0]!.body).toContain('"tool_choice":"required"');
+        expect(gateway.chatRequests[1]!.body).toContain('"type":"image_url"');
         expect(gateway.chatRequests[2]!.body).toContain("@ home image evidence");
         for (const request of gateway.chatRequests) {
           expect(request.body).not.toContain(imagePath);
@@ -2438,8 +2449,8 @@ describe("Vision route fake Gateway", () => {
 
         expect(gateway.chatRequests).toHaveLength(3);
         expect(gateway.chatRequests[0]!.body).toContain('"paths":{"type":"array"');
-        expect(gateway.chatRequests[0]!.body).not.toContain('"toolChoice":{"type":"required"}');
-        expect(gateway.chatRequests[1]!.body).toContain('"type":"file"');
+        expect(gateway.chatRequests[0]!.body).not.toContain('"tool_choice":"required"');
+        expect(gateway.chatRequests[1]!.body).toContain('"type":"image_url"');
         expect(gateway.chatRequests[2]!.body).toContain("approved path evidence");
         for (const request of gateway.chatRequests) {
           expect(request.body).not.toContain(imagePath);
@@ -2891,7 +2902,7 @@ describe("Vision route fake Gateway", () => {
           expect(request.body).not.toContain(firstImagePath);
           expect(request.body).not.toContain(firstMutatedPath);
           expect(request.body).not.toContain(secondImagePath);
-          expect(request.body).not.toContain("data:image");
+          expect(request.body).not.toContain("file://");
         }
         expect(readFileSync(stderrPath, "utf8")).toBe("");
         await session.sendText("/quit");

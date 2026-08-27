@@ -279,6 +279,78 @@ export function fakeGatewayFinalText(text: string) {
   ]);
 }
 
+export type OpenAiChatMessage = {
+  role?: string;
+  content?: unknown;
+  tool_call_id?: string;
+  name?: string;
+  tool_calls?: Array<{
+    id?: string;
+    function?: {
+      name?: string;
+      arguments?: string;
+    };
+  }>;
+};
+
+export function openAiChatMessages(body: string): OpenAiChatMessage[] {
+  const parsed = JSON.parse(body) as { messages?: unknown };
+  if (!Array.isArray(parsed.messages)) {
+    throw new Error("OpenAI chat request is missing messages");
+  }
+  return parsed.messages as OpenAiChatMessage[];
+}
+
+export function findOpenAiToolResult(
+  body: string,
+  toolCallId: string,
+): OpenAiChatMessage | undefined {
+  return openAiChatMessages(body).find((message) =>
+    message.role === "tool" && message.tool_call_id === toolCallId
+  );
+}
+
+export function findOpenAiToolCall(
+  body: string,
+  toolCallId: string,
+) {
+  return openAiChatMessages(body)
+    .flatMap((message) => message.role === "assistant" ? message.tool_calls ?? [] : [])
+    .find((call) => call.id === toolCallId);
+}
+
+export function normalizedOpenAiPromptParts(body: string): Array<Record<string, unknown>> {
+  return openAiChatMessages(body).flatMap((message) => {
+    if (message.role === "assistant") {
+      return (message.tool_calls ?? []).map((call) => {
+        let input: unknown = {};
+        try {
+          input = JSON.parse(call.function?.arguments ?? "{}");
+        } catch {}
+        return {
+          type: "tool-call",
+          toolCallId: call.id,
+          toolName: call.function?.name,
+          input,
+        };
+      });
+    }
+    if (message.role === "tool") {
+      return [{
+        type: "tool-result",
+        toolCallId: message.tool_call_id,
+        toolName: message.name,
+        output: { type: "text", value: message.content ?? "" },
+      }];
+    }
+    return Array.isArray(message.content)
+      ? message.content.filter(
+          (part): part is Record<string, unknown> => !!part && typeof part === "object",
+        )
+      : [];
+  });
+}
+
 export function heldFakeGatewayFinalText() {
   const encoder = new TextEncoder();
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined;

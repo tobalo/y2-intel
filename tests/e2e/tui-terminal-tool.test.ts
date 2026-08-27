@@ -21,6 +21,8 @@ import {
   fakeGatewayFinalText,
   fakeGatewaySse,
   fakeGatewayToolCall,
+  findOpenAiToolCall,
+  normalizedOpenAiPromptParts,
   startFakeGateway,
   terminalFixtureShell,
   TmuxSession,
@@ -529,12 +531,7 @@ function contentText(content: unknown): string {
 }
 
 function toolResultText(body: string, callId: string): string {
-  const request = JSON.parse(body) as {
-    prompt: Array<{ content: unknown }>;
-  };
-  const parts = request.prompt.flatMap((message) =>
-    Array.isArray(message.content) ? message.content : []
-  ) as Array<Record<string, unknown>>;
+  const parts = normalizedOpenAiPromptParts(body);
   const result = parts.find((part) =>
     part.type === "tool-result" && part.toolCallId === callId
   );
@@ -542,12 +539,7 @@ function toolResultText(body: string, callId: string): string {
 }
 
 function toolCallInput(body: string, callId: string): Record<string, unknown> {
-  const request = JSON.parse(body) as {
-    prompt: Array<{ content: unknown }>;
-  };
-  const parts = request.prompt.flatMap((message) =>
-    Array.isArray(message.content) ? message.content : []
-  ) as Array<Record<string, unknown>>;
+  const parts = normalizedOpenAiPromptParts(body);
   const call = parts.find((part) =>
     part.type === "tool-call" && part.toolCallId === callId
   );
@@ -1386,13 +1378,16 @@ test.skipIf(!tmuxAvailable())(
     };
     const firstRequest = JSON.parse(gateway.requests[0]!.body) as {
       tools: Array<{
-        name?: string;
-        inputSchema?: JsonSchema;
+        type?: string;
+        function?: {
+          name?: string;
+          parameters?: JsonSchema;
+        };
       }>;
     };
     const terminalSchema = firstRequest.tools.find(
-      (tool) => tool.name === "terminal",
-    )?.inputSchema;
+      (tool) => tool.function?.name === "terminal",
+    )?.function?.parameters;
     expect(terminalSchema).toBeDefined();
     expect(terminalSchema!.type).toBe("object");
     expect(terminalSchema!.oneOf).toBeUndefined();
@@ -2393,13 +2388,16 @@ test.skipIf(!tmuxAvailable())(
     };
     const request = JSON.parse(gateway.requests[0]!.body) as {
       tools: Array<{
-        name?: string;
-        inputSchema?: WaitSchema;
+        type?: string;
+        function?: {
+          name?: string;
+          parameters?: WaitSchema;
+        };
       }>;
     };
     const terminalSchema = request.tools.find(
-      (tool) => tool.name === "terminal",
-    )?.inputSchema;
+      (tool) => tool.function?.name === "terminal",
+    )?.function?.parameters;
     expect(terminalSchema).toBeDefined();
     expect(terminalSchema!.type).toBe("object");
     expect(terminalSchema!.oneOf).toBeUndefined();
@@ -2418,8 +2416,16 @@ test.skipIf(!tmuxAvailable())(
     expect(waitProperties).not.toContain("safety_ceiling_ms");
     expect(waitProperties).not.toContain("authority");
     expect(waitProperties).not.toContain("proof");
-    expect(gateway.requests[4]!.body).toContain('"wait_ceiling_ms":20000');
-    expect(gateway.requests[4]!.body).not.toContain("safety_ceiling_ms");
+    const waitArguments = findOpenAiToolCall(
+      gateway.requests[4]!.body,
+      "tui_terminal_wait_wait",
+    )?.function?.arguments;
+    expect(typeof waitArguments).toBe("string");
+    const waitRequest = JSON.parse(waitArguments!) as {
+      request?: { wait_ceiling_ms?: number; safety_ceiling_ms?: number };
+    };
+    expect(waitRequest.request?.wait_ceiling_ms).toBe(20_000);
+    expect(waitRequest.request).not.toHaveProperty("safety_ceiling_ms");
     expect(readFileSync(fixture.stderrPath, "utf8")).toBe("");
   },
   TIMEOUT,
@@ -2601,12 +2607,25 @@ test.skipIf(!tmuxAvailable())(
       expect(pane).toContain(label);
     }
     expect(gateway.requests).toHaveLength(9);
-    expect(gateway.requests[2]!.body).toContain(
-      '"kind":"output_contains"',
+    const monitorArguments = findOpenAiToolCall(
+      gateway.requests[2]!.body,
+      callIds[1]!,
+    )?.function?.arguments;
+    expect(typeof monitorArguments).toBe("string");
+    const monitorRequest = JSON.parse(monitorArguments!) as {
+      request?: {
+        monitor?: {
+          definition?: {
+            condition?: { kind?: string };
+            check_interval_ms?: number;
+          };
+        };
+      };
+    };
+    expect(monitorRequest.request?.monitor?.definition?.condition?.kind).toBe(
+      "output_contains",
     );
-    expect(gateway.requests[2]!.body).toContain(
-      '"check_interval_ms":1',
-    );
+    expect(monitorRequest.request?.monitor?.definition?.check_interval_ms).toBe(1);
     for (const [index, callId] of callIds.entries()) {
       const result = toolResultText(gateway.requests[index + 1]!.body, callId);
       expect(result).not.toContain("owner_authority");

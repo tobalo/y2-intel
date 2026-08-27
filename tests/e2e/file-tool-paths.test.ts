@@ -12,6 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { EVAL_MODEL, HAS_API_KEY, runY2 } from "../evals/eval-helpers";
+import { fakeGatewaySse, findOpenAiToolResult } from "./tmux-helpers";
 
 const TIMEOUT = 20_000;
 const MODEL = "openai/gpt-5";
@@ -27,16 +28,8 @@ type GatewayResponse =
   | Response
   | ((body: string) => Response | Promise<Response>);
 
-function sse(events: object[]) {
-  return new Response(
-    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") +
-      "data: [DONE]\n\n",
-    { headers: { "content-type": "text/event-stream" } },
-  );
-}
-
 function toolCall(id: string, name: string, input: object) {
-  return sse([
+  return fakeGatewaySse([
     {
       type: "tool-call",
       toolCallId: id,
@@ -59,7 +52,7 @@ function permissionDecision(decision: "clear" | "caution" = "clear") {
 }
 
 function finalText(text: string) {
-  return sse([
+  return fakeGatewaySse([
     { type: "text-delta", id: "answer_1", delta: text },
     {
       type: "finish",
@@ -87,17 +80,9 @@ function contentText(content: unknown): string {
 }
 
 function toolResultOutput(body: string, callId: string): string {
-  const request = JSON.parse(body) as {
-    prompt: Array<{ content: unknown }>;
-  };
-  const parts = request.prompt.flatMap((message) =>
-    Array.isArray(message.content) ? message.content : []
-  ) as Array<Record<string, unknown>>;
-  const result = parts.find((part) =>
-    part.type === "tool-result" && part.toolCallId === callId
-  );
+  const result = findOpenAiToolResult(body, callId);
   if (!result) throw new Error(`Missing tool result for ${callId}`);
-  return contentText(result.output);
+  return contentText(result.content);
 }
 
 function occurrenceCount(text: string, needle: string) {
@@ -506,7 +491,7 @@ describe("filesystem path handling", () => {
         body.includes(childPrompt) && !body.includes("parent_create_1");
       const gate = createChildReadGate(8_000);
       const routeChildAndParent = async (body: string) => {
-        if (body.includes('"toolCallId":"child_read_1"')) {
+        if (body.includes('"tool_call_id":"child_read_1"')) {
           gate.capture(toolResultOutput(body, "child_read_1"));
           return finalText("Child read the added-root fixture.");
         }
@@ -1019,7 +1004,7 @@ describe("filesystem path handling", () => {
         expect(trace).toContain(
           "event=auto_review_compose_result result=ready",
         );
-        expect(trace).toContain("event=auto_review_transport_start");
+        expect(trace).toContain("event=auto_review_send");
         expect(trace).toContain(
           "event=auto_review_result tool_name=write_file decision=caution",
         );

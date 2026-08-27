@@ -25,6 +25,7 @@ import { startModernMcpHttpFixture } from "./fixtures/mcp-modern-http";
 import {
   fakeGatewayFinalText,
   fakeGatewayToolCall,
+  findOpenAiToolResult,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -703,20 +704,12 @@ function collectRegularFiles(root: string): string[] {
 }
 
 function toolResultText(body: string, toolCallId: string): string {
-  const request = JSON.parse(body) as {
-    prompt?: Array<{ content?: Array<Record<string, unknown>> }>;
-  };
-  const result = (request.prompt ?? [])
-    .flatMap((message) => message.content ?? [])
-    .find((part) =>
-      part.type === "tool-result" && part.toolCallId === toolCallId
-    );
+  const result = findOpenAiToolResult(body, toolCallId);
   if (!result) throw new Error(`Missing tool result for ${toolCallId}`);
-  const output = result.output as Record<string, unknown>;
-  if (output.type !== "text" || typeof output.value !== "string") {
+  if (typeof result.content !== "string") {
     throw new Error(`Invalid tool result for ${toolCallId}`);
   }
-  return output.value;
+  return result.content;
 }
 
 function preserveAuthFailure(

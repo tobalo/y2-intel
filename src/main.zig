@@ -1684,7 +1684,7 @@ const App = struct {
                 .model_catalog = js_host_model_catalog.provider,
             });
         }
-        var providers = builtin_providers.native;
+        var providers = builtin_providers.configured();
         if (comptime !host_profile.tools) {
             providers.gateway.permission_reviewer = null;
             providers.codex.permission_reviewer = null;
@@ -3327,7 +3327,7 @@ fn fullEntryConfig() app_entry_runtime.Config {
         .gateway_retry_count = builtin_gateway.retry_count,
         .gateway_chat_url = builtin_gateway.default_chat_url,
         .gateway_provider = native_gateway_provider,
-        .provider_set = builtin_providers.native,
+        .provider_set = builtin_providers.configured(),
         .background_process_provider = background_process.provider,
         .url_opener = url_opener.native_opener,
         .secret_store = native_host.secret_store,
@@ -3362,7 +3362,7 @@ fn localEntryConfig() app_entry_runtime.Config {
         .gateway_retry_count = builtin_gateway.retry_count,
         .gateway_chat_url = builtin_gateway.default_chat_url,
         .gateway_provider = native_gateway_provider,
-        .provider_set = builtin_providers.native,
+        .provider_set = builtin_providers.configured(),
         .background_process_provider = background_process.provider,
         .url_opener = url_opener.native_opener,
         .secret_store = native_host.secret_store,
@@ -3397,7 +3397,7 @@ fn emptyEntryConfig() app_entry_runtime.Config {
         .gateway_retry_count = 0,
         .gateway_chat_url = "",
         .gateway_provider = native_gateway_provider,
-        .provider_set = builtin_providers.native,
+        .provider_set = builtin_providers.configured(),
         .background_process_provider = background_process.provider,
         .url_opener = url_opener.native_opener,
         .secret_store = native_host.secret_store,

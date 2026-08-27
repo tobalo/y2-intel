@@ -95,7 +95,14 @@ pub fn buildRequest(
     try writer.writeAll("{\"model\":");
     try std.json.Stringify.value(request.model, .{}, writer);
     try writer.writeAll(",\"stream\":true,\"messages\":[");
-    try writeMessages(writer, alloc, request.messages, request.verified_images, mode);
+    try writeMessages(
+        writer,
+        alloc,
+        request.messages,
+        request.verified_images,
+        request.budget,
+        mode,
+    );
     try writer.writeByte(']');
 
     if (mode == .openai_compatible) {
@@ -147,6 +154,7 @@ fn writeMessages(
     alloc: Allocator,
     messages: []const types.ChatMessage,
     images: ?[]const image_attachments.VerifiedSnapshot,
+    budget: ?stream_provider.BuildBudget,
     mode: Mode,
 ) !void {
     var first = true;
@@ -159,18 +167,40 @@ fn writeMessages(
         try writer.writeAll("{\"role\":");
         try std.json.Stringify.value(roleName(message.role), .{}, writer);
 
-        const attach_images = mode == .openai_compatible and
+        const attach_verified_images = mode == .openai_compatible and
             images != null and
             index == messages.len - 1 and
             message.role == .user;
-        if (attach_images) {
+        const attach_history_images = mode == .openai_compatible and
+            !attach_verified_images and
+            message.role == .user and
+            message.images.len > 0;
+        if (attach_verified_images or attach_history_images) {
             try writer.writeAll(",\"content\":[{\"type\":\"text\",\"text\":");
             try std.json.Stringify.value(message.content orelse "", .{}, writer);
             try writer.writeByte('}');
-            for (images.?) |image| {
-                try writer.writeAll(",{");
-                try writeImagePart(writer, alloc, image);
-                try writer.writeByte('}');
+            if (attach_verified_images) {
+                for (images.?) |image| {
+                    try writer.writeAll(",{");
+                    try writeImagePart(writer, alloc, image);
+                    try writer.writeByte('}');
+                }
+            } else {
+                const capture_budget = image_attachments.CaptureBudget{
+                    .cancel_flag = if (budget) |active| active.cancel_flag else null,
+                    .deadline = if (budget) |active| active.deadline else null,
+                };
+                for (message.images) |attachment| {
+                    var image = try image_attachments.loadVerifiedSnapshot(
+                        alloc,
+                        attachment,
+                        capture_budget,
+                    );
+                    defer image.deinit(alloc);
+                    try writer.writeAll(",{");
+                    try writeImagePart(writer, alloc, image);
+                    try writer.writeByte('}');
+                }
             }
             try writer.writeByte(']');
         } else if (message.role == .assistant and message.content == null) {
@@ -882,6 +912,31 @@ test "OpenAI-compatible request preserves local function tool history" {
     try std.testing.expect(std.mem.find(u8, body, "\"tool_call_id\":\"call_1\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"max_tokens\":2048") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"reasoning_effort\":\"high\"") != null);
+}
+
+test "OpenAI-compatible request writes native image bytes exactly once" {
+    var image_bytes = [_]u8{ 0x59, 0x32, 0x20, 0x49, 0x4d, 0x47 };
+    const images = [_]image_attachments.VerifiedSnapshot{.{
+        .bytes = image_bytes[0..],
+        .media_type = "image/png",
+    }};
+    const messages = [_]types.ChatMessage{.{
+        .role = .user,
+        .content = "Inspect this image.",
+    }};
+    const body = try buildRequest(std.testing.allocator, .{
+        .model = "google/gemini-2.5-flash",
+        .messages = &messages,
+        .tool_choice = .auto,
+        .provider_options = .{},
+        .verified_images = &images,
+    }, .openai_compatible);
+    defer std.testing.allocator.free(body);
+
+    try std.testing.expectEqual(
+        @as(usize, 1),
+        std.mem.count(u8, body, "data:image/png;base64,WTIgSU1H"),
+    );
 }
 
 test "OpenAI-compatible request replaces malformed historical tool arguments" {

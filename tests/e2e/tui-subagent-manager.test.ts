@@ -14,12 +14,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Y2_BIN } from "../evals/eval-helpers";
 import {
+  createFakeGatewaySseEncoder,
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
   fakeGatewaySse,
   fakeGatewayToolCall,
   hasEmptyComposer,
   isVolatileTokenStatusRow,
+  openAiChatMessages,
   paneExitMatches,
   startDynamicFakeGateway,
   TmuxSession,
@@ -116,6 +118,7 @@ test("volatile token rows normalize before restored subagent comparison", () => 
 
 function controlledTextResponse(initialText: string) {
   const encoder = new TextEncoder();
+  const sse = createFakeGatewaySseEncoder();
   let controller: ReadableStreamDefaultController<Uint8Array> | undefined;
   let released = false;
   const response = new Response(
@@ -124,7 +127,7 @@ function controlledTextResponse(initialText: string) {
         controller = value;
         value.enqueue(
           encoder.encode(
-            `data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta: initialText })}\n\n`,
+            sse.event({ type: "text-delta", id: "answer_1", delta: initialText }),
           ),
         );
       },
@@ -137,7 +140,7 @@ function controlledTextResponse(initialText: string) {
       if (released || !controller) throw new Error("controlled response already released");
       controller.enqueue(
         encoder.encode(
-          `data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta: text })}\n\n`,
+          sse.event({ type: "text-delta", id: "answer_1", delta: text }),
         ),
       );
     },
@@ -146,15 +149,15 @@ function controlledTextResponse(initialText: string) {
       released = true;
       controller.enqueue(
         encoder.encode(
-          `data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta: finalText })}\n\n` +
-            `data: ${JSON.stringify({
+          sse.event({ type: "text-delta", id: "answer_1", delta: finalText }) +
+            sse.event({
               type: "finish",
               finishReason: { unified: "stop", raw: "stop" },
               usage: {
                 inputTokens: { total: 3 },
                 outputTokens: { total: 5 },
               },
-            })}\n\ndata: [DONE]\n\n`,
+            }) + sse.done(),
         ),
       );
       controller.close();
@@ -191,8 +194,7 @@ function countOccurrences(text: string, needle: string): number {
 }
 
 function latestPrompt(body: string): string {
-  const request = JSON.parse(body) as { prompt?: unknown[] };
-  return JSON.stringify(request.prompt?.at(-1) ?? "");
+  return JSON.stringify(openAiChatMessages(body).at(-1) ?? "");
 }
 
 function textHex(text: string): string[] {
@@ -512,13 +514,13 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
         };
       });
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"isolated_parent_read"')) {
+        if (body.includes('"tool_call_id":"isolated_parent_read"')) {
           return parentStream.response;
         }
-        if (body.includes('"toolCallId":"isolated_child_create"')) {
+        if (body.includes('"tool_call_id":"isolated_child_create"')) {
           return parentCompletion;
         }
-        if (body.includes('"toolCallId":"isolated_child_read"')) {
+        if (body.includes('"tool_call_id":"isolated_child_read"')) {
           return fakeGatewayFinalText("ISOLATED_CHILD_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -594,14 +596,14 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
         const parentToolStartedAt = Date.now();
         while (
           !gateway.requests.some((request) =>
-            request.body.includes('"toolCallId":"isolated_parent_read"')
+            request.body.includes('"tool_call_id":"isolated_parent_read"')
           ) &&
           Date.now() - parentToolStartedAt < TIMEOUT
         ) {
           await Bun.sleep(25);
         }
         expect(gateway.requests.some((request) =>
-          request.body.includes('"toolCallId":"isolated_parent_read"')
+          request.body.includes('"tool_call_id":"isolated_parent_read"')
         )).toBe(true);
         for (let index = 1; index <= 20; index++) {
           parentStream.push(`PARENT_BACKGROUND_${index}\n`);
@@ -691,7 +693,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       writeFileSync(resumedStderrPath, "");
 
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"terminal_safe_child_create"')) {
+        if (body.includes('"tool_call_id":"terminal_safe_child_create"')) {
           return fakeGatewayFinalText(parentComplete);
         }
         if (body.includes(routedMessage)) {
@@ -885,7 +887,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const marker = join(fixture.workspace, "default-yolo-effect.txt");
       const callId = "default_yolo_child_effect";
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes(`"toolCallId":"${callId}"`)) {
+        if (body.includes(`"tool_call_id":"${callId}"`)) {
           return fakeGatewayFinalText("DEFAULT_YOLO_TOOL_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -985,7 +987,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const missingPath = join(fixture.home, "definitely-missing-child-file.txt");
       writeFileSync(join(fixture.workspace, "not-a-dir"), "regular file\n");
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"child_read_not_dir"')) {
+        if (body.includes('"tool_call_id":"child_read_not_dir"')) {
           return fakeGatewayFinalText("CHILD_NOT_DIR_RECOVERED");
         }
         if (latestPrompt(body).includes(notDirPrompt)) {
@@ -993,7 +995,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
             path: "not-a-dir/child.txt",
           });
         }
-        if (body.includes('"toolCallId":"child_read_missing"')) {
+        if (body.includes('"tool_call_id":"child_read_missing"')) {
           return fakeGatewayFinalText("CHILD_READ_RECOVERED");
         }
         if (latestPrompt(body).includes(readPrompt)) {
@@ -1001,7 +1003,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
             path: missingPath,
           });
         }
-        if (body.includes('"toolCallId":"child_write_new"')) {
+        if (body.includes('"tool_call_id":"child_write_new"')) {
           return fakeGatewayFinalText("CHILD_WRITE_RECOVERED");
         }
         if (body.includes(writePrompt)) {
@@ -1096,7 +1098,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       writeFileSync(resumedStderrPath, "");
       const stream = controlledTextResponse("CTRL_C_STREAM_STARTED\n");
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"ctrl_c_child_create"')) {
+        if (body.includes('"tool_call_id":"ctrl_c_child_create"')) {
           return fakeGatewayFinalText(parentReady);
         }
         if (body.includes(childPrompt)) return stream.response;
@@ -1283,10 +1285,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const marker = join(fixture.workspace, "ask-child-created.txt");
       let childWriteIssued = false;
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"ask_write_create"')) {
+        if (body.includes('"tool_call_id":"ask_write_create"')) {
           return fakeGatewayFinalText("ASK_WRITE_PARENT_READY");
         }
-        if (body.includes('"toolCallId":"ask_write_file"')) {
+        if (body.includes('"tool_call_id":"ask_write_file"')) {
           return fakeGatewayFinalText("ASK_WRITE_CHILD_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -1364,10 +1366,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const childPrompt = "AUTO_WRITE_CHILD_PROMPT";
       const marker = join(fixture.workspace, "auto-child-created.txt");
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"auto_write_create"')) {
+        if (body.includes('"tool_call_id":"auto_write_create"')) {
           return fakeGatewayFinalText("AUTO_WRITE_PARENT_READY");
         }
-        if (body.includes('"toolCallId":"auto_write_file"')) {
+        if (body.includes('"tool_call_id":"auto_write_file"')) {
           return fakeGatewayFinalText("AUTO_WRITE_CHILD_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -1441,10 +1443,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const marker = join(fixture.workspace, "auto-child-keep.txt");
       writeFileSync(marker, "keep\n");
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"auto_delete_create"')) {
+        if (body.includes('"tool_call_id":"auto_delete_create"')) {
           return fakeGatewayFinalText("AUTO_DELETE_PARENT_READY");
         }
-        if (body.includes('"toolCallId":"auto_delete_file"')) {
+        if (body.includes('"tool_call_id":"auto_delete_file"')) {
           return fakeGatewayFinalText("AUTO_DELETE_CHILD_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -1530,7 +1532,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const externalId = "always_write_external";
       const gateway = startDynamicFakeGateway((body) => {
         const latest = latestPrompt(body);
-        if (latest.includes(`"toolCallId":"${externalId}"`)) {
+        if (latest.includes(`"tool_call_id":"${externalId}"`)) {
           return fakeGatewayFinalText("ALWAYS_WRITE_EXTERNAL_DONE");
         }
         if (latest.includes(externalPrompt)) {
@@ -1539,7 +1541,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
             content: "EXTERNAL\n",
           });
         }
-        if (latest.includes(`"toolCallId":"${secondId}"`)) {
+        if (latest.includes(`"tool_call_id":"${secondId}"`)) {
           return fakeGatewayFinalText("ALWAYS_WRITE_SECOND_DONE");
         }
         if (latest.includes(secondPrompt)) {
@@ -1548,7 +1550,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
             content: "SECOND\n",
           });
         }
-        if (latest.includes(`"toolCallId":"${firstId}"`)) {
+        if (latest.includes(`"tool_call_id":"${firstId}"`)) {
           return fakeGatewayFinalText("ALWAYS_WRITE_FIRST_DONE");
         }
         if (latest.includes(childPrompt)) {
@@ -1557,7 +1559,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
             content: "FIRST\n",
           });
         }
-        if (latest.includes(`"toolCallId":"${createId}"`)) {
+        if (latest.includes(`"tool_call_id":"${createId}"`)) {
           return fakeGatewayFinalText("ALWAYS_WRITE_PARENT_READY");
         }
         return fakeGatewayToolCall(createId, "subagent", {
@@ -1698,11 +1700,11 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const childPrompt = "COMMAND_STREAM_CHILD_PROMPT";
       const commandCount = 10;
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"command_stream_create"')) {
+        if (body.includes('"tool_call_id":"command_stream_create"')) {
           return fakeGatewayFinalText("COMMAND_STREAM_PARENT_COMPLETE");
         }
         const completedCommands = [
-          ...body.matchAll(/"toolCallId":"command_stream_(\d+)"/g),
+          ...body.matchAll(/"tool_call_id":"command_stream_(\d+)"/g),
         ].map((match) => Number(match[1]));
         if (completedCommands.length > 0) {
           const next = Math.max(...completedCommands) + 1;
@@ -2617,10 +2619,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const createChildCallId = "direct_tty_reparent_create_child";
       const relationshipSetupTimeout = 60_000;
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes(`"toolCallId":"${createChildCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${createChildCallId}"`)) {
           return fakeGatewayFinalText("DIRECT_TTY_REPARENT_PARENT_COMPLETE");
         }
-        if (body.includes(`"toolCallId":"${createParentCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${createParentCallId}"`)) {
           return fakeGatewayFinalText("DIRECT_TTY_REPARENT_ROOT_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -2938,10 +2940,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       let childAttempts = 0;
       writeFileSync(resumedStderrPath, "");
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"checkpoint3_restart_create"')) {
+        if (body.includes('"tool_call_id":"checkpoint3_restart_create"')) {
           return fakeGatewayFinalText("CHECKPOINT3_PARENT_CREATED_CHILD");
         }
-        if (body.includes('"toolCallId":"checkpoint3_restart_write"')) {
+        if (body.includes('"tool_call_id":"checkpoint3_restart_write"')) {
           return fakeGatewayFinalText(resumedText);
         }
         if (body.includes(childPrompt)) {
@@ -3713,7 +3715,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       });
       let childId: string | undefined;
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes(`"toolCallId":"${fileCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${fileCallId}"`)) {
           return fakeGatewayFinalText("CHECKPOINT2_CHILD_FILE_APPROVAL_COMPLETE");
         }
         if (body.includes(filePrompt)) {
@@ -3722,10 +3724,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
             content: fileContent,
           });
         }
-        if (body.includes(`"toolCallId":"${callId}"`)) {
+        if (body.includes(`"tool_call_id":"${callId}"`)) {
           return fakeGatewayFinalText("CHECKPOINT2_CHILD_APPROVAL_COMPLETE");
         }
-        if (body.includes(`"toolCallId":"${parentCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${parentCallId}"`)) {
           return fakeGatewayFinalText("CHECKPOINT2_PARENT_SEND_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -4044,7 +4046,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
           return fakeGatewayFinalText(parentAckDone);
         }
         if (body.includes(persistentInitial)) return fakeGatewayFinalText(persistentReady);
-        if (body.includes('"toolCallId":"create_temporary_result"')) {
+        if (body.includes('"tool_call_id":"create_temporary_result"')) {
           return fakeGatewayFinalText("ONEOFF_RETIREMENT_MAIN_DONE");
         }
         if (body.includes(childPrompt)) return childStream.response;
@@ -4956,7 +4958,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
         };
       });
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"external_configure"')) {
+        if (body.includes('"tool_call_id":"external_configure"')) {
           return fakeGatewayFinalText("BACKGROUND_CONFIGURED");
         }
         if (body.includes("BACKGROUND_CONFIGURE")) return externalResponse;
@@ -5528,7 +5530,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const preopenResponse = "VISIBLE_CHILD_PREOPEN_DONE";
       let childId: string | undefined;
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes(`"toolCallId":"${parentCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${parentCallId}"`)) {
           return fakeGatewayFinalText("VISIBLE_CHILD_PARENT_SEND_DONE");
         }
         if (body.includes(parentPrompt)) {
@@ -5704,10 +5706,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const firstCallId = "checkpoint2_first_simultaneous_effect";
       const secondCallId = "checkpoint2_second_simultaneous_effect";
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes(`"toolCallId":"${firstCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${firstCallId}"`)) {
           return fakeGatewayFinalText("CHECKPOINT2_FIRST_APPROVAL_COMPLETE");
         }
-        if (body.includes(`"toolCallId":"${secondCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${secondCallId}"`)) {
           return fakeGatewayFinalText("CHECKPOINT2_SECOND_APPROVAL_COMPLETE");
         }
         if (body.includes(firstPrompt)) {
@@ -5909,13 +5911,13 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const nestedPrompt = "CHECKPOINT3_NESTED_ONE_OFF";
       const oneOffPrompt = "CHECKPOINT3_ROOT_ONE_OFF";
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"checkpoint3_nested_create"')) {
+        if (body.includes('"tool_call_id":"checkpoint3_nested_create"')) {
           return fakeGatewayFinalText("CHECKPOINT3_PERSISTENT_COMPLETE");
         }
-        if (body.includes('"toolCallId":"checkpoint3_root_one_off"')) {
+        if (body.includes('"tool_call_id":"checkpoint3_root_one_off"')) {
           return fakeGatewayFinalText("CHECKPOINT3_ASSEMBLED_PARENT_COMPLETE");
         }
-        if (body.includes('"toolCallId":"checkpoint3_root_persistent"')) {
+        if (body.includes('"tool_call_id":"checkpoint3_root_persistent"')) {
           return fakeGatewayToolCall("checkpoint3_root_one_off", "subagent", {
             command: {
               create: {
@@ -6059,7 +6061,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const childPrompt = "CHECKPOINT3_MANAGER_CANCEL_ACTIVE";
       const childStream = controlledTextResponse("CHECKPOINT3_CANCEL_STREAM_\n");
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"checkpoint3_cancel_create"')) {
+        if (body.includes('"tool_call_id":"checkpoint3_cancel_create"')) {
           return fakeGatewayFinalText("CHECKPOINT3_CANCEL_PARENT_READY");
         }
         if (body.includes(childPrompt)) return childStream.response;
@@ -6174,7 +6176,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
         ]);
         expect(gateway.requests.filter((request) =>
           request.body.includes(childPrompt) &&
-          !request.body.includes('"toolCallId":"checkpoint3_cancel_create"')
+          !request.body.includes('"tool_call_id":"checkpoint3_cancel_create"')
         )).toHaveLength(1);
 
         await active.sendKeys("C-x");
@@ -6210,7 +6212,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const parentCallId = "cancel_blocked_approval_create";
       const childCallId = "cancel_blocked_approval_effect";
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes(`"toolCallId":"${parentCallId}"`)) {
+        if (body.includes(`"tool_call_id":"${parentCallId}"`)) {
           return fakeGatewayFinalText("CANCEL_BLOCKED_APPROVAL_PARENT_READY");
         }
         if (body.includes(childPrompt)) {
@@ -6415,7 +6417,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
         releaseChild = resolve;
       });
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"selected_child_create"')) {
+        if (body.includes('"tool_call_id":"selected_child_create"')) {
           return fakeGatewayFinalText("SELECTED_CHILD_PARENT_COMPLETE");
         }
         if (body.includes(childPrompt)) {
@@ -6518,11 +6520,11 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
         };
       });
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"manager_archive_1"')) {
+        if (body.includes('"tool_call_id":"manager_archive_1"')) {
           return fakeGatewayFinalText("MANAGER_PARENT_COMPLETE");
         }
-        if (body.includes('"toolCallId":"manager_create_1"')) return parentCompletion;
-        if (body.includes('"toolCallId":"manager_child_read_1"')) {
+        if (body.includes('"tool_call_id":"manager_create_1"')) return parentCompletion;
+        if (body.includes('"tool_call_id":"manager_child_read_1"')) {
           return humanTwoStream.response;
         }
         if (body.includes(humanTwo)) {
@@ -7052,10 +7054,10 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const innerPrompt = "NESTED_SEND_INNER_PROMPT";
       const directMessage = "NESTED_SEND_DIRECT_MESSAGE";
       const gateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"nested_send_root_create"')) {
+        if (body.includes('"tool_call_id":"nested_send_root_create"')) {
           return fakeGatewayFinalText("NESTED_SEND_ROOT_READY");
         }
-        if (body.includes('"toolCallId":"nested_send_inner_create"')) {
+        if (body.includes('"tool_call_id":"nested_send_inner_create"')) {
           return fakeGatewayFinalText("NESTED_SEND_OUTER_READY");
         }
         if (body.includes(directMessage)) {
