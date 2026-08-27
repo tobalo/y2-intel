@@ -186,7 +186,7 @@ jobs:
               "internal engineering details": r"(?i)\b(?:CI|workflows?|tests?|fixtures?|branch history|Git history|commit hashes?|implementation-only refactors?|refactors?)\b",
           }
           errors = [label for label, pattern in forbidden.items() if re.search(pattern, body)]
-          if re.search(r"(?<![A-Za-z0-9_])(?:Y2|FX)(?![A-Za-z0-9_])", body):
+          if re.search(r"(?<![A-Za-z0-9_])Y2(?![A-Za-z0-9_])", body):
               errors.append("product name is not lowercase y2")
 
           allowed_headings = {
