@@ -67,7 +67,6 @@ async function runWithFakeGateway(
         OPENAI_BASE_URL: gateway.baseUrl,
         Y2_API_CHAT_URL: gateway.chatUrl,
         Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-        Y2_E2E_GATEWAY_CREDITS_URL: undefined,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },

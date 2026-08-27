@@ -56,7 +56,6 @@ let home: string | null = null;
 let stderrPath: string | null = null;
 let gateway: ReturnType<typeof startFakeGateway> | null = null;
 let chatgptOauth: ReturnType<typeof startFakeChatGptOAuth> | null = null;
-let creditsGateway: ReturnType<typeof startFakeCreditsGateway> | null = null;
 
 afterEach(async () => {
   await session?.kill();
@@ -65,8 +64,6 @@ afterEach(async () => {
   gateway = null;
   chatgptOauth?.stop();
   chatgptOauth = null;
-  creditsGateway?.stop();
-  creditsGateway = null;
   if (home) rmSync(home, { recursive: true, force: true });
   home = null;
   stderrPath = null;
@@ -155,33 +152,6 @@ async function startY2(
     width: 100,
     height: 30,
   });
-}
-
-function startFakeCreditsGateway() {
-  const requests: Array<{
-    method: string;
-    path: string;
-    authorization: string | null;
-  }> = [];
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch(request) {
-      requests.push({
-        method: request.method,
-        path: new URL(request.url).pathname,
-        authorization: request.headers.get("authorization"),
-      });
-      return Response.json({ balance: "42", used: "7", plan: "pro" });
-    },
-  });
-  return {
-    url: `http://127.0.0.1:${server.port}/v1/credits`,
-    requests,
-    stop() {
-      server.stop(true);
-    },
-  };
 }
 
 function chatgptAccessToken(accountId = "acct_e2e"): string {

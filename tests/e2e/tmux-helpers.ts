@@ -25,7 +25,6 @@ const DEFAULT_UNSET_ENV_KEYS = [
   ...AUTH_ENV_KEYS,
   "Y2_API_CHAT_URL",
   "Y2_E2E_GATEWAY_MODELS_URL",
-  "Y2_E2E_GATEWAY_CREDITS_URL",
   "Y2_E2E_UPGRADE_BASE_URL",
   "Y2_PERMISSION_MODE",
 ] as const;
@@ -497,10 +496,6 @@ export type FakeGatewayOptions = {
       | Promise<FakeGatewayModel[] | Response>);
   classifierDecision?: "clear" | "caution";
   classifierResponses?: FakeGatewayResponse[];
-  generationResponse?: (
-    generationId: string,
-    request: Request,
-  ) => Response | Promise<Response>;
 };
 
 function serveFakeGateway(
@@ -511,7 +506,6 @@ function serveFakeGateway(
   const classifierRequests: Array<{ body: string; headers: Headers }> = [];
   const classifierResponses = [...(options.classifierResponses ?? [])];
   const modelRequests: FakeGatewayModelRequest[] = [];
-  const generationRequests: string[] = [];
   const server = Bun.serve({
     port: 0,
     idleTimeout: 0,
@@ -529,14 +523,6 @@ function serveFakeGateway(
             tags: ["tool-use"],
           }],
         });
-      }
-      if (req.method === "GET" && new URL(req.url).pathname === "/v1/generation") {
-        const generationId = new URL(req.url).searchParams.get("id") ?? "";
-        generationRequests.push(generationId);
-        if (options.generationResponse) {
-          return options.generationResponse(generationId, req);
-        }
-        return new Response("not found", { status: 404 });
       }
       if (req.method !== "POST") return new Response("not found", { status: 404 });
       const body = await req.text();
@@ -556,7 +542,6 @@ function serveFakeGateway(
     chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     requests,
     classifierRequests,
-    generationRequests,
     modelRequests,
     requestCount() {
       return requests.length;

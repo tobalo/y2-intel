@@ -91,86 +91,6 @@ describe.skipIf(!tmuxAvailable())("tui: skills command recovery", () => {
   );
 });
 
-function startFakeCreditsGateway() {
-  const requests: Array<{
-    method: string;
-    path: string;
-    authorizationMatchesExpected: boolean;
-  }> = [];
-  const server = Bun.serve({
-    hostname: "127.0.0.1",
-    port: 0,
-    fetch(request) {
-      requests.push({
-        method: request.method,
-        path: new URL(request.url).pathname,
-        authorizationMatchesExpected:
-          request.headers.get("authorization") ===
-          "Bearer credits-fake-key",
-      });
-      return Response.json(
-        { error: { code: "credit_card_required", message: "API credits are required." } },
-        { status: 403 },
-      );
-    },
-  });
-  return {
-    url: `http://127.0.0.1:${server.port}/v1/credits`,
-    requests,
-    stop() {
-      server.stop(true);
-    },
-  };
-}
-
-describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
-  test(
-    "/credits shows actionable Gateway denial and returns to prompt",
-    async () => {
-      const gateway = startFakeCreditsGateway();
-      const home = createIsolatedTestHome();
-      try {
-        session = await TmuxSession.create({
-          env: {
-            HOME: home,
-            OPENAI_API_KEY: "credits-fake-key",
-            Y2_E2E_GATEWAY_CREDITS_URL: gateway.url,
-          },
-          width: 120,
-          height: 40,
-        });
-        await session.waitForComposer(10_000);
-
-        await session.sendText("/credits");
-        await session.waitForText("API credits are required.", 10_000);
-        await session.waitForComposer(10_000);
-
-        const scrollback = await session.captureFullScrollback();
-        expect(gateway.requests).toEqual([{
-          method: "GET",
-          path: "/v1/credits",
-          authorizationMatchesExpected: true,
-        }]);
-        expect(scrollback).toContain("API access denied");
-        expect(scrollback).toContain("HTTP 403");
-        expect(scrollback).toContain("API credits are required.");
-        expect(hasEmptyComposer(scrollback)).toBe(true);
-      } finally {
-        gateway.stop();
-        try {
-          if (session) {
-            await session.kill();
-            session = null;
-          }
-        } finally {
-          cleanupIsolatedTestHome(home);
-        }
-      }
-    },
-    TIMEOUT,
-  );
-});
-
 describe.skipIf(!tmuxAvailable() || CLIPBOARD_PROGRAM === null)("tui: clipboard host", () => {
   test(
     "/copy sends exact reply bytes to the host clipboard and reports process failure",
@@ -418,17 +338,6 @@ describe.skipIf(SKIP)("tui: extra slash commands", () => {
         5_000,
       );
       expect(aliasPane).toContain("Usage · 30 days");
-    },
-    TIMEOUT,
-  );
-
-  test(
-    "/credits shows credit info",
-    async () => {
-      session = await launchAndWait();
-      await session.sendText("/credits");
-      const pane = await session.waitForText(/credit|balance|error|failed/i, 10_000);
-      expect(pane.length).toBeGreaterThan(0);
     },
     TIMEOUT,
   );

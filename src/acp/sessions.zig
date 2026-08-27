@@ -1037,7 +1037,6 @@ fn buildSlashCommandsJson(alloc: Allocator) ![]u8 {
         .{ .name = "allowlist", .description = "Manage persistent allow rules", .hint = "add command \"git *\"" },
         .{ .name = "rules", .description = "Show active rules", .hint = null },
         .{ .name = "settings", .description = "Show settings", .hint = null },
-        .{ .name = "credits", .description = "Show credit balance", .hint = null },
         .{ .name = "mcp", .description = "Show MCP server status", .hint = null },
         .{ .name = "skills", .description = "Show installed skills", .hint = null },
         .{ .name = "fast", .description = "Toggle fast mode for supported models", .hint = null },
@@ -1186,10 +1185,10 @@ test "buildSlashCommandsJson includes all expected commands" {
     defer alloc.free(json);
 
     const expected_commands = [_][]const u8{
-        "compact",   "undo",  "changes",  "review",  "clear",
-        "reset",     "help",  "status",   "model",   "permissions",
-        "allowlist", "rules", "settings", "credits", "mcp",
-        "skills",    "fast",
+        "compact",   "undo",  "changes",  "review", "clear",
+        "reset",     "help",  "status",   "model",  "permissions",
+        "allowlist", "rules", "settings", "mcp",    "skills",
+        "fast",
     };
     for (expected_commands) |cmd| {
         try std.testing.expect(std.mem.find(u8, json, cmd) != null);

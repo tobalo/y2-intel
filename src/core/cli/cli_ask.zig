@@ -4006,12 +4006,12 @@ fn testProcessQueuedPromptHttp413(deps: *const agent_runtime.AgentRuntimeDeps, s
     );
 }
 
-fn testProcessQueuedPromptRestrictedProvider(deps: *const agent_runtime.AgentRuntimeDeps, semantic_presentation: ?agent_runtime.SemanticPresentationSink, _: agent_runtime.LifecycleContext, _: agent_runtime.Config, _: worker_runtime.QueuedPrompt) !void {
+fn testProcessQueuedPromptUnavailableModel(deps: *const agent_runtime.AgentRuntimeDeps, semantic_presentation: ?agent_runtime.SemanticPresentationSink, _: agent_runtime.LifecycleContext, _: agent_runtime.Config, _: worker_runtime.QueuedPrompt) !void {
     try std.testing.expect(semantic_presentation == null);
     try deps.push_http_error(
         deps.ctx,
         .forbidden,
-        "{\"error\":{\"message\":\"Your team has restricted access to this provider. Contact the owner of the account for more details. Providers considered: wafer\",\"type\":\"no_providers_available\",\"param\":{\"name\":\"RestrictedProvidersError\",\"message\":\"Your team has restricted access to this provider. Contact the owner of the account for more details. Providers considered: wafer\"}},\"providerMetadata\":{\"gateway\":{\"routing\":{}}}}",
+        "{\"error\":{\"message\":\"The selected model is unavailable.\",\"type\":\"model_unavailable\",\"param\":{\"name\":\"ModelUnavailableError\",\"message\":\"The selected model is unavailable.\"}}}",
         null,
     );
 }
@@ -8025,7 +8025,7 @@ test "y2 ask JSON captures HTTP 413 prompt-too-long blocker" {
     try std.testing.expectEqual(@as(i64, 1), parsed.value.object.get("exit_code").?.integer);
 }
 
-test "y2 ask formats restricted-provider HTTP errors without raw JSON" {
+test "y2 ask formats model-unavailable HTTP errors without raw JSON" {
     const alloc = std.testing.allocator;
     var stdout_capture: TestCapture = .{};
     defer stdout_capture.deinit(alloc);
@@ -8036,17 +8036,17 @@ test "y2 ask formats restricted-provider HTTP errors without raw JSON" {
         alloc,
         &.{ "--json", "--no-save", "hello" },
         testConfig(),
-        testPromptRunDepsWithProcess(&stdout_capture, &stderr_capture, testProcessQueuedPromptRestrictedProvider),
+        testPromptRunDepsWithProcess(&stdout_capture, &stderr_capture, testProcessQueuedPromptUnavailableModel),
     );
 
     try std.testing.expectEqual(@as(u8, 1), exit_code);
-    try std.testing.expect(std.mem.find(u8, stderr_capture.bytes.items, "y2 ask: API access denied · HTTP 403 · Provider: wafer") != null);
+    try std.testing.expect(std.mem.find(u8, stderr_capture.bytes.items, "y2 ask: API access denied · HTTP 403 · model_unavailable: The selected model is unavailable.") != null);
     try std.testing.expect(std.mem.find(u8, stderr_capture.bytes.items, "{\"error\"") == null);
 
     var parsed = try std.json.parseFromSlice(std.json.Value, alloc, stdout_capture.bytes.items, .{});
     defer parsed.deinit();
     const output = parsed.value.object.get("output").?.string;
-    try std.testing.expect(std.mem.find(u8, output, "API access denied · HTTP 403 · Provider: wafer") != null);
+    try std.testing.expect(std.mem.find(u8, output, "API access denied · HTTP 403 · model_unavailable: The selected model is unavailable.") != null);
     try std.testing.expect(std.mem.find(u8, output, "{\"error\"") == null);
     try std.testing.expectEqual(@as(i64, 1), parsed.value.object.get("exit_code").?.integer);
 }

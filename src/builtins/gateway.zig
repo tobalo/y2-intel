@@ -270,7 +270,6 @@ test "Y2 provider uses direct API transport and a static model catalog" {
     try std.testing.expectEqual(provider_set.Bundle.AuthStrategy.api_key, provider_bundle.auth_strategy.?);
     try std.testing.expect(!provider_bundle.capabilities.y2_search);
     try std.testing.expect(provider_bundle.deferred_usage == null);
-    try std.testing.expect(provider_bundle.credits == null);
 }
 
 test "direct model fallback preserves Gemini native image capability" {

@@ -126,7 +126,7 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         stderrPath,
         env: {
           HOME: home,
-          Y2_API_KEY: "undo-e2e-key",
+          OPENAI_API_KEY: "undo-e2e-key",
           Y2_AUTO_UPGRADE: "0",
           Y2_DISABLE_KEYCHAIN: "1",
           Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
@@ -158,7 +158,7 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
       expect(await session.captureFullScrollback()).toContain("older.txt");
       expect(existsSync(olderPath)).toBe(false);
       expect(readFileSync(destinationPath, "utf8")).toBe("small source");
-      expect(await session.waitForComposer(5_000)).toContain("Run /help for commands");
+      expect(await session.waitForComposer(5_000)).toContain("Y2 INFORMATION DOMINANCE");
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     },
     TIMEOUT,
@@ -219,7 +219,8 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         },
       });
       await session.waitForComposer(10_000);
-      expect((await session.captureFullScrollback()).split("Run /help for commands")).toHaveLength(2);
+      const recordingNotice = "● Recording: visual terminal capture:";
+      expect((await session.captureFullScrollback()).split(recordingNotice)).toHaveLength(2);
 
       await session.sendText("/status");
       await session.waitForText("agent_step_limit=", 5_000);
@@ -227,7 +228,7 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
       const scrollback = await session.captureFullScrollback();
 
       for (const field of [
-        "Run /help for commands",
+        recordingNotice,
         "auth_refreshable=",
         "permission_mode=auto",
       ]) {

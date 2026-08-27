@@ -90,7 +90,6 @@ type ReviewerObservation = {
 type ReviewerUsage = {
   inputTokens: number;
   outputTokens: number;
-  costUsd: number | null;
 };
 
 const DYNAMIC_MCP_TOOL_NAME = "mcp_fixture_publish";
@@ -314,33 +313,22 @@ function startClassifierProxy(prepared: PreparedScenario) {
 function reviewerUsage(observation: ReviewerObservation): ReviewerUsage {
   let inputTokens = 0;
   let outputTokens = 0;
-  let costUsd: number | null = null;
   for (const line of observation.responseBody.split(/\r?\n/)) {
     if (!line.startsWith("data: ") || line === "data: [DONE]") continue;
     try {
       const event = JSON.parse(line.slice("data: ".length)) as {
-        type?: string;
         usage?: {
-          inputTokens?: { total?: number };
-          outputTokens?: { total?: number };
+          prompt_tokens?: number;
+          completion_tokens?: number;
         };
-        providerMetadata?: { gateway?: { cost?: string | number } };
       };
-      if (event.type !== "finish") continue;
-      inputTokens = event.usage?.inputTokens?.total ?? inputTokens;
-      outputTokens = event.usage?.outputTokens?.total ?? outputTokens;
-      const rawCost = event.providerMetadata?.gateway?.cost;
-      if (typeof rawCost === "number" && Number.isFinite(rawCost)) {
-        costUsd = rawCost;
-      } else if (typeof rawCost === "string") {
-        const parsed = Number.parseFloat(rawCost);
-        if (Number.isFinite(parsed)) costUsd = parsed;
-      }
+      inputTokens = event.usage?.prompt_tokens ?? inputTokens;
+      outputTokens = event.usage?.completion_tokens ?? outputTokens;
     } catch {
       continue;
     }
   }
-  return { inputTokens, outputTokens, costUsd };
+  return { inputTokens, outputTokens };
 }
 
 function percentile(values: number[], fraction: number): number {
@@ -1131,8 +1119,6 @@ describe.skipIf(!HAS_DIRECT_REVIEW_API)("eval: auto permission reliability", () 
       let transportFailures = 0;
       let inputTokens = 0;
       let outputTokens = 0;
-      let totalCostUsd = 0;
-      let costObservations = 0;
       const latenciesMs: number[] = [];
       const maxAvailabilityAttempts = 25;
       const outcomes: Array<{
@@ -1211,10 +1197,6 @@ describe.skipIf(!HAS_DIRECT_REVIEW_API)("eval: auto permission reliability", () 
           latenciesMs.push(observation.elapsedMs);
           inputTokens += usage.inputTokens;
           outputTokens += usage.outputTokens;
-          if (usage.costUsd !== null) {
-            totalCostUsd += usage.costUsd;
-            costObservations += 1;
-          }
           if (observation.error !== null) transportFailures += 1;
 
           const validFirstSend = resultLines[0]!.includes(
@@ -1307,7 +1289,6 @@ describe.skipIf(!HAS_DIRECT_REVIEW_API)("eval: auto permission reliability", () 
       expect(validFirstSends).toBe(boundedScenarios.length);
       expect(malformedFirstSends).toBe(0);
       expect(transportFailures).toBe(0);
-      expect(costObservations).toBe(boundedScenarios.length);
 
       console.log(
         `AUTO_PERMISSION_RELIABILITY_METRICS ${JSON.stringify({
@@ -1328,8 +1309,6 @@ describe.skipIf(!HAS_DIRECT_REVIEW_API)("eval: auto permission reliability", () 
             p95: percentile(latenciesMs, 0.95),
           },
           usage: { inputTokens, outputTokens },
-          totalCostUsd,
-          costObservations,
           outcomes,
         })}`,
       );

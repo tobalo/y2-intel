@@ -365,20 +365,20 @@ test "formatHttpErrorMessage renders restricted provider details without raw JSO
     );
 }
 
-test "formatHttpErrorMessage renders live restricted provider body shape" {
+test "formatHttpErrorMessage renders nested OpenAI-compatible error details" {
     const detail =
-        \\{"error":{"message":"Your team has restricted access to this provider. Contact the owner of the account for more details. Providers considered: wafer","type":"no_providers_available","param":{"name":"RestrictedProvidersError","message":"Your team has restricted access to this provider. Contact the owner of the account for more details. Providers considered: wafer"}},"providerMetadata":{"gateway":{"routing":{}}}}
+        \\{"error":{"message":"The selected model is unavailable.","type":"model_unavailable","param":{"name":"ModelUnavailableError","message":"The selected model is unavailable."}}}
     ;
     const line = try formatHttpErrorMessage(std.testing.allocator, .forbidden, detail);
     defer std.testing.allocator.free(line);
 
     try std.testing.expectEqualStrings(
-        "API access denied · HTTP 403 · Provider: wafer · no_providers_available: Your team has restricted access to this provider. Contact the owner of the account for more details. Providers considered: wafer",
+        "API access denied · HTTP 403 · model_unavailable: The selected model is unavailable.",
         line,
     );
 }
 
-test "formatHttpErrorMessage renders API key and credits setup bodies" {
+test "formatHttpErrorMessage renders API key setup bodies" {
     const api_key_detail =
         \\{"error":{"code":"api_key_required","message":"Set Y2_API_KEY to use this endpoint."}}
     ;
@@ -387,16 +387,6 @@ test "formatHttpErrorMessage renders API key and credits setup bodies" {
     try std.testing.expectEqualStrings(
         "API access denied · HTTP 401 · api_key_required: Set Y2_API_KEY to use this endpoint.",
         api_key_line,
-    );
-
-    const credits_detail =
-        \\{"error":{"code":"credit_card_required","message":"API credits are required."}}
-    ;
-    const credits_line = try formatHttpErrorMessage(std.testing.allocator, .forbidden, credits_detail);
-    defer std.testing.allocator.free(credits_line);
-    try std.testing.expectEqualStrings(
-        "API access denied · HTTP 403 · credit_card_required: API credits are required.",
-        credits_line,
     );
 }
 

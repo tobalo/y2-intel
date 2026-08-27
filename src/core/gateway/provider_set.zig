@@ -32,7 +32,6 @@ pub const Bundle = struct {
     model_catalog: ?model_catalog.Provider = null,
     permission_reviewer: ?auto_classifier.Provider = null,
     deferred_usage: ?generation_usage_provider.Provider = null,
-    credits: ?gateway_provider.CreditsProvider = null,
     y2_search: ?web_search_provider.Provider = null,
 
     pub fn agent_stream_or_unavailable(self: Bundle) stream_provider.Provider {

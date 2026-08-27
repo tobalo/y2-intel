@@ -11,7 +11,6 @@ const io_mod = @import("core/shared/io.zig");
 const model_catalog = @import("core/gateway/model_catalog.zig");
 const js_host_model_catalog = @import("gateway/js_host_model_catalog.zig");
 const oauth_transport = @import("core/auth/oauth_transport.zig");
-const output_contracts = @import("core/output/output_contracts.zig");
 const builtin_context = @import("builtins/context.zig");
 const builtin_gateway = @import("builtins/gateway.zig");
 const provider_catalog = @import("core/auth/provider_catalog.zig");
@@ -97,12 +96,4 @@ fn fetchCliModelCatalog(
         },
         .failed => |failed| .{ .failure = failed },
     };
-}
-
-fn fetchCredits(
-    _: ?*anyopaque,
-    _: Allocator,
-    _: gateway_provider.CreditsLookupInput,
-) output_contracts.CreditsSnapshot {
-    return .{};
 }

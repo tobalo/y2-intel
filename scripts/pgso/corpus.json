@@ -114,7 +114,6 @@
     {"name": "verify-auto-mode-reliability", "argv": ["bun", "test", "--max-concurrency", "1", "./auto-mode-reliability.test.ts"], "test_file": "auto-mode-reliability.test.ts"},
     {"name": "verify-tui-auth-source-selection", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-auth-source-selection.test.ts"], "test_file": "tui-auth-source-selection.test.ts"},
     {"name": "verify-tui-composer-edit-contracts", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-composer-edit-contracts.test.ts"], "test_file": "tui-composer-edit-contracts.test.ts"},
-    {"name": "verify-tui-cost", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-cost.test.ts"], "test_file": "tui-cost.test.ts"},
     {"name": "verify-tui-decision-prompts", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-decision-prompts.test.ts"], "test_file": "tui-decision-prompts.test.ts"},
     {"name": "verify-tui-file-picker", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-file-picker.test.ts"], "test_file": "tui-file-picker.test.ts"},
     {"name": "verify-tui-input-line-delete", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-input-line-delete.test.ts"], "test_file": "tui-input-line-delete.test.ts"},
