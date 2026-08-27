@@ -53,6 +53,10 @@ const LIVE_TIMEOUT = 120_000;
 const TERMINAL_HOST_EXIT_TIMEOUT_MS = 20_000;
 const SEEDED_GATEWAY_TOKEN = "seeded-access-token";
 const TERMINAL_FIXTURE_SHELL = terminalFixtureShell();
+const DIRECT_OPENAI_FULL_SERIALIZED_TOOL_NAMES = [
+  ...FULL_SERIALIZED_TOOL_NAMES,
+  "vision",
+];
 const MCP_STDIO_FIXTURE = join(
   import.meta.dirname,
   "fixtures",
@@ -1370,9 +1374,9 @@ describe("acp: model-independent", () => {
           .map((message) => acpContentText(message.content))
           .join("\n");
         expect(prompt).toContain(submitted);
-        expect(request.tools).toHaveLength(24);
+        expect(request.tools).toHaveLength(DIRECT_OPENAI_FULL_SERIALIZED_TOOL_NAMES.length);
         const toolNames = serializedToolNames(oracleRequest);
-        expect(toolNames).toEqual(FULL_SERIALIZED_TOOL_NAMES);
+        expect(toolNames).toEqual(DIRECT_OPENAI_FULL_SERIALIZED_TOOL_NAMES);
         expect(toolNames.filter((name) => name === "terminal")).toHaveLength(1);
         expect(findUnavailableCapabilityReferences(oracleRequest)).toEqual([]);
         expect(gateway.requests[0]!.body).not.toContain(
@@ -6763,7 +6767,7 @@ describe("acp: model-independent", () => {
         sendPrompt(client, 196, "Hold the code-mode prompt.");
         await waitForCondition("the code-mode Gateway request", () => gateway.requests.length === 1);
         const codeRequest = parseGatewayRequest(gateway.requests[0]!.body);
-        expect(serializedToolNames(codeRequest)).toEqual(FULL_SERIALIZED_TOOL_NAMES);
+        expect(serializedToolNames(codeRequest)).toEqual(DIRECT_OPENAI_FULL_SERIALIZED_TOOL_NAMES);
         expect(findUnavailableCapabilityReferences(codeRequest)).toEqual([]);
 
         client.send({
