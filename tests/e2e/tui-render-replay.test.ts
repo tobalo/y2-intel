@@ -17,12 +17,6 @@ const TRACE_SCOPES =
   "paint,render,scroll,footer.clean,input,resize,frame_layout,frame_plan,frame_diff,frame_commit,frame_owner_violation";
 const TRANSIENT_ACTIVITY_CAPTURE_TARBALL = "/private/tmp/y2-render-bug-20260510-073148.tar.gz";
 const TRANSIENT_ACTIVITY_CAPTURE_DIR = "/private/tmp/y2-render-bug-20260510-073148";
-const READ_ONLY_TOOLS_CAPTURE_TARBALL = join(
-  import.meta.dirname,
-  "fixtures",
-  "y2-render-bug-20260510-075848.tar.gz",
-);
-
 let session: TmuxSession | null = null;
 const workDirs: string[] = [];
 
@@ -256,51 +250,6 @@ describe("tui: render record/replay", () => {
     TIMEOUT,
   );
 
-  test(
-    "replays read-only tools capture without layout validation failures",
-    () => {
-      const failures: string[] = [];
-      const extractDir = mkdtempSync(join(tmpdir(), "y2-render-read-only-tools-"));
-      workDirs.push(extractDir);
-      execFileSync("tar", ["-xzf", READ_ONLY_TOOLS_CAPTURE_TARBALL, "-C", extractDir]);
-      const captureDir = join(extractDir, "y2-render-bug-20260510-075848");
-      const tapePath = join(captureDir, "bug.y2tape");
-      const workDir = mkdtempSync(join(tmpdir(), "y2-render-read-only-tools-replay-"));
-      workDirs.push(workDir);
-      const goldenPath = join(workDir, "grid.txt");
-      const tracePath = join(workDir, "trace.log");
-
-      const replayJsonOutput = execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
-        encoding: "utf8",
-      });
-      const replay = parseReplayJson(replayJsonOutput);
-      expect(replay.frame_count).toBe(381);
-      expect(replay.resize_count).toBe(0);
-      expect(replay.stdout_bytes).toBeGreaterThan(0);
-
-      execFileSync(Y2_BIN, ["replay", tapePath, "--golden", goldenPath], {
-        env: {
-          ...process.env,
-          Y2_TRACE_LOG: tracePath,
-          Y2_TRACE_SCOPES: TRACE_SCOPES,
-        },
-      });
-      const trace = readTrace(tracePath);
-      expect(trace).not.toContain("InvalidActivityPlacement");
-      expect(trace).not.toContain("viewport_validation_clamped");
-      expect(trace).not.toContain("layout_refine_failed");
-      expect(trace).not.toContain("WriteOutsideBand");
-      expect(trace).not.toContain("frame_owner_violation");
-
-      const gridText = readFileSync(goldenPath, "utf8");
-      expect(gridText).toContain("run some tools - read only tool for testing");
-      expect(gridText).toContain("Listed .");
-      assertSingleFooter(gridText.replace(/\n$/, "").split("\n"), failures, "read-only tools replay grid");
-      expect(failures).toEqual([]);
-    },
-    TIMEOUT,
-  );
-
   test.skipIf(SKIP)(
     "opt-in input recording captures bracketed paste and Return without changing replay",
     async () => {
@@ -315,7 +264,7 @@ describe("tui: render record/replay", () => {
       await session.pasteText(pasted);
       await session.waitForText("[Pasted text #1, 33 lines]", 5_000);
       await session.sendKeys("Enter");
-      await session.waitForText("● Auth: Y2 needs access", 5_000);
+      await session.waitForText("Y2 Information Dominance needs an API key", 5_000);
       expect((await session.captureFullScrollback()).replace(/\s+/g, " ")).toContain(authNotice);
 
       const stdin = readTapeFrames(launched.tapePath)

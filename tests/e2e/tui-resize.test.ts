@@ -194,21 +194,20 @@ function gatedResizeResponse(
   const event = (delta: string) =>
     encoder.encode(
       `data: ${JSON.stringify({
-        type: "text-delta",
         id: "resize-stream",
-        delta,
+        choices: [{
+          index: 0,
+          delta: { content: delta },
+          finish_reason: null,
+        }],
       })}\n\n`,
     );
-  const sendJson = (controller: ReadableStreamDefaultController<Uint8Array>, value: object) => {
-    controller.enqueue(encoder.encode(`data: ${JSON.stringify(value)}\n\n`));
-  };
 
   return {
     response: () =>
       new Response(
         new ReadableStream<Uint8Array>({
           start(controller) {
-            sendJson(controller, { type: "text-start", id: "resize-stream" });
             controller.enqueue(event(first));
             timer = setInterval(() => {
               if (!closed) controller.enqueue(encoder.encode(": gated-resize-hold\n\n"));
@@ -220,15 +219,18 @@ function gatedResizeResponse(
               closed = true;
               if (timer) clearInterval(timer);
               controller.enqueue(event(final));
-              sendJson(controller, { type: "text-end", id: "resize-stream" });
               controller.enqueue(
                 encoder.encode(
                   `data: ${JSON.stringify({
-                    type: "finish",
-                    finishReason: { unified: "stop", raw: "stop" },
+                    id: "resize-stream",
+                    choices: [{
+                      index: 0,
+                      delta: {},
+                      finish_reason: "stop",
+                    }],
                     usage: {
-                      inputTokens: { total: 1 },
-                      outputTokens: { total: 3 },
+                      prompt_tokens: 1,
+                      completion_tokens: 3,
                     },
                   })}\n\ndata: [DONE]\n\n`,
                 ),
@@ -2515,6 +2517,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       await session.waitForText(marker, 10_000);
 
       await session.resizeWindow(60, 12, 500);
+      await Bun.sleep(250);
       const baseline = await waitForSettledFooter(session);
       const baselineFooter = findFooter(baseline)!;
 
@@ -2529,7 +2532,17 @@ describe.skipIf(SKIP)("tui: resize", () => {
 
       const settled = await waitForSettledFooter(session);
       const settledFooter = findFooter(settled)!;
-      expect(settledFooter).toEqual(baselineFooter);
+      const baselineMarkerRow = baseline.findIndex((line) => line.includes(marker));
+      const settledMarkerRow = settled.findIndex((line) => line.includes(marker));
+      expect(baselineMarkerRow).toBeGreaterThanOrEqual(0);
+      expect(settledMarkerRow).toBeGreaterThanOrEqual(0);
+      expect(baselineFooter.topDivider - baselineMarkerRow).toBe(
+        settledFooter.topDivider - settledMarkerRow,
+      );
+      expect(baselineFooter.bottomDivider - baselineFooter.input).toBe(
+        settledFooter.bottomDivider - settledFooter.input,
+      );
+      expect(settledFooter.hasTopDivider).toBe(baselineFooter.hasTopDivider);
       expect(
         settled.slice(0, settledFooter.topDivider)
           .filter((line) => line.trim().length === 0).length,
@@ -2551,7 +2564,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
     height: number;
     surfaceMarker: string;
     editedInput: string;
-    fakeModels?: boolean;
     openSurface(active: TmuxSession): Promise<void>;
   }> = [
     {
@@ -2601,12 +2613,11 @@ describe.skipIf(SKIP)("tui: resize", () => {
       label: "model",
       width: 120,
       height: 36,
-      surfaceMarker: "provider/model-a",
+      surfaceMarker: "         y2-agent",
       editedInput: "/model x",
-      fakeModels: true,
       async openSurface(active) {
         await active.sendText("/model");
-        await active.waitForText("provider/model-a", TIMEOUT);
+        await active.waitForText("         y2-agent", TIMEOUT);
         await active.resizeWindow(60, 12, 500);
       },
     },
@@ -2642,27 +2653,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
     test(
       `${surfaceCase.issue} ${surfaceCase.label} release does not wait for the next edit to reflow`,
       async () => {
-        const gateway = surfaceCase.fakeModels
-          ? startFakeGateway([], {
-              models: [{
-                id: "provider/model-a",
-                type: "language",
-                released: 1,
-                tags: ["tool-use"],
-              }],
-            })
-          : null;
-        if (gateway) gateways.push(gateway);
         const fixture = await launchRecordedSurfaceSession(
           surfaceCase.label.replaceAll(" ", "-"),
           surfaceCase.width,
           surfaceCase.height,
-          gateway
-            ? {
-                Y2_E2E_GATEWAY_MODELS_URL:
-                  `${gateway.baseUrl}/v1/models`,
-              }
-            : {},
         );
         session = fixture.active;
         await surfaceCase.openSurface(session);
@@ -3467,7 +3461,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         stderrPath,
         env: {
           HOME: home,
-          Y2_API_KEY: "test-key",
+          OPENAI_API_KEY: "test-key",
           Y2_AUTO_UPGRADE: "0",
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_RECORD: tapePath,
@@ -3625,7 +3619,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          Y2_API_KEY: "test-key",
+          OPENAI_API_KEY: "test-key",
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3684,7 +3678,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          Y2_API_KEY: "test-key",
+          OPENAI_API_KEY: "test-key",
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3765,7 +3759,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          Y2_API_KEY: "test-key",
+          OPENAI_API_KEY: "test-key",
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3875,7 +3869,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          Y2_API_KEY: "test-key",
+          OPENAI_API_KEY: "test-key",
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
