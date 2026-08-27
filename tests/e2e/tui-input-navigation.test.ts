@@ -16,9 +16,11 @@ import {
   fakeGatewayFinalText,
   hasEmptyComposer,
   isComposerLine,
+  openAiChatMessages,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
+  type OpenAiChatMessage,
 } from "./tmux-helpers";
 import {
   assertPaneContains,
@@ -33,6 +35,7 @@ if (process.env.Y2_REQUIRE_TMUX === "1" && !HAS_TMUX) {
 const tmuxTest = test.skipIf(!HAS_TMUX);
 const TIMEOUT = 45_000;
 const READY_TIMEOUT = 10_000;
+const NATIVE_IMAGE_MODEL = "google/gemini-2.5-flash";
 const SELECTED_COMPLETION_SGR = "\x1b[1m\x1b[38;5;255m";
 const RENDER_TRACE_SCOPES =
   "paint,render,scroll,frame_plan,frame_diff,frame_commit,frame_owner_violation";
@@ -218,6 +221,36 @@ function rowContaining(grid: string[], needle: string): { index: number; line: s
   const index = grid.findIndex((line) => line.includes(needle));
   if (index < 0) throw new Error(`No pane row contains ${JSON.stringify(needle)}\n${grid.join("\n")}`);
   return { index, line: grid[index]! };
+}
+
+function openAiUserMessages(body: string): OpenAiChatMessage[] {
+  return openAiChatMessages(body).filter((message) => message.role === "user");
+}
+
+function openAiMessageText(message: OpenAiChatMessage | undefined): string {
+  if (!message) return "";
+  if (typeof message.content === "string") return message.content;
+  if (!Array.isArray(message.content)) return "";
+  return message.content.flatMap((part) => {
+    if (!part || typeof part !== "object") return [];
+    const record = part as Record<string, unknown>;
+    return record.type === "text" && typeof record.text === "string"
+      ? [record.text]
+      : [];
+  }).join("");
+}
+
+function openAiImageDataUrls(message: OpenAiChatMessage | undefined): string[] {
+  if (!message || !Array.isArray(message.content)) return [];
+  return message.content.flatMap((part) => {
+    if (!part || typeof part !== "object") return [];
+    const record = part as Record<string, unknown>;
+    if (record.type !== "image_url" || !record.image_url || typeof record.image_url !== "object") {
+      return [];
+    }
+    const url = (record.image_url as Record<string, unknown>).url;
+    return typeof url === "string" ? [url] : [];
+  });
 }
 
 async function expectOptionColumn(
@@ -545,7 +578,7 @@ tmuxTest(
     await active.waitForPane((pane) => pane.includes("Y"), READY_TIMEOUT);
     grid = await active.capturePaneGrid();
     const first = rowContaining(grid, "aaaaaa");
-    const wrapped = rowContaining(grid, "Y");
+    const wrapped = rowContaining(grid, "XY");
     // "XY" is a word: it wraps whole instead of splitting after "X".
     expect(first.line).not.toContain("X");
     expect(wrapped.index).toBe(first.index + 1);
@@ -575,13 +608,10 @@ tmuxTest(
     expectCleanStderr();
     expect(gateway?.requests).toHaveLength(1);
 
-    const messages = JSON.parse(gateway!.requests[0]!.body).prompt as Array<{
-      role: string;
-      content: Array<{ type: string; text?: string }>;
-    }>;
-    const finalUser = messages[messages.length - 1];
+    const messages = openAiUserMessages(gateway!.requests[0]!.body);
+    const finalUser = messages.at(-1);
     expect(finalUser?.role).toBe("user");
-    expect(finalUser?.content[0]?.text).toBe(prompt);
+    expect(openAiMessageText(finalUser)).toBe(prompt);
 
     const scrollback = await active.captureFullScrollback();
     const promptTail = scrollback.indexOf("TAB_START_0085");
@@ -988,7 +1018,7 @@ tmuxTest(
 );
 
 tmuxTest(
-  "typed pasted and slash-command images share the queued Gateway and session contract",
+  "typed pasted and slash-command images share the queued direct API and session contract",
   async () => {
     testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
     stderrPath = join(testHome, "stderr.log");
@@ -1023,7 +1053,7 @@ tmuxTest(
       ],
       {
         models: [{
-          id: FAKE_GATEWAY_MODEL,
+          id: NATIVE_IMAGE_MODEL,
           type: "language",
           tags: ["vision", "file-input", "tool-use"],
         }],
@@ -1039,7 +1069,7 @@ tmuxTest(
         OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
         Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
-        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_MODEL: NATIVE_IMAGE_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
@@ -1056,7 +1086,9 @@ tmuxTest(
       READY_TIMEOUT,
     );
     expect(localGateway.requests).toHaveLength(1);
-    expect(localGateway.requests[0]?.body).toContain('"type":"file"');
+    const typedUser = openAiUserMessages(localGateway.requests[0]!.body).at(-1);
+    expect(openAiImageDataUrls(typedUser)).toHaveLength(1);
+    expect(openAiImageDataUrls(typedUser)[0]).toStartWith("data:image/png;base64,");
     expect(localGateway.requests[0]?.body).not.toContain(scopedImage);
     expectScopedContext(localGateway.requests[0]!.body);
 
@@ -1071,7 +1103,9 @@ tmuxTest(
       READY_TIMEOUT,
     );
     expect(localGateway.requests).toHaveLength(2);
-    expect(localGateway.requests[1]?.body).toContain('"type":"file"');
+    const pastedUser = openAiUserMessages(localGateway.requests[1]!.body).at(-1);
+    expect(openAiImageDataUrls(pastedUser)).toHaveLength(1);
+    expect(openAiImageDataUrls(pastedUser)[0]).toStartWith("data:image/png;base64,");
     expect(localGateway.requests[1]?.body).not.toContain(scopedImage);
     expectScopedContext(localGateway.requests[1]!.body);
 
@@ -1089,7 +1123,9 @@ tmuxTest(
       READY_TIMEOUT,
     );
     expect(localGateway.requests).toHaveLength(3);
-    expect(localGateway.requests[2]?.body).toContain('"type":"file"');
+    const commandUser = openAiUserMessages(localGateway.requests[2]!.body).at(-1);
+    expect(openAiImageDataUrls(commandUser)).toHaveLength(1);
+    expect(openAiImageDataUrls(commandUser)[0]).toStartWith("data:image/png;base64,");
     expect(localGateway.requests[2]?.body).not.toContain(scopedImage);
     expectScopedContext(localGateway.requests[2]!.body);
 
@@ -1188,7 +1224,7 @@ tmuxTest(
       [fakeGatewayFinalText("Both images received.")],
       {
         models: [{
-          id: FAKE_GATEWAY_MODEL,
+          id: NATIVE_IMAGE_MODEL,
           type: "language",
           tags: ["vision", "file-input", "tool-use"],
         }],
@@ -1203,7 +1239,7 @@ tmuxTest(
         OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
         Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
-        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_MODEL: NATIVE_IMAGE_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
@@ -1248,14 +1284,16 @@ tmuxTest(
 
     expect(localGateway.requests).toHaveLength(1);
     const body = localGateway.requests[0]!.body;
-    const fileParts = body.match(/"type":"file"/g) ?? [];
-    expect(fileParts).toHaveLength(2);
+    const user = openAiUserMessages(body).at(-1);
+    const imageUrls = openAiImageDataUrls(user);
+    expect(imageUrls).toHaveLength(2);
+    expect(imageUrls.every((url) => url.startsWith("data:image/png;base64,"))).toBe(true);
     expect(body).not.toContain("/image ");
     expect(body).not.toContain(first);
     expect(body).not.toContain(second);
     expect(body).not.toContain(workspace);
     expect(body).not.toContain("file://");
-    expect(body).not.toContain("data:image");
+    expect(openAiMessageText(user)).toContain("describe both");
     expect(body).toContain("describe both");
 
     const fullScrollback = await active.captureFullScrollback();
@@ -1298,7 +1336,7 @@ tmuxTest(
       ],
       {
         models: [{
-          id: FAKE_GATEWAY_MODEL,
+          id: NATIVE_IMAGE_MODEL,
           type: "language",
           tags: ["vision", "file-input", "tool-use"],
         }],
@@ -1313,7 +1351,7 @@ tmuxTest(
         OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
         Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
-        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_MODEL: NATIVE_IMAGE_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
       width: 120,
@@ -1351,19 +1389,23 @@ tmuxTest(
     expect(resized).toContain("[Image 2] second turn");
     expect(resized).not.toContain("[Image 1] second turn");
 
-    // The second request replays turn 1, so it carries both placeholders. What
-    // matters is that each turn's text is paired with its own image id.
+    // The second request replays turn 1. Each user message must preserve its own
+    // text placeholder and one native image payload.
     expect(localGateway.requests).toHaveLength(2);
     const firstBody = localGateway.requests[0]!.body;
     const secondBody = localGateway.requests[1]!.body;
-    expect(firstBody).toContain("[Image #1] first turn");
-    expect(secondBody).toContain("[Image #1] first turn");
-    expect(secondBody).toContain("[Image #2] second turn");
-    expect(secondBody).not.toContain("[Image #1] second turn");
+    const firstUsers = openAiUserMessages(firstBody);
+    const secondUsers = openAiUserMessages(secondBody);
+    expect(firstUsers.map(openAiMessageText)).toContain("[Image #1] first turn");
+    expect(secondUsers.map(openAiMessageText)).toContain("[Image #1] first turn");
+    expect(secondUsers.map(openAiMessageText)).toContain("[Image #2] second turn");
+    expect(secondUsers.map(openAiMessageText)).not.toContain("[Image #1] second turn");
+    expect(openAiImageDataUrls(firstUsers.at(-1))).toHaveLength(1);
+    expect(openAiImageDataUrls(secondUsers.at(-2))).toHaveLength(1);
+    expect(openAiImageDataUrls(secondUsers.at(-1))).toHaveLength(1);
     for (const body of [firstBody, secondBody]) {
       expect(body).not.toContain(workspace);
       expect(body).not.toContain("file://");
-      expect(body).not.toContain("data:image");
     }
 
     expectCleanStderr();
@@ -1389,7 +1431,7 @@ tmuxTest(
       [fakeGatewayFinalText("YANKED_IMAGES_OK")],
       {
         models: [{
-          id: FAKE_GATEWAY_MODEL,
+          id: NATIVE_IMAGE_MODEL,
           type: "language",
           tags: ["vision", "file-input", "tool-use"],
         }],
@@ -1404,7 +1446,7 @@ tmuxTest(
         OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
         Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
-        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_MODEL: NATIVE_IMAGE_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
@@ -1435,9 +1477,10 @@ tmuxTest(
 
     expect(localGateway.requests).toHaveLength(1);
     const body = localGateway.requests[0]!.body;
-    expect(body.match(/"type":"file"/g) ?? []).toHaveLength(2);
+    const user = openAiUserMessages(body).at(-1);
+    expect(openAiImageDataUrls(user)).toHaveLength(2);
     expect(body.split(originalBase64).length - 1).toBe(2);
-    expect(body).toContain("[Image #2][Image #3] inspect both yanks");
+    expect(openAiMessageText(user)).toBe("[Image #2][Image #3] inspect both yanks");
     expect(body).not.toContain(source);
     expect(body).not.toContain(workspace);
     expect(body).not.toContain("file://");
@@ -1624,12 +1667,8 @@ tmuxTest(
       20_000,
     );
     expect(localGateway.requests.length).toBe(1);
-    const request = JSON.parse(localGateway.requests[0]!.body).prompt as Array<{
-      role: string;
-      content: Array<{ type: string; text?: string }>;
-    }>;
-    const user = request.findLast((message) => message.role === "user");
-    expect(user?.content[0]?.text).toBe(submission);
+    const user = openAiUserMessages(localGateway.requests[0]!.body).at(-1);
+    expect(openAiMessageText(user)).toBe(submission);
 
     const transcript = await active.capturePaneEscapes();
     const first = rowWithVisiblePredicate(
