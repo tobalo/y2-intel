@@ -543,18 +543,18 @@ describe("modern MCP stdio compatibility", () => {
     });
     let childCompleted = false;
     const activeGateway = startDynamicFakeGateway(async (body) => {
-      if (body.includes('"toolCallId":"child_mcp_call"')) {
+      if (body.includes('"tool_call_id":"child_mcp_call"')) {
         childCompleted = true;
         releaseParent(fakeGatewayFinalText("SCOPED_MCP_ONE_OFF_PARENT_READY"));
         return fakeGatewayFinalText("SCOPED_MCP_ONE_OFF_CHILD_READY");
       }
-      if (body.includes('"toolCallId":"child_mcp_select"')) {
+      if (body.includes('"tool_call_id":"child_mcp_select"')) {
         return fakeGatewayToolCall("child_mcp_call", TOOL_NAME, { text: "child" });
       }
-      if (body.includes('"toolCallId":"child_completion"')) {
+      if (body.includes('"tool_call_id":"child_completion"')) {
         return fakeGatewayToolCall("child_mcp_select", "mcp_select_tool", { name: TOOL_NAME });
       }
-      if (body.includes('"toolCallId":"child_prompt_get"')) {
+      if (body.includes('"tool_call_id":"child_prompt_get"')) {
         return fakeGatewayToolCall("child_completion", "mcp_features", {
           action: "prompt_complete",
           server: "fixture",
@@ -563,7 +563,7 @@ describe("modern MCP stdio compatibility", () => {
           value: "b",
         });
       }
-      if (body.includes('"toolCallId":"child_prompt_list"')) {
+      if (body.includes('"tool_call_id":"child_prompt_list"')) {
         return fakeGatewayToolCall("child_prompt_get", "mcp_features", {
           action: "prompt_get",
           server: "fixture",
@@ -571,20 +571,20 @@ describe("modern MCP stdio compatibility", () => {
           arguments: { tone: "brief" },
         });
       }
-      if (body.includes('"toolCallId":"child_resource_read"')) {
+      if (body.includes('"tool_call_id":"child_resource_read"')) {
         return fakeGatewayToolCall("child_prompt_list", "mcp_features", {
           action: "prompt_list",
           server: "fixture",
         });
       }
-      if (body.includes('"toolCallId":"child_resource_list"')) {
+      if (body.includes('"tool_call_id":"child_resource_list"')) {
         return fakeGatewayToolCall("child_resource_read", "mcp_features", {
           action: "resource_read",
           server: "fixture",
           uri: "custom://alpha",
         });
       }
-      if (body.includes('"toolCallId":"create_scoped_child"')) {
+      if (body.includes('"tool_call_id":"create_scoped_child"')) {
         return parentCompletion;
       }
       if (body.includes(childPrompt)) {
@@ -647,12 +647,12 @@ describe("modern MCP stdio compatibility", () => {
       });
       let childCompleted = false;
       const activeGateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"feature_only_list"')) {
+        if (body.includes('"tool_call_id":"feature_only_list"')) {
           childCompleted = body.includes("custom://alpha");
           releaseParent(fakeGatewayFinalText(`FEATURE_ONLY_${marker}_PARENT_READY`));
           return fakeGatewayFinalText(`FEATURE_ONLY_${marker}_CHILD_READY`);
         }
-        if (body.includes('"toolCallId":"create_feature_only_child"')) {
+        if (body.includes('"tool_call_id":"create_feature_only_child"')) {
           return parentCompletion;
         }
         if (body.includes(childPrompt)) {
@@ -732,26 +732,27 @@ describe("modern MCP stdio compatibility", () => {
       });
       let childFailedClosed = false;
       const activeGateway = startDynamicFakeGateway(async (body) => {
-        if (body.includes('"toolCallId":"disabled_child_feature"')) {
+        if (body.includes('"tool_call_id":"disabled_child_feature"')) {
           const request = JSON.parse(body) as {
-            prompt?: Array<{ content?: unknown }>;
+            messages?: Array<{
+              role?: unknown;
+              tool_call_id?: unknown;
+              content?: unknown;
+            }>;
           };
-          const parts = (request.prompt ?? []).flatMap((message) =>
-            Array.isArray(message.content) ? message.content : []
-          ) as Array<Record<string, unknown>>;
-          const toolResult = parts.find((part) =>
-            part.type === "tool-result" &&
-            part.toolCallId === "disabled_child_feature"
+          const toolResult = request.messages?.find((message) =>
+            message.role === "tool" &&
+            message.tool_call_id === "disabled_child_feature"
           );
           expect(toolResult).toBeDefined();
-          expect(contentText(toolResult!.output)).toBe(
+          expect(contentText(toolResult!.content)).toBe(
             "No MCP runtime is available.",
           );
           childFailedClosed = true;
           releaseParent(fakeGatewayFinalText(`DISABLED_MCP_${marker}_PARENT_READY`));
           return fakeGatewayFinalText(`DISABLED_MCP_${marker}_CHILD_READY`);
         }
-        if (body.includes('"toolCallId":"create_disabled_child"')) {
+        if (body.includes('"tool_call_id":"create_disabled_child"')) {
           return parentCompletion;
         }
         if (body.includes(childPrompt)) {
@@ -844,13 +845,13 @@ describe("modern MCP stdio compatibility", () => {
       let allowedBaseline = 0;
       let deniedBaseline: WireEntry[] = [];
       const activeGateway = startDynamicFakeGateway(async (body) => {
-        if (body.includes('"toolCallId":"scoped_refresh_search"')) {
+        if (body.includes('"tool_call_id":"scoped_refresh_search"')) {
           expect(body).toContain("mcp_allowed_echo");
           expect(body).not.toContain("mcp_denied_blocked");
           releaseParent(fakeGatewayFinalText("SCOPED_REFRESH_PARENT_READY"));
           return fakeGatewayFinalText("SCOPED_REFRESH_CHILD_READY");
         }
-        if (body.includes('"toolCallId":"create_scoped_refresh_child"')) {
+        if (body.includes('"tool_call_id":"create_scoped_refresh_child"')) {
           return parentCompletion;
         }
         if (body.includes(childPrompt)) {
@@ -3807,19 +3808,19 @@ describe("modern MCP stdio compatibility", () => {
       const beforePrompt = "BEFORE_FAILED_RELOAD";
       const afterPrompt = "AFTER_FAILED_RELOAD";
       const activeGateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"after_call"')) {
+        if (body.includes('"tool_call_id":"after_call"')) {
           return fakeGatewayFinalText("AFTER_RELOAD_READY");
         }
-        if (body.includes('"toolCallId":"after_select"')) {
+        if (body.includes('"tool_call_id":"after_select"')) {
           return fakeGatewayToolCall("after_call", TOOL_NAME, { text: "after" });
         }
         if (body.includes(afterPrompt)) {
           return fakeGatewayToolCall("after_select", "mcp_select_tool", { name: TOOL_NAME });
         }
-        if (body.includes('"toolCallId":"before_call"')) {
+        if (body.includes('"tool_call_id":"before_call"')) {
           return fakeGatewayFinalText("BEFORE_RELOAD_READY");
         }
-        if (body.includes('"toolCallId":"before_select"')) {
+        if (body.includes('"tool_call_id":"before_select"')) {
           return fakeGatewayToolCall("before_call", TOOL_NAME, { text: "before" });
         }
         if (body.includes(beforePrompt)) {
@@ -3969,16 +3970,16 @@ describe("modern MCP stdio compatibility", () => {
       const beforePrompt = "SELECT_BEFORE_MCP_RELOAD";
       const afterPrompt = "CALL_DIRECTLY_AFTER_MCP_RELOAD";
       const activeGateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"reload_direct"')) {
+        if (body.includes('"tool_call_id":"reload_direct"')) {
           return fakeGatewayFinalText("POST_RELOAD_GUIDANCE_READY");
         }
         if (body.includes(afterPrompt)) {
           return fakeGatewayToolCall("reload_direct", TOOL_NAME, { text: "stale" });
         }
-        if (body.includes('"toolCallId":"reload_before_call"')) {
+        if (body.includes('"tool_call_id":"reload_before_call"')) {
           return fakeGatewayFinalText("PRE_RELOAD_CALL_READY");
         }
-        if (body.includes('"toolCallId":"reload_before_select"')) {
+        if (body.includes('"tool_call_id":"reload_before_select"')) {
           return fakeGatewayToolCall("reload_before_call", TOOL_NAME, { text: "before" });
         }
         if (body.includes(beforePrompt)) {
@@ -4008,7 +4009,7 @@ describe("modern MCP stdio compatibility", () => {
       await tui.waitForText("POST_RELOAD_GUIDANCE_READY", 15_000);
 
       const postReloadResult = activeGateway.requests.find((request) =>
-        request.body.includes('"toolCallId":"reload_direct"')
+        request.body.includes('"tool_call_id":"reload_direct"')
       );
       expect(postReloadResult?.body).toContain(
         "Dynamic MCP tool not selected for this model step",
@@ -4325,10 +4326,10 @@ describe("modern MCP stdio compatibility", () => {
       const afterReloadPrompt = "AFTER_RELOAD_ROOT_PROMPT";
       const replacementTool = "mcp_fixture_sum";
       const activeGateway = startDynamicFakeGateway((body) => {
-        if (body.includes('"toolCallId":"reload_root_call"')) {
+        if (body.includes('"tool_call_id":"reload_root_call"')) {
           return fakeGatewayFinalText("AFTER_RELOAD_ROOT_READY");
         }
-        if (body.includes('"toolCallId":"reload_root_select"')) {
+        if (body.includes('"tool_call_id":"reload_root_select"')) {
           return fakeGatewayToolCall("reload_root_call", replacementTool, { text: "replacement" });
         }
         if (body.includes(afterReloadPrompt)) {
@@ -4336,13 +4337,13 @@ describe("modern MCP stdio compatibility", () => {
             name: replacementTool,
           });
         }
-        if (body.includes('"toolCallId":"reload_child_call"')) {
+        if (body.includes('"tool_call_id":"reload_child_call"')) {
           return fakeGatewayFinalText("RELOAD_CHILD_CANCELLED");
         }
-        if (body.includes('"toolCallId":"reload_child_select"')) {
+        if (body.includes('"tool_call_id":"reload_child_select"')) {
           return fakeGatewayToolCall("reload_child_call", TOOL_NAME, { text: "stall" });
         }
-        if (body.includes('"toolCallId":"reload_child_create"')) {
+        if (body.includes('"tool_call_id":"reload_child_create"')) {
           return fakeGatewayFinalText("RELOAD_PARENT_READY");
         }
         if (body.includes(childPrompt)) {
@@ -4426,14 +4427,14 @@ describe("modern MCP stdio compatibility", () => {
       const childWakeDeadline = Date.now() + 10_000;
       while (
         !activeGateway.requests.some((request) =>
-          request.body.includes('"toolCallId":"reload_child_call"')
+          request.body.includes('"tool_call_id":"reload_child_call"')
         ) &&
         Date.now() < childWakeDeadline
       ) {
         await Bun.sleep(25);
       }
       expect(activeGateway.requests.some((request) =>
-        request.body.includes('"toolCallId":"reload_child_call"')
+        request.body.includes('"tool_call_id":"reload_child_call"')
       )).toBe(true);
 
       const wire = readWire(root.wireLogPath);
