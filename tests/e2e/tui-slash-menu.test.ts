@@ -64,7 +64,7 @@ function selectedSlashRowIndex(escapes: string): number {
 }
 
 test("slash menu selection index ignores the welcome header help hint", () => {
-  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m${DIM_SGR} v0.3.27 · Run /help for commands`;
+  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m${DIM_SGR} · v0.3.27 · Run /help for commands`;
   const unselected = "\x1b[38;5;245m/help show available slash commands";
   const selected = `${SELECTED_COMPLETION_SGR}  /clear\x1b[38;5;245m start a fresh session and keep background processes`;
 
@@ -2335,7 +2335,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       expect(deep_history).not.toContain("Visible skills (");
       expect(deep_history).not.toContain("skill discovery warning:");
       expect(leadingBlankLineCount(tail_history)).toBeLessThan(3);
-      expect(tail_history).not.toContain("Y2 INFORMATION DOMINANCE v0.3.7");
+      expect(tail_history).not.toContain("Y2 INFORMATION DOMINANCE · v0.3.7");
       const escapes = await session.capturePaneEscapes();
       expect(escapes).not.toContain(`${DIM_SGR}y2-review`);
       expect(deep_history).not.toMatch(/┃ \/sk/);

@@ -296,7 +296,7 @@ function selectedSlashRow(escapes: string): string | null {
 }
 
 test("selected slash row ignores the welcome header help hint", () => {
-  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m\x1b[38;5;245m v0.3.27 · Run /help for commands`;
+  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m\x1b[38;5;245m · v0.3.27 · Run /help for commands`;
   const command = `${SELECTED_COMPLETION_SGR}  /clear\x1b[38;5;245m start a fresh session and keep background processes`;
 
   expect(selectedSlashRow(`${header}\n${command}`)).toBe(command);
@@ -1451,13 +1451,14 @@ async function runRapidSkillResizeAttempt(
 
 describe.skipIf(SKIP)("tui: resize", () => {
   test(
-    "welcome header starts at the first terminal row",
+    "welcome logo starts at the first terminal row",
     async () => {
       session = await launchAt(120, 40);
 
       const grid = await session.capturePaneGrid();
-      const headerRow = grid.findIndex((line) => line.includes("Y2 INFORMATION DOMINANCE v"));
-      expect(headerRow).toBe(0);
+      expect(grid[0]).toContain("██╗   ██╗██████╗");
+      const headerRow = grid.findIndex((line) => line.includes("Y2 INFORMATION DOMINANCE · v"));
+      expect(headerRow).toBe(6);
     },
     TIMEOUT,
   );
@@ -1577,7 +1578,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         session,
         "PRE_Y2_MARKER_",
       );
-      expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+      expect(scrollback.match(/Y2 INFORMATION DOMINANCE · v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
       expectOrderedMarkersWithoutBlankHole(scrollback, markers);
       const grid = await waitForSettledFooter(session);
@@ -1652,7 +1653,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       await waitForLiveScrollbackText(session, finalResponse, TIMEOUT);
 
       const scrollback = await session.captureFullScrollback();
-      expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+      expect(scrollback.match(/Y2 INFORMATION DOMINANCE · v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
       expect(scrollback).toContain("stream the resize marker command");
       expect(scrollback).not.toContain(preY2Marker);
@@ -1945,7 +1946,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       const afterCancelScrollback = await captureScrollback("after-cancel");
 
       const transcriptCopyCounts = (scrollback: string) => ({
-        startup: scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)?.length ?? 0,
+        startup: scrollback.match(/Y2 INFORMATION DOMINANCE · v\d+\.\d+\.\d+\b/g)?.length ?? 0,
         help: countOccurrences(scrollback, "Run /help for commands"),
         recording: countOccurrences(
           scrollback,
@@ -3420,7 +3421,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       await session.sendKeys("Escape");
       await session.waitForText("Run /help for commands", 5_000);
       const restored = captureScrollback();
-      expect(restored.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+      expect(restored.match(/Y2 INFORMATION DOMINANCE · v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(restored.match(/Run \/help for commands/g)).toHaveLength(1);
       expect(restored).not.toContain("Commands 36");
       expect(findFooter(await session.capturePaneGrid())).not.toBeNull();
@@ -3943,9 +3944,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         await session.waitForText("Run /help for commands", 5_000);
         const scrollback = await session.captureFullScrollback();
         expect(scrollback).not.toContain(marker);
-        expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+        expect(scrollback.match(/Y2 INFORMATION DOMINANCE · v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
         expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
-        expect(scrollback.split("\n")[0]).toMatch(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/);
+        expect(scrollback.split("\n")[0]).toContain("██╗   ██╗██████╗");
         expect(scrollback).not.toContain("Commands 36");
         const finalGrid = await session.capturePaneGrid();
         expect(findFooter(finalGrid), finalGrid.join("\n")).not.toBeNull();
