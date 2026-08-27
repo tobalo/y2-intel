@@ -28,7 +28,7 @@ TRAINING_E2E_TESTS = (
     "file-tool-permissions.test.ts",
     "gateway-stream-lifecycle.test.ts",
     "web-fetch-fake-network.test.ts",
-    "vision-route-fake-gateway.test.ts",
+    "direct-openai-images.test.ts",
     "acp.test.ts",
     "mcp-http.test.ts",
     "mcp-legacy-remote.test.ts",

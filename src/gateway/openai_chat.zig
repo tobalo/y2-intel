@@ -46,21 +46,39 @@ pub fn modeForEndpoint(endpoint: []const u8) Mode {
 }
 
 pub fn configuredMode() Mode {
-    if (io_mod.getenv(chat_url_env)) |endpoint| return modeForEndpoint(endpoint);
-    if (io_mod.getenv(openai_base_url_env) != null) return .openai_compatible;
+    if (nonEmptyEnv(chat_url_env)) |endpoint| return modeForEndpoint(endpoint);
+    if (nonEmptyEnv(openai_base_url_env) != null) return .openai_compatible;
     return .y2_agent;
 }
 
 pub fn endpointAlloc(alloc: Allocator) ![]u8 {
-    const endpoint = if (io_mod.getenv(chat_url_env)) |configured|
+    const endpoint = if (nonEmptyEnv(chat_url_env)) |configured|
         try alloc.dupe(u8, configured)
-    else if (io_mod.getenv(openai_base_url_env)) |base|
+    else if (nonEmptyEnv(openai_base_url_env)) |base|
         try appendChatCompletionsPath(alloc, base)
     else
         try alloc.dupe(u8, default_y2_chat_url);
     errdefer alloc.free(endpoint);
     try validateEndpoint(endpoint);
     return endpoint;
+}
+
+fn nonEmptyEnv(key: []const u8) ?[]const u8 {
+    return nonEmptyValue(io_mod.getenv(key));
+}
+
+fn nonEmptyValue(value: ?[]const u8) ?[]const u8 {
+    const actual = value orelse return null;
+    return if (actual.len == 0) null else actual;
+}
+
+test "blank configured endpoints are ignored" {
+    try std.testing.expect(nonEmptyValue(null) == null);
+    try std.testing.expect(nonEmptyValue("") == null);
+    try std.testing.expectEqualStrings(
+        "https://models.example/v1",
+        nonEmptyValue("https://models.example/v1").?,
+    );
 }
 
 fn appendChatCompletionsPath(alloc: Allocator, base: []const u8) ![]u8 {

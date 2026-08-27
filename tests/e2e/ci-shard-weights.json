@@ -47,7 +47,7 @@
   { "file": "tui-startup.test.ts", "weight": 7 },
   { "file": "tui-subagent-manager.test.ts", "weight": 214 },
   { "file": "tui-terminal-tool.test.ts", "weight": 129 },
-  { "file": "vision-route-fake-gateway.test.ts", "weight": 20 },
+  { "file": "direct-openai-images.test.ts", "weight": 4 },
   { "file": "web-fetch-fake-network.test.ts", "weight": 3 },
   { "file": "web-fetch-live.test.ts", "weight": 1 },
   { "file": "web-fetch-permission-progress.test.ts", "weight": 1 },

@@ -53,8 +53,8 @@ fn fetchCatalog(
     alloc: Allocator,
     input: model_catalog.FetchInput,
 ) Allocator.Error!model_catalog.ProviderResult {
-    const base_url = io_mod.getenv(openai_chat.openai_base_url_env) orelse
-        io_mod.getenv(openai_chat.chat_url_env) orelse return .{
+    const base_url = nonEmptyEnv(openai_chat.openai_base_url_env) orelse
+        nonEmptyEnv(openai_chat.chat_url_env) orelse return .{
         .failure = .{ .category = .runtime },
     };
     const request_url = catalogUrlAlloc(alloc, base_url) catch |err| {
@@ -100,6 +100,11 @@ fn fetchCatalog(
         return .{ .failure = .{ .category = .malformed_response, .http_status = .ok } };
     };
     return .{ .catalog = catalog };
+}
+
+fn nonEmptyEnv(key: []const u8) ?[]const u8 {
+    const value = io_mod.getenv(key) orelse return null;
+    return if (value.len == 0) null else value;
 }
 
 const FetchResponse = struct {

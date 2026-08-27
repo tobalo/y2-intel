@@ -852,7 +852,7 @@ tmuxTest(
 );
 
 tmuxTest(
-  "setup provider switch reauthenticates current Codex and replaces an unavailable model",
+  "setup provider switch reauthenticates current Codex and preserves the direct endpoint model",
   async () => {
     home = mkdtempSync(join(tmpdir(), "y2-tui-chatgpt-success-"));
     stderrPath = join(home, "stderr.log");
@@ -978,10 +978,13 @@ tmuxTest(
     await openProviderPicker(session);
     await session.sendKeys("Up");
     await session.sendKeys("Enter");
-    await session.waitForText("Switched to Y2 / OpenAI-compatible API with y2-agent.", TIMEOUT);
+    await session.waitForText(
+      "Switched to Y2 / OpenAI-compatible API with openai/gpt-5.6-sol.",
+      TIMEOUT,
+    );
     const savedGateway = JSON.parse(readFileSync(settingsPath, "utf8"));
     expect(savedGateway.provider).toBe("gateway");
-    expect(savedGateway.models.gateway).toBe("y2-agent");
+    expect(savedGateway.models.gateway).toBe("openai/gpt-5.6-sol");
     expect(savedGateway.models.codex).toBe("gpt-5.6-sol");
     await openProviderPicker(session);
     await session.sendKeys("Down");
@@ -989,7 +992,7 @@ tmuxTest(
     await session.waitForText("Switched to Codex subscription", TIMEOUT);
     const restoredCodex = JSON.parse(readFileSync(settingsPath, "utf8"));
     expect(restoredCodex.provider).toBe("codex");
-    expect(restoredCodex.models.gateway).toBe("y2-agent");
+    expect(restoredCodex.models.gateway).toBe("openai/gpt-5.6-sol");
     expect(restoredCodex.models.codex).toBe("gpt-5.6-sol");
     expect(chatgptOauth.requests.filter((request) => request.path === "/oauth/authorize"))
       .toHaveLength(authorizeRequestsBeforeRoundTrip);
@@ -1538,7 +1541,10 @@ tmuxTest(
       await session.sendKeys("Up");
       await session.sendKeys("Up");
       await session.sendKeys("Enter");
-      await session.waitForText("Switched to Y2 / OpenAI-compatible API with y2-agent.", TIMEOUT);
+      await session.waitForText(
+        `Switched to Y2 / OpenAI-compatible API with ${FAKE_GATEWAY_MODEL}.`,
+        TIMEOUT,
+      );
       await openProviderPicker(session);
       await session.sendKeys("Down");
       await session.sendKeys("Down");
