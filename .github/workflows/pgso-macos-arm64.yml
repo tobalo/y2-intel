@@ -31,7 +31,6 @@ env:
   OPENAI_BASE_URL: ""
   Y2_API_CHAT_URL: ""
   Y2_MODEL: ""
-  VERCEL_OIDC_TOKEN: ""
   Y2_SOUND: "0"
 
 jobs:

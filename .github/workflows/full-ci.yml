@@ -38,7 +38,6 @@ jobs:
       OPENAI_BASE_URL: ""
       Y2_API_CHAT_URL: ""
       Y2_MODEL: ""
-      VERCEL_OIDC_TOKEN: ""
     steps:
       - uses: actions/checkout@v4
 
@@ -117,7 +116,6 @@ jobs:
       OPENAI_BASE_URL: ""
       Y2_API_CHAT_URL: ""
       Y2_MODEL: ""
-      VERCEL_OIDC_TOKEN: ""
       Y2_REQUIRE_TMUX: "1"
       SHARD_INDEX: ${{ matrix.shard.index }}
       SHARD_COUNT: ${{ matrix.shard.shard_count }}
