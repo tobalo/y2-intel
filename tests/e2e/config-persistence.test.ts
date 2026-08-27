@@ -33,29 +33,6 @@ const NO_AUTH = {
 };
 
 const serialTest = test.serial;
-const SELECTED_COMPLETION_SGR = "\x1b[1m\x1b[38;5;255m";
-
-function selectedModelStageRow(paneEscapes: string, label: string): string | null {
-  return paneEscapes.split("\n").find((line) => {
-    const visible = line.replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "").trim();
-    return line.includes(SELECTED_COMPLETION_SGR) && visible === label;
-  }) ?? null;
-}
-
-async function waitForSelectedModelStage(
-  active: TmuxSession,
-  label: string,
-  timeoutMs: number,
-): Promise<string> {
-  const deadline = Date.now() + timeoutMs;
-  let last: string | null = null;
-  while (Date.now() < deadline) {
-    last = selectedModelStageRow(await active.capturePaneEscapes(), label);
-    if (last !== null) return last;
-    await new Promise((resolve) => setTimeout(resolve, 25));
-  }
-  throw new Error(`Timed out waiting for selected model option ${label}; last=${last}`);
-}
 
 async function disablePromptHistory(
   session: TmuxSession,
@@ -126,15 +103,6 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
     "user preferences migrate globally and load in another project",
     async () => {
       const root = mkdtempSync(join(tmpdir(), "y2-config-persistence-"));
-      const gateway = startFakeGateway([], {
-        models: [{
-          id: "anthropic/claude-opus-4.7",
-          type: "language",
-          tags: ["tool-use"],
-          reasoning_options: [{ type: "effort", values: ["high"] }],
-          fast_options: [{ type: "toggle" }],
-        }],
-      });
       try {
         const home = join(root, "home");
         const workspaceA = join(root, "workspace-a");
@@ -191,29 +159,19 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           }) + "\n",
           { mode: 0o600 },
         );
-        const catalogEnv = {
+        const directEnv = {
           ...NO_AUTH,
           HOME: home,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
         };
 
         session = await TmuxSession.create({
           cwd: workspaceARoot,
-          env: catalogEnv,
+          env: directEnv,
           stderrPath: stderrAPath,
         });
         await session.waitForText("Run /help", TIMEOUT);
         await session.sendKeys("BTab");
         await session.waitForText("auto ·", TIMEOUT);
-        await session.pasteText("/model anthropic/claude-opus-4.7 auto normal");
-        const beforeModelCommit = JSON.parse(
-          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
-        );
-        expect(beforeModelCommit).not.toHaveProperty("model");
-        await session.sendKeys("Enter");
-        await session.waitForText("● Switched to anthropic/claude-opus-4.7", TIMEOUT);
-        await session.sendText("/fast");
-        await session.waitForText("● Fast: on", TIMEOUT);
         await session.sendText("/statusline context");
         await session.waitForText("● Statusline: context:", TIMEOUT);
         await session.sendText("/statusline session");
@@ -228,10 +186,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        expect(stored.models.gateway).toBe("anthropic/claude-opus-4.7");
+        expect(stored).not.toHaveProperty("models");
         expect(stored.permission_mode).toBe("auto");
-        expect(stored.effort).toBe("auto");
-        expect(stored.fast_mode).toBe(true);
+        expect(stored).not.toHaveProperty("effort");
+        expect(stored).not.toHaveProperty("fast_mode");
         expect(stored.startup_scrollback).toBe(false);
         expect(stored.prompt_history).toMatchObject({ enabled: false });
         expect(stored.statusLine).toMatchObject({
@@ -245,10 +203,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           [workspaceBRoot, "b", "keep-b-history", "keep-b-status"],
         ] as const) {
           const override = stored.workspaces[workspaceRoot];
-          expect(override).not.toHaveProperty("model");
+          expect(override.model).toBe(`legacy/project-${futureWorkspace}`);
           expect(override).not.toHaveProperty("permission_mode");
-          expect(override).not.toHaveProperty("effort");
-          expect(override).not.toHaveProperty("fast_mode");
+          expect(override.effort).toBe(futureWorkspace === "a" ? "low" : "high");
+          expect(override.fast_mode).toBe(false);
           expect(override).not.toHaveProperty("startup_scrollback");
           expect(override.prompt_history).toEqual({ future: historyFuture });
           expect(override.statusLine).toEqual({ sandbox: false, workspace: false, future: statusFuture });
@@ -258,10 +216,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         expect(readFileSync(join(workspaceB, ".y2.json"), "utf8")).toBe(projectBBytes);
 
         const migrationSnapshots = [
-          "model",
           "permission_mode",
-          "effort",
-          "fast_mode",
           "startup_scrollback",
           "prompt_history_enabled",
           "statusline_context",
@@ -273,19 +228,19 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
 
         session = await TmuxSession.create({
           cwd: workspaceBRoot,
-          env: catalogEnv,
+          env: directEnv,
           stderrPath: stderrBPath,
         });
         const startup = await session.waitForText(
-          "auto · opus 4.7 · ⚡︎",
+          "auto · project-b",
           TIMEOUT,
         );
-        expect(startup).toContain("auto · opus 4.7 · ⚡︎");
+        expect(startup).toContain("auto · project-b");
         expect(startup).not.toContain("adaptive");
-        expect(startup).not.toContain("⚡︎ fast");
+        expect(startup).not.toContain("⚡︎");
         await session.sendText("/settings");
         const pane = await session.waitForText("←→ Change", TIMEOUT);
-        expect(pane).toContain("anthropic/claude-opus-4.7");
+        expect(pane).toContain("legacy/project-b");
         expect(pane).toContain("Startup scrollback");
         expect(pane).toContain("Prompt history");
         await session.sendKeys("Escape");
@@ -310,7 +265,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = await TmuxSession.create({
           cwd: workspaceBRoot,
           env: {
-            ...catalogEnv,
+            ...directEnv,
             Y2_MODEL: "openai/gpt-5",
           },
           stderrPath: stderrBPath,
@@ -323,11 +278,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const afterOverride = JSON.parse(
           readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
-        expect(afterOverride.models.gateway).toBe("anthropic/claude-opus-4.7");
+        expect(afterOverride).not.toHaveProperty("models");
         expect(readFileSync(stderrAPath, "utf8")).toBe("");
         expect(readFileSync(stderrBPath, "utf8")).toBe("");
       } finally {
-        gateway.stop();
         rmSync(root, { recursive: true, force: true });
       }
     },
@@ -532,156 +486,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   );
 
 
-  serialTest(
-    "Escape keeps the model picker dismissed until the model trigger restarts",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-model-picker-dismissal-"));
-      const gateway = startFakeGateway([], {
-        models: [{
-          id: "xai/grok-build-1",
-          type: "language",
-          released: 1,
-          tags: ["tool-use"],
-        }],
-      });
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        writeFileSync(
-          join(home, ".y2", "settings.json"),
-          JSON.stringify({ model: "openai/gpt-5" }) + "\n",
-        );
-
-        session = await TmuxSession.create({
-          cwd: realpathSync(workspace),
-          env: {
-            ...NO_AUTH,
-            HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-          },
-          stderrPath,
-        });
-        await session.waitForText("Run /help", TIMEOUT);
-        await session.sendLiteral("/model");
-        await session.sendKeys("Enter");
-        await session.waitForText("xai/grok-build-1", TIMEOUT);
-
-        await session.sendKeys("Escape");
-        await session.waitForPane(
-          (pane) =>
-            composerContains(pane, "/model") &&
-            !pane.includes("xai/grok-build-1"),
-          TIMEOUT,
-        );
-        await session.sendLiteral("x");
-        await session.waitForPane(
-          (pane) =>
-            composerContains(pane, "/model x") &&
-            !pane.includes("xai/grok-build-1"),
-          TIMEOUT,
-        );
-
-        await session.sendKeys("C-u");
-        await session.sendLiteral("/model");
-        await session.sendKeys("Enter");
-        await session.waitForText("xai/grok-build-1", TIMEOUT);
-
-        await session.sendKeys("C-u");
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    30_000,
-  );
-
   test(
-    "configured effort and Fast are visible before model catalog resolves",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-startup-preferences-"));
-      let releaseCatalog: (() => void) | null = null;
-      const catalogRelease = new Promise<void>((resolve) => {
-        releaseCatalog = resolve;
-      });
-      const gateway = startFakeGateway([], {
-        models: async () => {
-          await catalogRelease;
-          return [{
-            id: "anthropic/claude-opus-4.8",
-            type: "language",
-            released: 1,
-            tags: ["fast", "tool-use"],
-            reasoning_options: [{ type: "effort", values: ["high", "xhigh"] }],
-            pricing: {
-              fast: { input: "0.1", output: "0.2" },
-            },
-          }];
-        },
-      });
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        writeFileSync(
-          join(home, ".y2", "settings.json"),
-          JSON.stringify({
-            model: "anthropic/claude-opus-4.8",
-            permission_mode: "auto",
-            effort: "xhigh",
-            fast_mode: true,
-          }) + "\n",
-          { mode: 0o600 },
-        );
-
-        session = await TmuxSession.create({
-          cwd: realpathSync(workspace),
-          env: {
-            ...NO_AUTH,
-            HOME: home,
-            Y2_AUTO_UPGRADE: "0",
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-          },
-          stderrPath,
-        });
-        const pane = await session.waitForText("auto · opus 4.8", TIMEOUT);
-        expect(pane).toContain("auto · opus 4.8 · xhigh · ⚡︎");
-        releaseCatalog?.();
-        releaseCatalog = null;
-
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        releaseCatalog?.();
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    30_000,
-  );
-
-  test(
-    "Fast command rejects a tag-only intrinsic Fast alias",
+    "Fast command rejects saved models without fast support",
     async () => {
       const root = mkdtempSync(join(tmpdir(), "y2-fast-unsupported-"));
-      const gateway = startFakeGateway([], {
-        models: [{
-          id: "anthropic/claude-opus-4.8-fast",
-          type: "language",
-          released: 1,
-          tags: ["fast", "tool-use"],
-        }],
-      });
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -699,9 +507,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           cwd: realpathSync(workspace),
           env: {
             ...NO_AUTH,
-            OPENAI_API_KEY: "fake-standard-key",
             HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -712,7 +518,6 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           TIMEOUT,
         );
         expect(pane).not.toContain("⚡︎");
-        expect(gateway.requests).toHaveLength(0);
         expect(readFileSync(settingsPath, "utf8")).toBe(initialSettings);
 
         await session.sendText("/quit");
@@ -720,616 +525,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
         expect(readFileSync(stderrPath, "utf8")).toBe("");
       } finally {
-        gateway.stop();
         rmSync(root, { recursive: true, force: true });
       }
     },
     30_000,
-  );
-
-  test(
-    "settings reasoning effort changes without mutating the selected model",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-settings-effort-"));
-      const gateway = startFakeGateway([], {
-        models: [{
-          id: "zai/glm-5.2",
-          type: "language",
-          released: 1,
-          tags: ["reasoning", "tool-use"],
-          reasoning_options: [{ type: "effort", values: ["low", "medium"] }],
-        }],
-      });
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        const settingsPath = join(home, ".y2", "settings.json");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        writeFileSync(
-          settingsPath,
-          JSON.stringify({ model: "zai/glm-5.2", effort: "low" }) + "\n",
-          { mode: 0o600 },
-        );
-
-        session = await TmuxSession.create({
-          cwd: realpathSync(workspace),
-          env: {
-            ...NO_AUTH,
-            HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-          },
-          stderrPath,
-        });
-        await session.waitForText("Run /help", TIMEOUT);
-        await session.sendText("/settings");
-        await session.waitForText("←→ Change", TIMEOUT);
-        await session.sendLiteral("reason");
-        const effortSetting = await session.waitForText("Reasoning effort", TIMEOUT);
-        expect(effortSetting).toContain("low");
-        await session.sendKeys("Right");
-
-        let stored = JSON.parse(readFileSync(settingsPath, "utf8"));
-        const persistenceDeadline = Date.now() + TIMEOUT;
-        while (stored.effort !== "medium" && Date.now() < persistenceDeadline) {
-          await Bun.sleep(25);
-          stored = JSON.parse(readFileSync(settingsPath, "utf8"));
-        }
-        expect(stored).toMatchObject({
-          model: "zai/glm-5.2",
-          effort: "medium",
-        });
-        expect(session.paneStatus()).toEqual({ dead: false, status: null });
-        expect(await session.capturePane()).toContain("medium");
-
-        await session.sendKeys("Escape");
-        await session.waitForComposer(TIMEOUT);
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-        expect(gateway.requests).toHaveLength(0);
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    60_000,
-  );
-
-  test(
-    "Opus 4.8 Fast pricing drives picker request and persistence",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-anthropic-capabilities-"));
-      const gateway = startFakeGateway(
-        [fakeGatewayFinalText("Opus fast complete")],
-        {
-          models: [
-            {
-              id: "openai/gpt-5",
-              type: "language",
-              released: 1,
-              tags: ["tool-use"],
-            },
-            {
-              id: "anthropic/claude-opus-4.8",
-              type: "language",
-              released: 1,
-              tags: ["fast", "tool-use"],
-              reasoning_options: [{ type: "effort", values: ["high", "xhigh"] }],
-              pricing: {
-                fast: { input: "0.1", output: "0.2" },
-              },
-            },
-          ],
-        },
-      );
-      try {
-        const home = join(root, "home");
-        const opusWorkspace = join(root, "opus-workspace");
-        const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(opusWorkspace);
-        const opusRoot = realpathSync(opusWorkspace);
-        const settingsPath = join(home, ".y2", "settings.json");
-        const initialSettings = JSON.stringify({
-          model: "anthropic/claude-opus-4.8",
-          effort: "high",
-          fast_mode: false,
-          credential_source: "api_key",
-        }) + "\n";
-        writeFileSync(
-          settingsPath,
-          initialSettings,
-          { mode: 0o600 },
-        );
-        const gatewayEnv = {
-          ...NO_AUTH,
-          Y2_API_KEY: undefined,
-          OPENAI_API_KEY: "fake-openai-key",
-          Y2_DISABLE_KEYCHAIN: "1",
-          HOME: home,
-          OPENAI_BASE_URL: gateway.baseUrl,
-          Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-        };
-
-        session = await TmuxSession.create({
-          cwd: opusRoot,
-          env: gatewayEnv,
-          stderrPath,
-        });
-        await session.waitForText("Run /help", TIMEOUT);
-        await session.sendLiteral("/model openai");
-        await session.waitForText("openai/gpt-5", TIMEOUT);
-        await session.sendKeys("C-u");
-        await session.waitForPane(
-          (pane) =>
-            hasEmptyComposer(pane) &&
-            !pane.includes("openai/gpt-5"),
-          TIMEOUT,
-        );
-        await session.sendLiteral("/model");
-        await session.sendKeys("Enter");
-        await session.waitForText("anthropic/claude-opus-4.8", TIMEOUT);
-        expect(readFileSync(settingsPath, "utf8")).toBe(initialSettings);
-        await session.sendKeys("Enter");
-        // Gateway order is preserved after y2's default sentinel.
-        await session.waitForText("default", TIMEOUT);
-        for (let i = 0; i < 2; i += 1) await session.sendKeys("Down");
-        await session.waitForText("xhigh", TIMEOUT);
-        await session.sendKeys("Enter");
-        await session.waitForText("normal", TIMEOUT);
-        await session.sendLiteral("fast");
-        await session.waitForText("/model anthropic/claude-opus-4.8 xhigh fast", TIMEOUT);
-        await session.sendKeys("Enter");
-        const selectedFastStatus = await session.waitForText("opus 4.8 · xhigh · ⚡︎", TIMEOUT);
-        expect(selectedFastStatus).not.toContain("⚡︎ fast");
-        await session.sendText("Use fast.");
-        await session.waitForText("Opus fast complete", TIMEOUT);
-        expect(gateway.requests).toHaveLength(1);
-        expect(gateway.requests[0]!.headers.get("ai-language-model-id")).toBe(
-          "anthropic/claude-opus-4.8",
-        );
-        expect(gateway.requests[0]!.headers.get("authorization")).toBe(
-          "Bearer fake-y2-login-token",
-        );
-        expect(gateway.requests[0]!.headers.get("x-retired_credential-retired-gateway-team")).toBe(
-          "team_fast_test",
-        );
-        expect(JSON.parse(gateway.requests[0]!.body)).not.toHaveProperty("fast");
-        expect(JSON.parse(gateway.requests[0]!.body)).toMatchObject({
-          providerOptions: { gateway: { speed: "fast" } },
-        });
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-
-        const stored = JSON.parse(readFileSync(settingsPath, "utf8"));
-        expect(stored).toMatchObject({
-          models: { gateway: "anthropic/claude-opus-4.8" },
-          effort: "xhigh",
-          fast_mode: true,
-        });
-
-        session = await TmuxSession.create({
-          cwd: opusRoot,
-          env: gatewayEnv,
-          stderrPath,
-        });
-        const restoredFastStatus = await session.waitForText("opus 4.8 · xhigh · ⚡︎", TIMEOUT);
-        expect(restoredFastStatus).not.toContain("⚡︎ fast");
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    60_000,
-  );
-
-  test(
-    "GPT 5.6 Sol priority pricing drives the Fast request",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-openai-capabilities-"));
-      const gateway = startFakeGateway(
-        [
-          fakeGatewayFinalText("GPT 5.6 stale effort filtered"),
-          fakeGatewayFinalText("GPT 5.6 max fast complete"),
-        ],
-        {
-          models: [{
-            id: "openai/gpt-5.6-sol",
-            type: "language",
-            owned_by: "openai",
-            released: 1,
-            tags: ["reasoning", "tool-use"],
-            reasoning_options: [{
-              type: "effort",
-              values: ["future-tier", "max"],
-            }],
-            context_window: 1_050_000,
-            max_tokens: 128_000,
-            pricing: {
-              service_tiers: {
-                priority: { input: "0.1", output: "0.2" },
-              },
-            },
-          }],
-        },
-      );
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        const workspaceRoot = realpathSync(workspace);
-        const settingsPath = join(home, ".y2", "settings.json");
-        writeFileSync(
-          settingsPath,
-          JSON.stringify({
-            model: "openai/gpt-5.6-sol",
-            effort: "minimal",
-            fast_mode: true,
-          }) + "\n",
-          { mode: 0o600 },
-        );
-        const gatewayEnv = {
-          ...NO_AUTH,
-          OPENAI_API_KEY: "fake-capability-key",
-          HOME: home,
-          OPENAI_BASE_URL: gateway.baseUrl,
-          Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-        };
-
-        const staleResult = await runY2(
-          ["ask", "--auto", "--json", "--no-save", "Use stale minimal fast."],
-          {
-            cwd: workspaceRoot,
-            env: gatewayEnv,
-            timeoutMs: TIMEOUT,
-          },
-        );
-        expect(staleResult.code).toBe(0);
-        expect(gateway.requests).toHaveLength(1);
-        expect(JSON.parse(gateway.requests[0]!.body)).not.toHaveProperty(
-          "reasoning",
-        );
-        expect(JSON.parse(gateway.requests[0]!.body)).not.toHaveProperty("fast");
-        expect(JSON.parse(gateway.requests[0]!.body)).toMatchObject({
-          providerOptions: { gateway: { speed: "fast" } },
-        });
-        expect(JSON.parse(readFileSync(settingsPath, "utf8"))).toMatchObject({
-          model: "openai/gpt-5.6-sol",
-          effort: "minimal",
-          fast_mode: true,
-        });
-
-        session = await TmuxSession.create({
-          cwd: workspaceRoot,
-          env: gatewayEnv,
-          stderrPath,
-        });
-        await session.waitForText("Run /help", TIMEOUT);
-        await session.sendLiteral("/model sol");
-        await session.waitForText("openai/gpt-5.6-sol", TIMEOUT);
-        await session.sendKeys("Enter");
-        const efforts = await session.waitForText("default", TIMEOUT);
-        expect(efforts).not.toContain("minimal");
-        for (let i = 0; i < 2; i += 1) await session.sendKeys("Down");
-        await session.waitForText("max", TIMEOUT);
-        await session.sendKeys("Enter");
-        await session.waitForText("normal", TIMEOUT);
-        await session.sendLiteral("fast");
-        await session.waitForText("/model openai/gpt-5.6-sol max fast", TIMEOUT);
-        await session.sendKeys("Enter");
-        const selected = await session.waitForText("gpt-5.6-sol · max · ⚡︎", TIMEOUT);
-        expect(selected).not.toContain("⚡︎ fast");
-        await session.waitForComposer(TIMEOUT);
-
-        const stored = JSON.parse(
-          readFileSync(settingsPath, "utf8"),
-        );
-        expect(stored).toMatchObject({
-          models: { gateway: "openai/gpt-5.6-sol" },
-          effort: "max",
-          fast_mode: true,
-        });
-
-        await session.sendText("Use max fast.");
-        await session.waitForText("GPT 5.6 max fast complete", TIMEOUT);
-        expect(gateway.requests).toHaveLength(2);
-        expect(gateway.requests[1]!.headers.get("ai-language-model-id")).toBe(
-          "openai/gpt-5.6-sol",
-        );
-        expect(gateway.requests[1]!.headers.get("authorization")).toBe(
-          "Bearer fake-capability-key",
-        );
-        expect(JSON.parse(gateway.requests[1]!.body)).toMatchObject({
-          reasoning: "max",
-          providerOptions: { gateway: { speed: "fast" } },
-        });
-        expect(JSON.parse(gateway.requests[1]!.body)).not.toHaveProperty("fast");
-
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    60_000,
-  );
-
-  test(
-    "Fable 5 xhigh picker selection persists without fast mode",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-fable-capabilities-"));
-      const gateway = startFakeGateway([], {
-        models: [{
-          id: "anthropic/claude-fable-5",
-          type: "language",
-          released: 1,
-            tags: ["reasoning", "tool-use"],
-            reasoning_options: [{ type: "effort", values: ["high", "xhigh"] }],
-            context_window: 1_000_000,
-          max_tokens: 128_000,
-        }],
-      });
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        const workspaceRoot = realpathSync(workspace);
-
-        session = await TmuxSession.create({
-          cwd: workspaceRoot,
-          env: {
-            ...NO_AUTH,
-            HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-          },
-          stderrPath,
-        });
-        await session.waitForText("Run /help", TIMEOUT);
-        await session.sendLiteral("/model fable");
-        await session.waitForText("anthropic/claude-fable-5", TIMEOUT);
-        await session.sendKeys("Enter");
-        await session.waitForText("default", TIMEOUT);
-        for (let i = 0; i < 2; i += 1) await session.sendKeys("Down");
-        await session.waitForText("xhigh", TIMEOUT);
-        await session.sendKeys("Enter");
-        await session.waitForText("fable-5 · xhigh", TIMEOUT);
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-
-        const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        expect(stored).toMatchObject({
-          models: { gateway: "anthropic/claude-fable-5" },
-          effort: "xhigh",
-        });
-        expect(stored).not.toHaveProperty("fast_mode");
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    60_000,
-  );
-
-  test(
-    "model picker selection persists when a matching skill exists",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-model-picker-skill-"));
-      const gateway = startFakeGateway([], {
-        models: [{
-          id: "xai/grok-build-1",
-          type: "language",
-          released: 1,
-          tags: ["tool-use"],
-        }],
-      });
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        const skillRoot = join(home, ".y2", "skills", "model-helper");
-        mkdirSync(skillRoot, { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        writeFileSync(
-          join(skillRoot, "SKILL.md"),
-          "---\nname: model-helper\ndescription: model helper skill\n---\n\nModel helper body\n",
-        );
-        const workspaceRoot = realpathSync(workspace);
-
-        session = await TmuxSession.create({
-          cwd: workspaceRoot,
-          env: {
-            ...NO_AUTH,
-            HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-          },
-          stderrPath,
-        });
-        await session.waitForComposer(TIMEOUT);
-        await session.sendLiteral("/model");
-        await session.sendKeys("Enter");
-        const pickerPane = await session.waitForText("xai/grok-build-1", TIMEOUT);
-        expect(pickerPane).toContain("xai/grok-build-1");
-        await session.sendKeys("Enter");
-        await session.waitForText("● Switched to xai/grok-build-1", TIMEOUT);
-        await session.waitForPane(
-          (pane) =>
-            hasEmptyComposer(pane) &&
-            !pane.includes("model-helper"),
-          TIMEOUT,
-        );
-        expect(await session.capturePane()).not.toContain("saved to user settings");
-
-        const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        expect(stored.models.gateway).toBe("xai/grok-build-1");
-        expect(stored).not.toHaveProperty("effort");
-        expect(stored).not.toHaveProperty("fast_mode");
-
-        const scrollback = await session.captureFullScrollbackEscapes();
-        expect(scrollback).toContain("grok-build-1");
-        expect(scrollback).toContain("● Switched to xai/grok-build-1");
-        expect(gateway.requests).toHaveLength(0);
-
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    60_000,
-  );
-
-  test(
-    "Gateway catalog reasoning drives portable effort requests and persistence",
-    async () => {
-      const root = mkdtempSync(join(tmpdir(), "y2-gateway-capabilities-"));
-      const gateway = startFakeGateway(
-        [
-          fakeGatewayFinalText("portable auto complete"),
-          fakeGatewayFinalText("portable future complete"),
-        ],
-        {
-          models: [{
-            id: "provider/new-reasoning-model",
-            type: "language",
-            released: 99,
-            tags: ["reasoning", "tool-use"],
-            reasoning_options: [{
-              type: "effort",
-              values: ["future-tier", "high"],
-            }],
-            context_window: 750_000,
-            max_tokens: 32_000,
-          }],
-        },
-      );
-      try {
-        const home = join(root, "home");
-        const workspace = join(root, "workspace");
-        const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
-        mkdirSync(workspace);
-        const workspaceRoot = realpathSync(workspace);
-
-        session = await TmuxSession.create({
-          cwd: workspaceRoot,
-          env: {
-            ...NO_AUTH,
-            OPENAI_API_KEY: "fake-capability-key",
-            HOME: home,
-            OPENAI_BASE_URL: gateway.baseUrl,
-            Y2_API_CHAT_URL: gateway.chatUrl,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
-          },
-          stderrPath,
-        });
-        await session.waitForText("Run /help", TIMEOUT);
-        await session.sendText("/statusline context");
-        await session.waitForText("● Statusline: context: on", TIMEOUT);
-        await session.sendLiteral("/model new-reasoning");
-        await session.waitForText("provider/new-reasoning-model", TIMEOUT);
-        await session.sendKeys("Enter");
-        const autoEffortPicker = await session.waitForText("default", TIMEOUT);
-        expect(autoEffortPicker).toContain("future-tier");
-        expect(autoEffortPicker).toContain("high");
-        await session.sendKeys("Enter");
-        await session.waitForText("● Switched to provider/new-reasoning-model", TIMEOUT);
-
-        let stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        expect(stored.models.gateway).toBe("provider/new-reasoning-model");
-        expect(stored).not.toHaveProperty("fast_mode");
-
-        await session.sendText("Use portable auto.");
-        await session.waitForText("portable auto complete", TIMEOUT);
-        const footer = await session.waitForText("Context: 0k/750k 0%", TIMEOUT);
-        expect(footer).toContain("new-reasoning-model");
-        expect(gateway.requests).toHaveLength(1);
-        expect(gateway.requests[0]!.headers.get("ai-language-model-id")).toBe(
-          "provider/new-reasoning-model",
-        );
-        expect(
-          gateway.requests[0]!.headers.get(
-            "ai-language-model-specification-version",
-          ),
-        ).toBe("4");
-        expect(JSON.parse(gateway.requests[0]!.body)).not.toHaveProperty("reasoning");
-
-        await session.sendLiteral("/model new-reasoning");
-        await session.waitForText("provider/new-reasoning-model", TIMEOUT);
-        await session.sendKeys("Enter");
-        await session.waitForText("default", TIMEOUT);
-        await session.sendKeys("Down");
-        await session.waitForText("future-tier", TIMEOUT);
-        await session.sendKeys("Enter");
-        await session.waitForText("· future-tier", TIMEOUT);
-
-        stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        const persistenceDeadline = Date.now() + TIMEOUT;
-        while (stored.effort !== "future-tier" && Date.now() < persistenceDeadline) {
-          await Bun.sleep(25);
-          stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        }
-        expect(stored).toMatchObject({
-          models: { gateway: "provider/new-reasoning-model" },
-          effort: "future-tier",
-        });
-
-        await session.sendText("Use portable future.");
-        await session.waitForText("portable future complete", TIMEOUT);
-        expect(gateway.requests).toHaveLength(2);
-        expect(
-          gateway.requests[1]!.headers.get(
-            "ai-language-model-specification-version",
-          ),
-        ).toBe("4");
-        expect(JSON.parse(gateway.requests[1]!.body)).toMatchObject({
-          reasoning: "future-tier",
-        });
-        expect(JSON.parse(gateway.requests[1]!.body)).not.toHaveProperty(
-          "providerOptions",
-        );
-
-        await session.sendText("/quit");
-        await session.waitForSessionEnd(TIMEOUT);
-        session = null;
-
-        stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
-        expect(stored).toMatchObject({
-          models: { gateway: "provider/new-reasoning-model" },
-          effort: "future-tier",
-        });
-        expect(stored).not.toHaveProperty("fast_mode");
-        expect(readFileSync(stderrPath, "utf8")).toBe("");
-      } finally {
-        gateway.stop();
-        rmSync(root, { recursive: true, force: true });
-      }
-    },
-    60_000,
   );
 
   serialTest(

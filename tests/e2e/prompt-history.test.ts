@@ -22,7 +22,7 @@ import {
 
 const TIMEOUT = 20_000;
 const REJECTED_GATEWAY_AUTH = {
-  Y2_API_KEY: "e2e-placeholder",
+  OPENAI_API_KEY: "e2e-placeholder",
   NO_COLOR: "1",
 };
 
