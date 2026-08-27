@@ -94,7 +94,7 @@ pub const TurnReviewCache = struct {
 
 fn permissionActionId(call: ToolCall) PermissionActionId {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.permission-action.v1\x00");
+    hash.update("y2.permission-action.v1\x00");
     hash.update(call.name);
     hash.update("\x00");
     hash.update(call.arguments_json);

@@ -10,7 +10,7 @@ export type TapeFrame = {
 
 export function readTapeFrames(path: string): TapeFrame[] {
   const bytes = readFileSync(path);
-  const magic = Buffer.from("FXTP\x01", "binary");
+  const magic = Buffer.from("Y2TP\x01", "binary");
   if (!bytes.subarray(0, magic.length).equals(magic)) {
     throw new Error("invalid tape magic");
   }

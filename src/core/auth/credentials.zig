@@ -16,8 +16,8 @@ pub const Source = types.CredentialSource;
 
 pub const CatalogPublicOnly = union(enum) {
     no_credential,
-    fx_login_team_required,
-    fx_login_refresh_required,
+    retired_login_team_required,
+    retired_login_refresh_required,
     credential_refresh_failed: Source,
     authenticated_credential_rejected: Source,
     chatgpt_subscription,
@@ -26,7 +26,7 @@ pub const CatalogPublicOnly = union(enum) {
     fn credentialSource(self: CatalogPublicOnly) ?Source {
         return switch (self) {
             .no_credential => null,
-            .fx_login_team_required, .fx_login_refresh_required => .fx_login,
+            .retired_login_team_required, .retired_login_refresh_required => .retired_login,
             .credential_refresh_failed => |source| source,
             .authenticated_credential_rejected => |source| source,
             .chatgpt_subscription => .chatgpt_subscription,
@@ -38,18 +38,18 @@ pub const CatalogPublicOnly = union(enum) {
 pub const CatalogPublicOnlyReason = std.meta.Tag(CatalogPublicOnly);
 
 pub const CatalogAuthenticatedSource = enum {
-    vercel_oidc_token,
+    retired_oidc_token,
     api_key,
-    fx_login,
+    retired_login,
     stored_key,
     chatgpt_subscription,
     grok_subscription,
 
     fn credentialSource(self: CatalogAuthenticatedSource) Source {
         return switch (self) {
-            .vercel_oidc_token => .vercel_oidc_token,
+            .retired_oidc_token => .retired_oidc_token,
             .api_key => .api_key,
-            .fx_login => .fx_login,
+            .retired_login => .retired_login,
             .stored_key => .stored_key,
             .chatgpt_subscription => .chatgpt_subscription,
             .grok_subscription => .grok_subscription,
@@ -128,8 +128,8 @@ pub const CatalogAccess = union(enum) {
 
 pub fn catalogAccessAt(credential: ?Credential, now_ms: i64) CatalogAccess {
     const selected = credential orelse return .{ .public_only = .no_credential };
-    if (selected.source == .fx_login and selected.needsRefreshAt(now_ms)) {
-        return .{ .public_only = .fx_login_refresh_required };
+    if (selected.source == .retired_login and selected.needsRefreshAt(now_ms)) {
+        return .{ .public_only = .retired_login_refresh_required };
     }
     return catalogAccessForCredentialAndAccount(
         selected.source,
@@ -163,17 +163,17 @@ pub fn catalogAccessForCredentialAndAccount(
 ) CatalogAccess {
     const selected_source = source orelse return .{ .public_only = .no_credential };
     const authenticated_source: CatalogAuthenticatedSource = switch (selected_source) {
-        .vercel_oidc_token => .vercel_oidc_token,
+        .retired_oidc_token => .retired_oidc_token,
         .api_key => .api_key,
         .stored_key => .stored_key,
         .chatgpt_subscription => .chatgpt_subscription,
         .grok_subscription => .grok_subscription,
-        .fx_login => blk: {
+        .retired_login => blk: {
             const team = team_context orelse
-                return .{ .public_only = .fx_login_team_required };
+                return .{ .public_only = .retired_login_team_required };
             if (!types.validGatewayTeam(team))
-                return .{ .public_only = .fx_login_team_required };
-            break :blk .fx_login;
+                return .{ .public_only = .retired_login_team_required };
+            break :blk .retired_login;
         },
     };
     return .{
@@ -191,18 +191,18 @@ pub fn catalogAccessForCredentialAndAccount(
 pub const stored_key_backend_label = if (builtin.os.tag == .macos) "macOS Keychain" else "profile file";
 
 /// Both modes resolve the same source set; the mode selects only whether an expired
-/// fx login session is refreshed first.
+/// y2 login session is refreshed first.
 pub const LoadMode = enum { stored, refresh_if_needed };
 
-const FxLoginRefreshMode = enum { if_needed, force };
+const RetiredLoginRefreshMode = enum { if_needed, force };
 
-pub const missing_credential_message = "Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.";
+pub const missing_credential_message = "Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.";
 pub const missing_interactive_credential_message = "Y2 Information Dominance needs an API key. Run /setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.";
-pub const missing_chatgpt_credential_message = "fx needs a Codex subscription login for this model. Run fx login codex.";
+pub const missing_chatgpt_credential_message = "y2 needs a Codex subscription login for this model. Run y2 login codex.";
 pub const missing_chatgpt_interactive_credential_message = "Codex needs a subscription login. Run /login, open Connections, then choose Codex subscription.";
-pub const missing_grok_credential_message = "fx needs a Grok subscription login for this model. Run fx login grok.";
+pub const missing_grok_credential_message = "y2 needs a Grok subscription login for this model. Run y2 login grok.";
 pub const missing_grok_interactive_credential_message = "Grok needs a subscription login. Run /login, open Connections, then choose Grok subscription.";
-pub const unreadable_store_message = "Y2 Information Dominance could not read the stored API key from " ++ stored_key_backend_label ++ ". A key may be saved but unreadable. Set FX_TRACE_LOG for the failing step, or set Y2_API_KEY.";
+pub const unreadable_store_message = "Y2 Information Dominance could not read the stored API key from " ++ stored_key_backend_label ++ ". A key may be saved but unreadable. Set Y2_TRACE_LOG for the failing step, or set Y2_API_KEY.";
 
 pub const Credential = struct {
     token: []u8,
@@ -241,11 +241,11 @@ pub const StoredKeyReadStatus = enum {
     unavailable,
 };
 
-/// Why the fx login produced no credential. Only meaningful once resolution has
-/// reached the fx-login step and it stayed silent. `unavailable` means the
+/// Why the y2 login produced no credential. Only meaningful once resolution has
+/// reached the y2-login step and it stayed silent. `unavailable` means the
 /// session could not be loaded or its refresh failed, which is different from
 /// having no session at all: the login exists and may still be repairable.
-pub const FxLoginReadStatus = enum {
+pub const RetiredLoginReadStatus = enum {
     not_attempted,
     absent,
     unavailable,
@@ -254,7 +254,7 @@ pub const FxLoginReadStatus = enum {
 pub const Resolution = struct {
     credential: ?Credential = null,
     stored_key_status: StoredKeyReadStatus = .not_attempted,
-    fx_login_status: FxLoginReadStatus = .not_attempted,
+    retired_login_status: RetiredLoginReadStatus = .not_attempted,
 };
 
 /// The single credential resolution method. Walks source precedence, then falls back to
@@ -314,7 +314,7 @@ pub fn resolvePreferring(
     preferred: ?Source,
 ) !Resolution {
     if (preferred) |source| {
-        if (source != .vercel_oidc_token and source != .fx_login and
+        if (source != .retired_oidc_token and source != .retired_login and
             (source != .stored_key or !secret_store.isDisabled()))
         {
             const chosen = loadPreferredSource(alloc, transport, secret_store, mode, source) catch |err| blk: {
@@ -329,7 +329,7 @@ pub fn resolvePreferring(
 
     if (try loadSource(alloc, transport, secret_store, .api_key)) |credential| return .{ .credential = credential };
 
-    if (secret_store.isDisabled()) return .{ .fx_login_status = .absent };
+    if (secret_store.isDisabled()) return .{ .retired_login_status = .absent };
 
     var status: StoredKeyReadStatus = .not_found;
     const stored = loadSource(alloc, transport, secret_store, .stored_key) catch |err| blk: {
@@ -338,22 +338,22 @@ pub fn resolvePreferring(
         debug_trace.logf("auth", "stored key load failed err={s} status={t}", .{ @errorName(err), status });
         break :blk null;
     };
-    if (stored) |credential| return .{ .credential = credential, .fx_login_status = .absent };
-    return .{ .stored_key_status = status, .fx_login_status = .absent };
+    if (stored) |credential| return .{ .credential = credential, .retired_login_status = .absent };
+    return .{ .stored_key_status = status, .retired_login_status = .absent };
 }
 
-fn loadFxLoginForPrecedence(
+fn loadRetiredLoginForPrecedence(
     alloc: std.mem.Allocator,
     transport: oauth_transport.Provider,
     mode: LoadMode,
 ) !?Credential {
     return switch (mode) {
-        .stored => loadStoredFxLoginCredential(alloc),
-        .refresh_if_needed => loadFxLoginCredential(alloc, transport),
+        .stored => loadStoredRetiredLoginCredential(alloc),
+        .refresh_if_needed => loadRetiredLoginCredential(alloc, transport),
     };
 }
 
-/// `loadSource` always refreshes an expired fx login, which `.stored` mode
+/// `loadSource` always refreshes an expired y2 login, which `.stored` mode
 /// forbids: a diagnostic must not rewrite the session file or make an OAuth
 /// request. Honour the mode for the preferred source too.
 fn loadPreferredSource(
@@ -364,9 +364,9 @@ fn loadPreferredSource(
     source: Source,
 ) !?Credential {
     return switch (source) {
-        .fx_login => switch (mode) {
-            .stored => loadStoredFxLoginCredential(alloc),
-            .refresh_if_needed => loadFxLoginCredential(alloc, transport),
+        .retired_login => switch (mode) {
+            .stored => loadStoredRetiredLoginCredential(alloc),
+            .refresh_if_needed => loadRetiredLoginCredential(alloc, transport),
         },
         .chatgpt_subscription => switch (mode) {
             .stored => loadStoredChatGptCredential(alloc),
@@ -387,7 +387,7 @@ pub fn loadSource(
     source: Source,
 ) !?Credential {
     return switch (source) {
-        .vercel_oidc_token, .fx_login => null,
+        .retired_oidc_token, .retired_login => null,
         .api_key => loadApiKeyEnvCredential(alloc),
         .stored_key => loadStoredKeyCredential(alloc, secret_store),
         .chatgpt_subscription => loadChatGptCredential(alloc, transport, .if_needed),
@@ -401,7 +401,7 @@ pub fn sourceExists(
     source: Source,
 ) !bool {
     return switch (source) {
-        .vercel_oidc_token, .fx_login => false,
+        .retired_oidc_token, .retired_login => false,
         .api_key => if (usesDirectOpenAiEndpoint())
             nonEmptyEnvValue("OPENAI_API_KEY") != null
         else
@@ -449,7 +449,7 @@ fn loadApiKeyEnvCredential(alloc: std.mem.Allocator) !?Credential {
 }
 
 fn usesDirectOpenAiEndpoint() bool {
-    if (nonEmptyEnvValue("FX_API_CHAT_URL")) |endpoint| return !isY2AgentEndpoint(endpoint);
+    if (nonEmptyEnvValue("Y2_API_CHAT_URL")) |endpoint| return !isY2AgentEndpoint(endpoint);
     if (nonEmptyEnvValue("OPENAI_BASE_URL")) |base_url| return !isY2AgentBaseUrl(base_url);
     return false;
 }
@@ -534,7 +534,7 @@ fn nonEmptyValue(value: ?[]const u8) ?[]const u8 {
     return raw;
 }
 
-pub fn loadFxLoginCredential(
+pub fn loadRetiredLoginCredential(
     alloc: std.mem.Allocator,
     transport: oauth_transport.Provider,
 ) !?Credential {
@@ -542,23 +542,23 @@ pub fn loadFxLoginCredential(
     defer session.deinit(alloc);
 
     if (session.expired(io_mod.milliTimestamp())) {
-        return refreshFxLoginCredentialLocked(alloc, transport, .if_needed);
+        return refreshRetiredLoginCredentialLocked(alloc, transport, .if_needed);
     }
 
     return takeCredentialFromSession(&session, null);
 }
 
-fn loadStoredFxLoginCredential(alloc: std.mem.Allocator) !?Credential {
+fn loadStoredRetiredLoginCredential(alloc: std.mem.Allocator) !?Credential {
     var session = (try oauth_session.load(alloc)) orelse return null;
     defer session.deinit(alloc);
     return takeCredentialFromSession(&session, null);
 }
 
-pub fn refreshFxLoginCredential(
+pub fn refreshRetiredLoginCredential(
     alloc: std.mem.Allocator,
     transport: oauth_transport.Provider,
 ) !?Credential {
-    return refreshFxLoginCredentialLocked(alloc, transport, .force);
+    return refreshRetiredLoginCredentialLocked(alloc, transport, .force);
 }
 
 pub fn refreshChatGptCredential(
@@ -575,10 +575,10 @@ pub fn refreshGrokCredential(
     return loadGrokCredential(alloc, transport, .force);
 }
 
-fn refreshFxLoginCredentialLocked(
+fn refreshRetiredLoginCredentialLocked(
     alloc: std.mem.Allocator,
     transport: oauth_transport.Provider,
-    mode: FxLoginRefreshMode,
+    mode: RetiredLoginRefreshMode,
 ) !?Credential {
     var mutation = (try oauth_session.beginExistingMutation()) orelse return null;
     defer mutation.deinit();
@@ -588,13 +588,13 @@ fn refreshFxLoginCredentialLocked(
 
     var refreshed_at_ms: ?i64 = null;
     if (mode == .force or session.expired(io_mod.milliTimestamp())) {
-        try refreshFxSession(alloc, transport, &mutation, &session);
+        try refreshY2Session(alloc, transport, &mutation, &session);
         refreshed_at_ms = io_mod.milliTimestamp();
     }
     return takeCredentialFromSession(&session, refreshed_at_ms);
 }
 
-pub fn refreshFxSession(
+pub fn refreshY2Session(
     alloc: std.mem.Allocator,
     transport: oauth_transport.Provider,
     mutation: *oauth_session.Mutation,
@@ -645,7 +645,7 @@ fn takeCredentialFromSession(session: *oauth_session.Session, refreshed_at_ms: ?
     session.team_slug = null;
     return .{
         .token = token,
-        .source = .fx_login,
+        .source = .retired_login,
         .team_id = team_id,
         .team_slug = team_slug,
         .refresh_after_ms = credentialRefreshAfterMs(session.expires_at_ms, refreshed_at_ms),
@@ -661,9 +661,9 @@ fn credentialRefreshAfterMs(expires_at_ms: i64, refreshed_at_ms: ?i64) i64 {
 
 pub fn sourceLabel(source: Source) []const u8 {
     return switch (source) {
-        .vercel_oidc_token => "VERCEL_OIDC_TOKEN",
+        .retired_oidc_token => "REMOVED_LEGACY_OIDC_TOKEN",
         .api_key => "API key",
-        .fx_login => "fx login",
+        .retired_login => "y2 login",
         .stored_key => "stored API key (" ++ stored_key_backend_label ++ ")",
         .chatgpt_subscription => "Codex subscription",
         .grok_subscription => "Grok subscription",
@@ -671,19 +671,19 @@ pub fn sourceLabel(source: Source) []const u8 {
 }
 
 pub fn sourceRefreshable(source: Source) bool {
-    return source == .fx_login or source == .chatgpt_subscription or source == .grok_subscription;
+    return source == .retired_login or source == .chatgpt_subscription or source == .grok_subscription;
 }
 
 test "stored key label discloses the backend that answered" {
     try std.testing.expect(std.mem.find(u8, sourceLabel(.stored_key), stored_key_backend_label) != null);
     try std.testing.expect(std.mem.find(u8, unreadable_store_message, stored_key_backend_label) != null);
-    for ([_]Source{ .vercel_oidc_token, .api_key, .fx_login }) |source| {
+    for ([_]Source{ .retired_oidc_token, .api_key, .retired_login }) |source| {
         try std.testing.expect(!std.mem.eql(u8, sourceLabel(source), sourceLabel(.stored_key)));
     }
 }
 
 test "missing credential messages use surface commands in preferred order" {
-    const cli_setup = std.mem.find(u8, missing_credential_message, "fx setup").?;
+    const cli_setup = std.mem.find(u8, missing_credential_message, "y2 setup").?;
     const cli_env = std.mem.find(u8, missing_credential_message, "Y2_API_KEY").?;
 
     try std.testing.expect(cli_setup < cli_env);
@@ -697,9 +697,9 @@ test "missing credential messages use surface commands in preferred order" {
 test "credential gateway team prefers team id" {
     var credential = Credential{
         .token = try std.testing.allocator.dupe(u8, "token"),
-        .source = .fx_login,
+        .source = .retired_login,
         .team_id = try std.testing.allocator.dupe(u8, "team_123"),
-        .team_slug = try std.testing.allocator.dupe(u8, "vercel-labs"),
+        .team_slug = try std.testing.allocator.dupe(u8, "example-org"),
     };
     defer credential.deinit(std.testing.allocator);
 
@@ -713,9 +713,9 @@ test "catalog access isolates public and authenticated provider credentials" {
     try std.testing.expect(missing.authorizationCredential() == null);
     try std.testing.expect(missing.teamContext() == null);
 
-    const refresh_failed = catalogAccessAfterRefreshFailure(.fx_login);
+    const refresh_failed = catalogAccessAfterRefreshFailure(.retired_login);
     try std.testing.expectEqual(CatalogPublicOnlyReason.credential_refresh_failed, refresh_failed.publicOnlyReason().?);
-    try std.testing.expectEqual(Source.fx_login, refresh_failed.credentialSource().?);
+    try std.testing.expectEqual(Source.retired_login, refresh_failed.credentialSource().?);
 
     const chatgpt = catalogAccessForCredential(
         .chatgpt_subscription,
@@ -744,47 +744,47 @@ test "catalog access isolates public and authenticated provider credentials" {
     try std.testing.expect(rejected.teamContext() == null);
 }
 
-test "selected fx login authorizes its team model catalog" {
+test "selected y2 login authorizes its team model catalog" {
     var login = Credential{
         .token = try std.testing.allocator.dupe(u8, "login-token"),
-        .source = .fx_login,
+        .source = .retired_login,
         .team_id = try std.testing.allocator.dupe(u8, "team_123"),
     };
     defer login.deinit(std.testing.allocator);
 
     const access = catalogAccessAt(login, 0);
-    try std.testing.expectEqual(Source.fx_login, access.credentialSource().?);
+    try std.testing.expectEqual(Source.retired_login, access.credentialSource().?);
     try std.testing.expect(access.authorizationCredential() != null);
     try std.testing.expectEqualStrings("login-token", access.authorizationCredential().?);
     try std.testing.expectEqualStrings("team_123", access.teamContext().?);
 }
 
-test "fx login catalog access requires a fresh credential and selected team" {
+test "y2 login catalog access requires a fresh credential and selected team" {
     var login = Credential{
         .token = try std.testing.allocator.dupe(u8, "login-token"),
-        .source = .fx_login,
+        .source = .retired_login,
         .refresh_after_ms = 10,
     };
     defer login.deinit(std.testing.allocator);
 
     const expired = catalogAccessAt(login, 10);
-    try std.testing.expectEqual(CatalogPublicOnlyReason.fx_login_refresh_required, expired.publicOnlyReason().?);
+    try std.testing.expectEqual(CatalogPublicOnlyReason.retired_login_refresh_required, expired.publicOnlyReason().?);
     try std.testing.expect(expired.authorizationCredential() == null);
     try std.testing.expect(expired.teamContext() == null);
 
     login.refresh_after_ms = null;
     const missing_team = catalogAccessAt(login, 10);
-    try std.testing.expectEqual(CatalogPublicOnlyReason.fx_login_team_required, missing_team.publicOnlyReason().?);
+    try std.testing.expectEqual(CatalogPublicOnlyReason.retired_login_team_required, missing_team.publicOnlyReason().?);
     try std.testing.expect(missing_team.authorizationCredential() == null);
     try std.testing.expect(missing_team.teamContext() == null);
 }
 
 test "authenticated catalog access carries source and permitted request context" {
-    for ([_]Source{ .vercel_oidc_token, .api_key, .stored_key }) |source| {
+    for ([_]Source{ .retired_oidc_token, .api_key, .stored_key }) |source| {
         var credential = Credential{
             .token = try std.testing.allocator.dupe(u8, "token"),
             .source = source,
-            .team_slug = try std.testing.allocator.dupe(u8, "vercel-labs"),
+            .team_slug = try std.testing.allocator.dupe(u8, "example-org"),
         };
         defer credential.deinit(std.testing.allocator);
 
@@ -792,7 +792,7 @@ test "authenticated catalog access carries source and permitted request context"
         try std.testing.expect(authenticated.publicOnlyReason() == null);
         try std.testing.expectEqual(source, authenticated.credentialSource().?);
         try std.testing.expectEqualStrings("token", authenticated.authorizationCredential().?);
-        try std.testing.expectEqualStrings("vercel-labs", authenticated.teamContext().?);
+        try std.testing.expectEqualStrings("example-org", authenticated.teamContext().?);
 
         const fallback = authenticated.publicFallbackAfterRejection().?;
         try std.testing.expectEqual(CatalogPublicOnlyReason.authenticated_credential_rejected, fallback.publicOnlyReason().?);
@@ -899,10 +899,10 @@ const SecretStoreFixture = struct {
     }
 };
 
-test "API credential resolution ignores retired Vercel environment sources" {
+test "API credential resolution ignores retired Retired credential environment sources" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
-        .{ "VERCEL_OIDC_TOKEN", "oidc-token" },
+        .{ "REMOVED_LEGACY_OIDC_TOKEN", "oidc-token" },
         .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
@@ -918,10 +918,10 @@ test "API credential resolution ignores retired Vercel environment sources" {
     try std.testing.expectEqualStrings("api-key", api_key.token);
     try std.testing.expectEqual(Source.api_key, api_key.source);
 
-    try std.testing.expect((try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .vercel_oidc_token)) == null);
+    try std.testing.expect((try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .retired_oidc_token)) == null);
 
     try std.testing.expect(try sourceExists(alloc, host.unavailable_secret_store, .api_key));
-    try std.testing.expect(!(try sourceExists(alloc, host.unavailable_secret_store, .vercel_oidc_token)));
+    try std.testing.expect(!(try sourceExists(alloc, host.unavailable_secret_store, .retired_oidc_token)));
     try std.testing.expect(!(try sourceExists(alloc, host.unavailable_secret_store, .stored_key)));
 }
 
@@ -950,7 +950,7 @@ test "direct endpoint prefers OPENAI_API_KEY while Agent Y2 prefers Y2_API_KEY" 
         const env = try CredentialTestEnv.install(alloc, &.{
             .{ "Y2_API_KEY", "y2-key" },
             .{ "OPENAI_API_KEY", "openai-key" },
-            .{ "FX_API_CHAT_URL", "https://api.y2.dev/api/v1/chat/completions/" },
+            .{ "Y2_API_CHAT_URL", "https://api.y2.dev/api/v1/chat/completions/" },
         });
         defer env.deinit();
         var credential = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)).?;
@@ -960,7 +960,7 @@ test "direct endpoint prefers OPENAI_API_KEY while Agent Y2 prefers Y2_API_KEY" 
     {
         const env = try CredentialTestEnv.install(alloc, &.{
             .{ "OPENAI_API_KEY", "openai-key" },
-            .{ "FX_API_CHAT_URL", "https://api.y2.dev/api/v1/chat/completions" },
+            .{ "Y2_API_CHAT_URL", "https://api.y2.dev/api/v1/chat/completions" },
         });
         defer env.deinit();
         try std.testing.expect((try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)) == null);
@@ -995,7 +995,7 @@ test "stored Y2 key is unavailable for direct OpenAI-compatible endpoints" {
 test "a remembered choice outranks the environment" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
-        .{ "VERCEL_OIDC_TOKEN", "oidc-token" },
+        .{ "REMOVED_LEGACY_OIDC_TOKEN", "oidc-token" },
         .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
@@ -1007,21 +1007,21 @@ test "a remembered choice outranks the environment" {
     try std.testing.expectEqualStrings("api-key", credential.token);
 }
 
-test "a remembered fx login never refreshes in stored mode" {
+test "a remembered y2 login never refreshes in stored mode" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{});
     defer env.deinit();
 
     // No session exists, so both modes resolve to nothing. What matters is the
-    // route taken: `.stored` must reach loadStoredFxLoginCredential, which never
+    // route taken: `.stored` must reach loadStoredRetiredLoginCredential, which never
     // performs the network refresh that a diagnostic is forbidden from making.
     for ([_]LoadMode{ .stored, .refresh_if_needed }) |mode| {
-        var resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, mode, .fx_login);
+        var resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, mode, .retired_login);
         defer if (resolution.credential) |*credential| credential.deinit(alloc);
         try std.testing.expect(resolution.credential == null);
     }
 
-    try std.testing.expect((try loadPreferredSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .stored, .vercel_oidc_token)) == null);
+    try std.testing.expect((try loadPreferredSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .stored, .retired_oidc_token)) == null);
 }
 
 test "a remembered choice that no longer resolves falls back to precedence" {
@@ -1031,8 +1031,8 @@ test "a remembered choice that no longer resolves falls back to precedence" {
     });
     defer env.deinit();
 
-    // fx_login is remembered but no session exists, so precedence must still answer.
-    const resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .refresh_if_needed, .fx_login);
+    // retired_login is remembered but no session exists, so precedence must still answer.
+    const resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .refresh_if_needed, .retired_login);
     var credential = resolution.credential orelse return error.TestExpectedCredential;
     defer credential.deinit(alloc);
     try std.testing.expectEqual(Source.api_key, credential.source);
@@ -1041,7 +1041,7 @@ test "a remembered choice that no longer resolves falls back to precedence" {
 test "no remembered choice resolves exactly as plain precedence" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
-        .{ "VERCEL_OIDC_TOKEN", "oidc-token" },
+        .{ "REMOVED_LEGACY_OIDC_TOKEN", "oidc-token" },
         .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
@@ -1108,9 +1108,9 @@ test "credential resolution preserves unreadable store classification" {
     try std.testing.expectEqual(StoredKeyReadStatus.unavailable, resolution.stored_key_status);
 }
 
-test "legacy fx login is ignored before resolving the stored key" {
+test "legacy y2 login is ignored before resolving the stored key" {
     const alloc = std.testing.allocator;
-    var fixture = try ExpiredFxLoginFixture.install(alloc);
+    var fixture = try ExpiredRetiredLoginFixture.install(alloc);
     defer fixture.deinit();
     var store_fixture = SecretStoreFixture{ .value = "stored-key-that-works" };
 
@@ -1126,13 +1126,13 @@ test "legacy fx login is ignored before resolving the stored key" {
     const credential = resolution.credential orelse return error.TestExpectedCredential;
     try std.testing.expectEqual(Source.stored_key, credential.source);
     try std.testing.expectEqualStrings("stored-key-that-works", credential.token);
-    try std.testing.expectEqual(FxLoginReadStatus.absent, resolution.fx_login_status);
+    try std.testing.expectEqual(RetiredLoginReadStatus.absent, resolution.retired_login_status);
     try std.testing.expectEqual(@as(usize, 1), store_fixture.load_calls);
 }
 
-test "legacy fx login is ignored when nothing else resolves" {
+test "legacy y2 login is ignored when nothing else resolves" {
     const alloc = std.testing.allocator;
-    var fixture = try ExpiredFxLoginFixture.install(alloc);
+    var fixture = try ExpiredRetiredLoginFixture.install(alloc);
     defer fixture.deinit();
     var store_fixture = SecretStoreFixture{};
 
@@ -1145,27 +1145,27 @@ test "legacy fx login is ignored when nothing else resolves" {
     defer if (resolution.credential) |*credential| credential.deinit(alloc);
 
     try std.testing.expect(resolution.credential == null);
-    try std.testing.expectEqual(FxLoginReadStatus.absent, resolution.fx_login_status);
+    try std.testing.expectEqual(RetiredLoginReadStatus.absent, resolution.retired_login_status);
     try std.testing.expectEqual(StoredKeyReadStatus.not_found, resolution.stored_key_status);
 }
 
-/// A HOME holding an fx login whose session is expired and whose refresh token
+/// A HOME holding an y2 login whose session is expired and whose refresh token
 /// the issuer rejects, which is what an expired or revoked login looks like on
 /// disk. Paired with `oauth_transport.unavailable_provider`, the refresh fails.
-const ExpiredFxLoginFixture = struct {
+const ExpiredRetiredLoginFixture = struct {
     alloc: std.mem.Allocator,
     tmp: std.testing.TmpDir,
     env: *CredentialTestEnv,
     home: []u8,
 
-    fn install(alloc: std.mem.Allocator) !ExpiredFxLoginFixture {
+    fn install(alloc: std.mem.Allocator) !ExpiredRetiredLoginFixture {
         var tmp = std.testing.tmpDir(.{});
         errdefer tmp.cleanup();
         const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "");
         errdefer alloc.free(home);
 
-        try tmp.dir.createDirPath(io_mod.getIo(), ".fx");
-        const auth_path = try std.fs.path.join(alloc, &.{ home, ".fx", "auth.json" });
+        try tmp.dir.createDirPath(io_mod.getIo(), ".y2");
+        const auth_path = try std.fs.path.join(alloc, &.{ home, ".y2", "auth.json" });
         defer alloc.free(auth_path);
         var file = try std.Io.Dir.createFileAbsolute(io_mod.getIo(), auth_path, .{
             .truncate = true,
@@ -1174,7 +1174,7 @@ const ExpiredFxLoginFixture = struct {
         defer file.close(io_mod.getIo());
         try file.writeStreamingAll(
             io_mod.getIo(),
-            "{\"version\":1,\"issuer\":\"https://vercel.com\",\"client_id\":\"client\"," ++
+            "{\"version\":1,\"issuer\":\"https://identity.example\",\"client_id\":\"client\"," ++
                 "\"access_token\":\"access\",\"refresh_token\":\"rejected-refresh\"," ++
                 "\"expires_at_ms\":1,\"scope\":\"openid offline_access\"," ++
                 "\"token_type\":\"Bearer\",\"team_slug\":\"team-slug\",\"team_id\":\"team-id\"}",
@@ -1184,16 +1184,16 @@ const ExpiredFxLoginFixture = struct {
         return .{ .alloc = alloc, .tmp = tmp, .env = env, .home = home };
     }
 
-    fn deinit(self: *ExpiredFxLoginFixture) void {
+    fn deinit(self: *ExpiredRetiredLoginFixture) void {
         self.env.deinit();
         self.alloc.free(self.home);
         self.tmp.cleanup();
     }
 };
 
-test "a disabled store ignores legacy fx login state" {
+test "a disabled store ignores legacy y2 login state" {
     const alloc = std.testing.allocator;
-    var fixture = try ExpiredFxLoginFixture.install(alloc);
+    var fixture = try ExpiredRetiredLoginFixture.install(alloc);
     defer fixture.deinit();
     var store_fixture = SecretStoreFixture{ .disabled = true };
 
@@ -1206,6 +1206,6 @@ test "a disabled store ignores legacy fx login state" {
     defer if (resolution.credential) |*credential| credential.deinit(alloc);
 
     try std.testing.expect(resolution.credential == null);
-    try std.testing.expectEqual(FxLoginReadStatus.absent, resolution.fx_login_status);
+    try std.testing.expectEqual(RetiredLoginReadStatus.absent, resolution.retired_login_status);
     try std.testing.expectEqual(StoredKeyReadStatus.not_attempted, resolution.stored_key_status);
 }

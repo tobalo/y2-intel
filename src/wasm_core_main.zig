@@ -15,14 +15,13 @@ const output_contracts = @import("core/output/output_contracts.zig");
 const builtin_context = @import("builtins/context.zig");
 const builtin_gateway = @import("builtins/gateway.zig");
 const provider_catalog = @import("core/auth/provider_catalog.zig");
-const vercel_model_policy = @import("gateway/vercel_model_policy.zig");
 const builtin_modes = @import("builtins/modes.zig");
 
 const Allocator = std.mem.Allocator;
 
 comptime {
     if (build_options.wasm_surface != .core) {
-        @compileError("fx-core requires -Dwasm-surface=core");
+        @compileError("y2-core requires -Dwasm-surface=core");
     }
 }
 

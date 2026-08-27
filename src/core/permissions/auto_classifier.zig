@@ -1063,7 +1063,7 @@ const schema_properties = [_]model_tool_schema.Property{
 
 pub const function_schema: model_tool_schema.FunctionSchema = .{
     .name = tool_name,
-    .description = "Return bounded safety advice for one exact fx action.",
+    .description = "Return bounded safety advice for one exact y2 action.",
     .input_schema = .{
         .properties = schema_properties[0..],
         .required = schema_required[0..],
@@ -1085,7 +1085,7 @@ test "automatic review model-facing tool contract stays byte exact" {
     std.crypto.hash.sha2.Sha256.hash(tools_json, &digest, .{});
     const actual_hex = std.fmt.bytesToHex(digest, .lower);
     try std.testing.expectEqualStrings(
-        "a8000b05e90c3a89d1a54a7a38c1250e45447b8826564989c50eeaf81cadda12",
+        "6ca2ff7fe53ace5400f9069bd5dbd66b8aade4dcef122d48cbfce51b36bbd13e",
         &actual_hex,
     );
 }

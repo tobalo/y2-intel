@@ -16,7 +16,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, REPO_ROOT } from "../evals/eval-helpers";
+import { Y2_BIN, REPO_ROOT } from "../evals/eval-helpers";
 import {
   AUTO_PERPLEXITY_SERIALIZED_TOOL_NAMES,
   customProviderGuidanceState,
@@ -56,10 +56,10 @@ const TIMEOUT = 30_000;
 const SPLIT_BOUNDARY_WAIT_TIMEOUT = TIMEOUT * 3;
 const SPLIT_BOUNDARY_TEST_TIMEOUT = SPLIT_BOUNDARY_WAIT_TIMEOUT + 5_000;
 const CANONICAL_PRE_TOOL_TEXT =
-  "FX_MODEL_TEXT_SENTINEL before tools must remain contiguous.";
-const CANONICAL_FINAL_TEXT = "FX_FINAL_RESPONSE_SENTINEL completed.";
-const CANONICAL_READ_PATH = "alpha-FX_PATH_SENTINEL.txt";
-const CANONICAL_GREP_PATTERN = "FX_PATTERN_SENTINEL";
+  "Y2_MODEL_TEXT_SENTINEL before tools must remain contiguous.";
+const CANONICAL_FINAL_TEXT = "Y2_FINAL_RESPONSE_SENTINEL completed.";
+const CANONICAL_READ_PATH = "alpha-Y2_PATH_SENTINEL.txt";
+const CANONICAL_GREP_PATTERN = "Y2_PATTERN_SENTINEL";
 const APPROVAL_PROMPT = "Would you like to allow this action?";
 const SPLIT_NEW_USER_PROMPT = "SPLIT_NEW_USER_PROMPT";
 const SPLIT_OLD_SENTINELS = [
@@ -85,9 +85,9 @@ const CANONICAL_A_B_SSE =
   })}\n\n` +
   'data: {"type":"text-end","id":"text_before"}\n\n' +
   'data: {"type":"tool-input-start","id":"read_a","toolName":"read_file"}\n\n' +
-  'data: {"type":"tool-input-delta","id":"read_a","delta":"{\\"path\\":\\"alpha-FX_PATH_SENTINEL"}\n\n' +
+  'data: {"type":"tool-input-delta","id":"read_a","delta":"{\\"path\\":\\"alpha-Y2_PATH_SENTINEL"}\n\n' +
   'data: {"type":"tool-input-start","id":"grep_b","toolName":"grep_files"}\n\n' +
-  'data: {"type":"tool-input-delta","id":"grep_b","delta":"{\\"pattern\\":\\"FX_PATTERN_SENTINEL\\",\\"path\\":\\""}\n\n' +
+  'data: {"type":"tool-input-delta","id":"grep_b","delta":"{\\"pattern\\":\\"Y2_PATTERN_SENTINEL\\",\\"path\\":\\""}\n\n' +
   'data: {"type":"tool-input-delta","id":"read_a","delta":".txt\\"}"}\n\n' +
   'data: {"type":"tool-input-end","id":"read_a"}\n\n' +
   `data: ${JSON.stringify({
@@ -728,27 +728,27 @@ async function waitForScrollback(
 }
 
 function lifecycleStage(): LifecycleStage {
-  const value = process.env.FX_LIFECYCLE_STAGE ?? "corrected";
+  const value = process.env.Y2_LIFECYCLE_STAGE ?? "corrected";
   if (
     value !== "baseline-silent" &&
     value !== "fatal-reported" &&
     value !== "correlation-corrected" &&
     value !== "corrected"
   ) {
-    throw new Error(`invalid FX_LIFECYCLE_STAGE: ${JSON.stringify(value)}`);
+    throw new Error(`invalid Y2_LIFECYCLE_STAGE: ${JSON.stringify(value)}`);
   }
   return value;
 }
 
 function createArtifactRoot(): string {
-  const configured = process.env.FX_LIFECYCLE_ARTIFACT_DIR;
+  const configured = process.env.Y2_LIFECYCLE_ARTIFACT_DIR;
   if (configured) {
     mkdirSync(configured, { recursive: true });
     preserveArtifacts = true;
     artifactRoot = realpathSync(configured);
   } else {
     artifactRoot = realpathSync(
-      mkdtempSync(join(tmpdir(), "fx-streamed-tool-lifecycle-artifacts-")),
+      mkdtempSync(join(tmpdir(), "y2-streamed-tool-lifecycle-artifacts-")),
     );
   }
   return artifactRoot;
@@ -759,16 +759,16 @@ function writeLifecycleWrapper(
   invocation: "interactive" | "invalid-added-root" = "interactive",
 ): string {
   const wrapperPath = join(artifacts, "run-fixture.sh");
-  const fxCommand = invocation === "invalid-added-root"
-    ? '"$fx_bin" --add-dir "$FX_INVALID_ADDED_ROOT"'
-    : '"$fx_bin"';
+  const y2Command = invocation === "invalid-added-root"
+    ? '"$y2_bin" --add-dir "$Y2_INVALID_ADDED_ROOT"'
+    : '"$y2_bin"';
   writeFileSync(
     wrapperPath,
     `#!/bin/sh
 set -u
 
-artifact_dir="\${FX_LIFECYCLE_ARTIFACT_DIR:?}"
-fx_bin="\${FX_TEST_BIN:?}"
+artifact_dir="\${Y2_LIFECYCLE_ARTIFACT_DIR:?}"
+y2_bin="\${Y2_TEST_BIN:?}"
 
 write_atomic() {
   name="$1"
@@ -782,7 +782,7 @@ write_atomic "wrapper.pid" "$$"
 write_atomic "stty.before" "$(/bin/stty -g)"
 : > "$artifact_dir/stderr.log"
 
-${fxCommand} 2>"$artifact_dir/stderr.log"
+${y2Command} 2>"$artifact_dir/stderr.log"
 child_status=$?
 
 write_atomic "child.status" "$child_status"
@@ -886,7 +886,7 @@ function handle(message) {
   }
   if (message.method === "tools/call") {
     appendFileSync(
-      process.env.FX_MCP_CALL_STARTED,
+      process.env.Y2_MCP_CALL_STARTED,
       JSON.stringify({
         id: message.id,
         timestamp_ms: Date.now(),
@@ -914,7 +914,7 @@ process.stdin.on("data", (chunk) => {
 `,
   );
   writeFileSync(
-    join(home, ".fx", "mcp.json"),
+    join(home, ".y2", "mcp.json"),
     JSON.stringify({
       mcp: {
         fixture: {
@@ -922,7 +922,7 @@ process.stdin.on("data", (chunk) => {
           command: [process.execPath, scriptPath],
           enabled: true,
           environment: {
-            FX_MCP_CALL_STARTED: callStartedPath,
+            Y2_MCP_CALL_STARTED: callStartedPath,
           },
         },
       },
@@ -941,7 +941,7 @@ function readDelayedMcpCalls(path: string): Array<{ arguments: unknown }> {
 }
 
 function readSubagentCommunicationRecords(home: string): string[] {
-  const sessionsRoot = join(home, ".fx", "sessions");
+  const sessionsRoot = join(home, ".y2", "sessions");
   if (!existsSync(sessionsRoot)) return [];
   return readdirSync(sessionsRoot)
     .map((sessionId) =>
@@ -1199,14 +1199,14 @@ async function runCanonicalLifecycleFixture(
   stage: LifecycleStage,
   traceStderr = false,
 ) {
-  root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-gateway-ordering-")));
+  root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-gateway-ordering-")));
   const home = join(root, "home");
   const workspacePath = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspacePath, { recursive: true });
   const workspace = realpathSync(workspacePath);
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({
       permission_mode: "ask",
       permission: {
@@ -1250,17 +1250,17 @@ async function runCanonicalLifecycleFixture(
     env: {
       HOME: home,
       Y2_API_KEY: "fake-streamed-tool-lifecycle-key",
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_AUTO_UPGRADE: "0",
-      FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-      FX_API_CHAT_URL: queuedGateway.chatUrl,
-      FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-      FX_MODEL: MODEL,
-      FX_TRACE_LOG: tracePath,
-      FX_TRACE_SCOPES: undefined,
-      FX_TRACE_STDERR: traceStderr ? "1" : undefined,
-      FX_TEST_BIN: FX_BIN,
-      FX_LIFECYCLE_ARTIFACT_DIR: artifacts,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_AUTO_UPGRADE: "0",
+      Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+      Y2_API_CHAT_URL: queuedGateway.chatUrl,
+      Y2_API_CHAT_URL: queuedGateway.chatUrl,
+      Y2_MODEL: MODEL,
+      Y2_TRACE_LOG: tracePath,
+      Y2_TRACE_SCOPES: undefined,
+      Y2_TRACE_STDERR: traceStderr ? "1" : undefined,
+      Y2_TEST_BIN: Y2_BIN,
+      Y2_LIFECYCLE_ARTIFACT_DIR: artifacts,
     },
   });
 
@@ -1412,9 +1412,9 @@ async function launchRouteRecoveryTui(
   const home = join(root, "home");
   const workspacePath = join(root, "workspace");
   const stderrPath = join(root, "stderr.log");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspacePath, { recursive: true });
-  writeFileSync(join(home, ".fx", "settings.json"), JSON.stringify(options.settings ?? {}));
+  writeFileSync(join(home, ".y2", "settings.json"), JSON.stringify(options.settings ?? {}));
   const workspace = realpathSync(workspacePath);
   const model = options.model ?? MODEL;
 
@@ -1432,14 +1432,14 @@ async function launchRouteRecoveryTui(
     env: {
       HOME: home,
       Y2_API_KEY: "fake-route-recovery-key",
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_AUTO_UPGRADE: "0",
-      FX_PERMISSION_MODE: "auto",
-      FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-      FX_API_CHAT_URL: queuedGateway.chatUrl,
-      FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-      FX_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
-      FX_MODEL: model,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_AUTO_UPGRADE: "0",
+      Y2_PERMISSION_MODE: "auto",
+      Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+      Y2_API_CHAT_URL: queuedGateway.chatUrl,
+      Y2_API_CHAT_URL: queuedGateway.chatUrl,
+      Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
+      Y2_MODEL: model,
     },
   });
   await session.waitForComposer(TIMEOUT);
@@ -1453,7 +1453,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const model = "meta/muse-spark-1.2-contributor";
       const finalText = "Full-window output limit omitted.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-full-window-output-limit-",
+        "y2-tui-full-window-output-limit-",
         [fakeGatewayFinalText(finalText)],
         {
           model,
@@ -1496,10 +1496,10 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     "live token counter includes submitted input, reasoning, and streamed text",
     async () => {
       const hold: TokenProgressHoldState = { started: false, cancelled: false };
-      const finalSentinel = "FX_LIVE_TOKEN_COUNTER_COMPLETE";
+      const finalSentinel = "Y2_LIVE_TOKEN_COUNTER_COMPLETE";
       const streamedText = `${"streaming output\n".repeat(256)}${finalSentinel}`;
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-live-token-counter-",
+        "y2-tui-live-token-counter-",
         [
           () =>
             stagedTokenProgressResponse(
@@ -1582,9 +1582,9 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       // activity-row assertions.
       const payloadContent = "staged tool payload content\n".repeat(64);
       const assistantText = "I will write the staged payload now.";
-      const finalSentinel = "FX_TOOL_PAYLOAD_PROGRESS_COMPLETE";
+      const finalSentinel = "Y2_TOOL_PAYLOAD_PROGRESS_COMPLETE";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-tool-payload-progress-",
+        "y2-tui-tool-payload-progress-",
         [
           () =>
             stagedToolPayloadResponse(
@@ -1642,7 +1642,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const firstFinal = `FIRST_TURN_CONTEXT_COMPLETE ${"retained assistant context ".repeat(128)}`;
       const followupFinal = "FOLLOWUP_INPUT_COUNTER_COMPLETE";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-followup-input-counter-",
+        "y2-tui-followup-input-counter-",
         [
           fakeGatewayFinalTextWithUsage(firstFinal, 30_000, 600),
           fakeGatewayFinalTextWithUsage(followupFinal, 16_000, 5),
@@ -1684,7 +1684,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     async () => {
       const finalText = "Internal retry token counter completed.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-live-token-counter-retry-",
+        "y2-tui-live-token-counter-retry-",
         [
           new Response(
             JSON.stringify({ error: { message: "temporarily unavailable" } }),
@@ -1720,7 +1720,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     "HTTP restricted provider error renders sticky status row",
     async () => {
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-route-http-403-",
+        "y2-tui-route-http-403-",
         [restrictedProviderResponse()],
       );
 
@@ -1748,13 +1748,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "post-tool HTTP 503 omits empty assistant from follow-up",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-empty-assistant-history-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-empty-assistant-history-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const finalText = "Follow-up accepted after HTTP 503.";
 
@@ -1809,13 +1809,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-empty-assistant-history-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -1868,13 +1868,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "provider route recovery renders retry, transient recovery, and normal summary row",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-route-recovery-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-route-recovery-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
 
       const finalText = "TUI route recovery completed.";
@@ -1902,13 +1902,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-route-recovery-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -1953,7 +1953,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     "content filter opens local recovery modal without transcript card",
     async () => {
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-route-content-filter-",
+        "y2-tui-route-content-filter-",
         [contentFilterResponse()],
       );
 
@@ -1966,7 +1966,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const scrollback = await session!.captureFullScrollback();
 
       expect(queuedGateway.requests.length).toBe(1);
-      expect(scrollback).not.toContain("What should fx do?");
+      expect(scrollback).not.toContain("What should y2 do?");
       expect(pane).toContain("Change model");
       expect(pane).toContain("Try again later");
       expect(pane).toContain("Response blocked by content filter");
@@ -1987,7 +1987,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const originalPrompt = "Preserve this interactive prompt.";
       const finalText = "Interactive recovery completed.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-continue-",
+        "y2-tui-recovery-continue-",
         [
           ...Array.from({ length: 10 }, () => retryAfterUnavailable(0)),
           fakeGatewayFinalText(finalText),
@@ -2028,7 +2028,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const hold: HoldState = { started: false, cancelled: false };
       const finalText = "Active checkpointed request completed once.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-active-continue-",
+        "y2-tui-recovery-active-continue-",
         [
           () => heldGatewayResponse(hold, [], [
             { type: "text-delta", id: "answer_1", delta: finalText },
@@ -2071,7 +2071,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     async () => {
       const finalText = "Resumed tool lifecycle completed.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-tool-lifecycle-",
+        "y2-tui-recovery-tool-lifecycle-",
         [
           fakeGatewayToolCall("read_before_pause", "read_file", { path: "before.txt" }),
           ...Array.from({ length: 10 }, () => retryAfterUnavailable(0)),
@@ -2107,7 +2107,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         responses.push(retryAfterUnavailable(0));
       }
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-fast-budget-",
+        "y2-tui-recovery-fast-budget-",
         responses,
         {
           model: GLM_MODEL,
@@ -2152,7 +2152,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const directFastModel = `${GLM_MODEL}-fast`;
       const finalText = "Canonical route recovered after process restart.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-fast-backoff-restart-",
+        "y2-tui-recovery-fast-backoff-restart-",
         [retryAfterUnavailable(5), fakeGatewayFinalText(finalText)],
         {
           model: directFastModel,
@@ -2178,7 +2178,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       session = null;
       const resumedStderrPath = join(root!, "resumed-stderr.log");
       session = await TmuxSession.create({
-        cmd: `${FX_BIN} --resume-last`,
+        cmd: `${Y2_BIN} --resume-last`,
         cwd: join(root!, "workspace"),
         width: 72,
         height: 24,
@@ -2187,14 +2187,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: join(root!, "home"),
           Y2_API_KEY: "fake-route-recovery-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
-          FX_MODEL: directFastModel,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
+          Y2_MODEL: directFastModel,
         },
       });
       await session.waitForComposer(TIMEOUT);
@@ -2215,7 +2215,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     "Escape during provider recovery backoff cancels without ModelError",
     async () => {
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-backoff-cancel-",
+        "y2-tui-recovery-backoff-cancel-",
         [
           providerErrorResponse("route failed once"),
           providerErrorResponse("route failed twice"),
@@ -2249,7 +2249,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const partialText = "Partial output before EOF.";
       const finalText = "Recovered final output once.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-recovery-partial-continue-",
+        "y2-tui-recovery-partial-continue-",
         [
           partialEofResponse(partialText),
           ...Array.from({ length: 9 }, () => retryAfterUnavailable(0)),
@@ -2279,7 +2279,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     async () => {
       const finalText = "Recovered after disabling Fast.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-route-disable-fast-",
+        "y2-tui-route-disable-fast-",
         [
           providerErrorResponse("fast route failed once"),
           providerErrorResponse("fast route failed twice"),
@@ -2331,7 +2331,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(scrollback).toContain(finalText);
       expect(scrollback).toMatch(TURN_SUMMARY_WITH_TOKENS);
       expect(scrollback).not.toContain("✓ recovered");
-      expect(scrollback).not.toContain("What should fx do?");
+      expect(scrollback).not.toContain("What should y2 do?");
       expect(scrollback).not.toContain("request failed: ModelError");
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     },
@@ -2344,7 +2344,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const firstCatalogModel = "anthropic/claude-fable-5";
       const finalText = "partial unsafe output completed";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-route-unsafe-text-",
+        "y2-tui-route-unsafe-text-",
         [providerErrorAfterTextResponse(), fakeGatewayFinalText(finalText)],
         {
           models: [
@@ -2371,7 +2371,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(queuedGateway.requests.length).toBe(2);
       expect(scrollback.split("partial unsafe output").length - 1).toBe(1);
       expect(scrollback).toContain(finalText);
-      expect(scrollback).not.toContain("What should fx do?");
+      expect(scrollback).not.toContain("What should y2 do?");
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     },
     TIMEOUT,
@@ -2382,7 +2382,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     async () => {
       const finalText = "Recovered after unstarted tool activity.";
       const { queuedGateway, stderrPath } = await launchRouteRecoveryTui(
-        "fx-tui-route-unsafe-tool-",
+        "y2-tui-route-unsafe-tool-",
         [providerErrorAfterToolStartResponse(), fakeGatewayFinalText(finalText)],
       );
 
@@ -2392,7 +2392,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
 
       expect(queuedGateway.requests.length).toBe(2);
       expect(scrollback).toContain(finalText);
-      expect(scrollback).not.toContain("What should fx do?");
+      expect(scrollback).not.toContain("What should y2 do?");
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     },
     TIMEOUT,
@@ -2401,18 +2401,18 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "unavailable read_tool_result renders and persists a failed result",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-read-tool-result-failure-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-read-tool-result-failure-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const tracePath = join(root, "trace.log");
       const expectedFailure =
         "read_tool_result failed for handle unknown-dogfood-handle: ResultHandleNotFound. No exact match exists in the active tool-result store; handles are session-scoped and must be copied exactly from the tool result preview.";
       const finalText = "Read tool result failure lifecycle completed.";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
 
       const queuedGateway = startFakeGateway([
@@ -2435,16 +2435,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-read-tool-result-failure-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
         },
       });
 
@@ -2456,7 +2456,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         "tool-result continuation request",
       );
 
-      const sessionsRoot = join(home, ".fx", "sessions");
+      const sessionsRoot = join(home, ".y2", "sessions");
       await waitForCondition(
         () =>
           existsSync(sessionsRoot) &&
@@ -2471,7 +2471,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       if (!sessionId) throw new Error("session checkpoint was not found");
 
       const readSavedSession = () =>
-        execFileSync(FX_BIN, ["session", "--id", sessionId, "--json"], {
+        execFileSync(Y2_BIN, ["session", "--id", sessionId, "--json"], {
           cwd: workspace,
           env: { ...process.env, HOME: home },
           encoding: "utf8",
@@ -2500,16 +2500,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "typing during a streamed response leaves the native cursor visible",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-streaming-caret-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-streaming-caret-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const draft = "draft while stream is active";
       const stream = { started: false, cancelled: false };
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const streamingGateway = startFakeGateway([
         () => heldGatewayResponse(stream),
@@ -2521,14 +2521,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-tui-streaming-caret-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: streamingGateway.baseUrl,
-          FX_API_CHAT_URL: streamingGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: streamingGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: streamingGateway.baseUrl,
+          Y2_API_CHAT_URL: streamingGateway.chatUrl,
+          Y2_API_CHAT_URL: streamingGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -2560,19 +2560,19 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "idle submitted prompt stays visible across a first-use context notice",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-idle-submit-order-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-idle-submit-order-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
-      const tracePath = join(root, "fx-trace.log");
+      const tapePath = join(root, "session.y2tape");
+      const tracePath = join(root, "y2-trace.log");
       const framesRoot = join(root, "replay-frames");
       const submittedPrompt = "IDLE_SUBMIT_ORDER_SENTINEL";
       const newerDraft = "RAPID_SECOND_DRAFT_SENTINEL";
       const hold: HoldState = { started: false, cancelled: false };
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       writeFileSync(
         join(root, "outside-instructions.md"),
         "# Outside instructions\n",
@@ -2592,16 +2592,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-idle-submit-order-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: heldGateway.baseUrl,
-          FX_API_CHAT_URL: heldGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: heldGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "input,worker",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: heldGateway.baseUrl,
+          Y2_API_CHAT_URL: heldGateway.chatUrl,
+          Y2_API_CHAT_URL: heldGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "input,worker",
         },
       });
 
@@ -2619,7 +2619,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.sendKeys("C-c");
       const cancelledPane = await session.waitForText("cancelled", TIMEOUT);
 
-      execFileSync(FX_BIN, ["replay", tapePath, "--frames-dir", framesRoot], {
+      execFileSync(Y2_BIN, ["replay", tapePath, "--frames-dir", framesRoot], {
         encoding: "utf8",
       });
       assertFirstPostEnterOutputShowsSubmittedPrompt(tapePath, submittedPrompt);
@@ -2650,19 +2650,19 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "idle submitted prompt keeps its canonical row after a completed turn",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-idle-submit-multiturn-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-idle-submit-multiturn-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const framesRoot = join(root, "replay-frames");
       const seedPrompt = "MULTI_TURN_SEED_PROMPT";
       const seedReply = "MULTI_TURN_SEED_REPLY";
       const submittedPrompt = "MULTI_TURN_ROW_SENTINEL";
       const hold: HoldState = { started: false, cancelled: false };
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const queuedGateway = startFakeGateway([
         fakeGatewayFinalText(seedReply),
@@ -2677,14 +2677,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-idle-submit-multiturn-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -2703,7 +2703,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.sendKeys("C-c");
       await session.waitForText("cancelled", TIMEOUT);
 
-      execFileSync(FX_BIN, ["replay", tapePath, "--frames-dir", framesRoot], {
+      execFileSync(Y2_BIN, ["replay", tapePath, "--frames-dir", framesRoot], {
         encoding: "utf8",
       });
       assertFirstPostEnterOutputShowsSubmittedPrompt(tapePath, submittedPrompt);
@@ -2722,16 +2722,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "completed paced assistant text drains before a queued user prompt reaches scrollback",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-prompt-boundary-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-prompt-boundary-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const tracePath = join(root, "trace.log");
       const secondResponse = { started: false, cancelled: false };
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
 
       const splitGateway = startFakeGateway([
@@ -2758,16 +2758,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-prompt-boundary-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: splitGateway.baseUrl,
-          FX_API_CHAT_URL: splitGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: splitGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: splitGateway.baseUrl,
+          Y2_API_CHAT_URL: splitGateway.chatUrl,
+          Y2_API_CHAT_URL: splitGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt",
         },
       });
 
@@ -2815,7 +2815,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(existsSync(tapePath)).toBe(true);
       expect(existsSync(tracePath)).toBe(true);
       expect(
-        execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+        execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
           encoding: "utf8",
         }),
       ).not.toBe("");
@@ -2828,15 +2828,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "confirmed post-cancel queued prompt recovers duplicate-key tool arguments",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-cancel-integrity-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-cancel-integrity-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "session.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: HoldState = { started: false, cancelled: false };
       const duplicateArguments = '{"depth":1, "depth":2}';
@@ -2864,17 +2864,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-cancel-integrity-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,core,gateway,stream,tool,sse,worker,input,prompt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,core,gateway,stream,tool,sse,worker,input,prompt",
         },
       });
 
@@ -2955,16 +2955,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "queued prompt stays pending until active assistant text completes",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-order-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-order-")));
       const home = join(root, "home");
       const launchAncestor = join(home, "projects");
       const workspacePath = join(launchAncestor, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "session.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const nested = join(workspace, "assets", "nested");
       const sibling = join(workspace, "sibling");
@@ -2987,7 +2987,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const newRootRule = "QUEUED_SNAPSHOT_NEW_ROOT_MUST_BE_ABSENT";
       const newNestedRule = "QUEUED_SNAPSHOT_NEW_NESTED_MUST_BE_ABSENT";
       const newSiblingRule = "QUEUED_SNAPSHOT_NEW_SIBLING_MUST_BE_ABSENT";
-      writeFileSync(join(home, ".fx", "AGENTS.md"), `${oldGlobalRule}\n`);
+      writeFileSync(join(home, ".y2", "AGENTS.md"), `${oldGlobalRule}\n`);
       writeFileSync(join(launchAncestor, "AGENTS.md"), `${oldAncestorRule}\n`);
       writeFileSync(join(workspace, "AGENTS.md"), `${oldRootRule}\n`);
       writeFileSync(join(nested, "AGENTS.md"), `${oldNestedRule}\n`);
@@ -3021,17 +3021,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-transcript-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt",
         },
       });
 
@@ -3063,7 +3063,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(heldScrollback).not.toContain(activeAfter.trim());
       expect(queuedGateway.requests).toHaveLength(1);
 
-      writeFileSync(join(home, ".fx", "AGENTS.md"), `${newGlobalRule}\n`);
+      writeFileSync(join(home, ".y2", "AGENTS.md"), `${newGlobalRule}\n`);
       writeFileSync(join(launchAncestor, "AGENTS.md"), `${newAncestorRule}\n`);
       writeFileSync(join(workspace, "AGENTS.md"), `${newRootRule}\n`);
       writeFileSync(join(nested, "AGENTS.md"), `${newNestedRule}\n`);
@@ -3153,9 +3153,9 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const activeAfter = "ACTIVE_PERMISSION_AFTER_SENTINEL\n";
       const followupPrompt = "ACTIVE_PERMISSION_FOLLOWUP_PROMPT_SENTINEL";
       const followupResponse = "ACTIVE_PERMISSION_FOLLOWUP_RESPONSE_SENTINEL";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       writeFileSync(join(workspacePath, readFilename), "active permission fixture\n");
       const workspace = realpathSync(workspacePath);
       const hold: HoldState = { started: false, cancelled: false };
@@ -3178,13 +3178,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-active-permission-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: heldGateway.baseUrl,
-          FX_API_CHAT_URL: heldGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: heldGateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: heldGateway.baseUrl,
+          Y2_API_CHAT_URL: heldGateway.chatUrl,
+          Y2_API_CHAT_URL: heldGateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -3251,14 +3251,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "Up pauses queued admission and commits every edited prompt in FIFO order",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-review-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-review-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: SplitHoldState = { started: false, cancelled: false };
       const activeAfter = "ACTIVE_FINISHED_WHILE_QUEUE_PAUSED";
@@ -3283,14 +3283,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-review-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -3381,14 +3381,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "Escape hides a focused queue editor without cancelling the active stream",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-review-escape-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-review-escape-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: SplitHoldState = { started: false, cancelled: false };
       const queuedPrompt = "Keep QUEUE_ESCAPE_FOCUS_SENTINEL pending.";
@@ -3412,14 +3412,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-review-escape-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -3476,14 +3476,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "queued review preserves pasted backing and follows a long draft cursor",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-semantic-drafts-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-semantic-drafts-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: SplitHoldState = { started: false, cancelled: false };
       const pastedPrompt =
@@ -3514,14 +3514,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-semantic-draft-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -3601,14 +3601,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "queued review shows file completions and preserves the accepted path",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-file-picker-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-file-picker-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(join(workspacePath, "src"), { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       writeFileSync(
         join(workspacePath, "src", "main.zig"),
         "pub fn main() void {}\n",
@@ -3638,14 +3638,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-file-picker-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -3710,14 +3710,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "streaming model selection applies to the next turn without changing the active request",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-next-turn-model-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-next-turn-model-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           model: GLM_MODEL,
           effort: "auto",
@@ -3760,12 +3760,12 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-next-turn-model-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
         },
       });
 
@@ -3809,7 +3809,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(
         queuedGateway.requests[1]!.headers.get("ai-language-model-id"),
       ).toBe(nextModel);
-      expect(JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8")))
+      expect(JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8")))
         .toMatchObject({ models: { gateway: nextModel }, effort: "auto" });
       expect(readFileSync(stderrPath, "utf8")).toBe("");
       expect(session.isAlive()).toBe(true);
@@ -3821,13 +3821,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "queued review keeps the disabled model picker hidden",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-model-picker-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-model-picker-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: SplitHoldState = { started: false, cancelled: false };
       const hiddenModel = "provider/queued-hidden-model";
@@ -3857,13 +3857,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-model-picker-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -3914,14 +3914,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "empty Enter resumes a hidden paused queue without editing it",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-empty-enter-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-empty-enter-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: SplitHoldState = { started: false, cancelled: false };
       const queuedPrompt = "Continue with EMPTY_ENTER_QUEUE_SENTINEL.";
@@ -3945,14 +3945,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-empty-enter-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -4015,14 +4015,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "Up edits a queued card in place and repeated Ctrl+U deletes only the empty draft",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-inline-delete-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-inline-delete-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: SplitHoldState = { started: false, cancelled: false };
       const firstQueued = "Keep QUEUE_INLINE_FIRST_SENTINEL.";
@@ -4048,14 +4048,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-inline-delete-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -4184,15 +4184,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "queued image yank survives deleting its queue card",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-image-yank-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-image-yank-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
       const imagePath = join(workspacePath, "queued-image.png");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       copyFileSync(
         join(REPO_ROOT, "tests/e2e/fixtures/favicon.png"),
         imagePath,
@@ -4201,8 +4201,8 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const image = realpathSync(imagePath);
       const expectedImageData = readFileSync(image).toString("base64");
       const hold: HoldState = { started: false, cancelled: false };
-      const queuedPrompt = "Describe FXC141_QUEUED_IMAGE_YANK.";
-      const done = "FXC141_QUEUED_IMAGE_YANK_DONE";
+      const queuedPrompt = "Describe Y2C141_QUEUED_IMAGE_YANK.";
+      const done = "Y2C141_QUEUED_IMAGE_YANK_DONE";
       const queuedGateway = startFakeGateway(
         [
           () =>
@@ -4234,15 +4234,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-image-yank-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/coding-agent/v1/models`,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -4295,7 +4295,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.waitForPane(
         (pane) =>
           pane.includes("[Image 2]") &&
-          pane.includes("FXC141_QUEUED_IMAGE_YANK"),
+          pane.includes("Y2C141_QUEUED_IMAGE_YANK"),
         TIMEOUT,
       );
       expect(readFileSync(stderrPath, "utf8")).toBe("");
@@ -4329,14 +4329,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "Ctrl+C pauses two queued prompts until the visible draft is confirmed",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-post-cancel-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-post-cancel-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: HoldState = { started: false, cancelled: false };
       const firstQueued = "Continue with FOLLOWUP_FIRST_SENTINEL.";
@@ -4367,14 +4367,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-post-cancel-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -4483,11 +4483,11 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         const workspace = join(artifacts, "workspace");
         const tracePath = join(artifacts, "trace.log");
         const stderrPath = join(artifacts, "stderr.log");
-        const tapePath = join(artifacts, "session.fxtape");
-        mkdirSync(join(home, ".fx"), { recursive: true });
+        const tapePath = join(artifacts, "session.y2tape");
+        mkdirSync(join(home, ".y2"), { recursive: true });
         mkdirSync(workspace, { recursive: true });
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             sandbox: "none",
             permission_mode: "auto",
@@ -4540,17 +4540,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
           env: {
             HOME: home,
             Y2_API_KEY: "fake-queue-scrollback-key",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_AUTO_UPGRADE: "0",
-            FX_PERMISSION_MODE: "auto",
-            FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-            FX_API_CHAT_URL: queuedGateway.chatUrl,
-            FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-            FX_MODEL: MODEL,
-            FX_RECORD: tapePath,
-            FX_RECORD_INPUT: "1",
-            FX_TRACE_LOG: tracePath,
-            FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt,scroll",
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_AUTO_UPGRADE: "0",
+            Y2_PERMISSION_MODE: "auto",
+            Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+            Y2_API_CHAT_URL: queuedGateway.chatUrl,
+            Y2_API_CHAT_URL: queuedGateway.chatUrl,
+            Y2_MODEL: MODEL,
+            Y2_RECORD: tapePath,
+            Y2_RECORD_INPUT: "1",
+            Y2_TRACE_LOG: tracePath,
+            Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt,scroll",
           },
         });
 
@@ -4633,7 +4633,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         expect(queuedGateway.requests[2]!.body).toContain(secondQueued);
         expect(queuedGateway.requests[3]!.body).toContain(draft);
 
-        const sessionsRoot = join(home, ".fx", "sessions");
+        const sessionsRoot = join(home, ".y2", "sessions");
         let eventsPath = "";
         await waitForCondition(() => {
           if (!existsSync(sessionsRoot)) return false;
@@ -4659,7 +4659,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         expect(readFileSync(stderrPath, "utf8")).toBe("");
         expect(existsSync(tapePath)).toBe(true);
         expect(
-          execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+          execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
             encoding: "utf8",
           }),
         ).not.toBe("");
@@ -4673,14 +4673,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "post-cancel hidden queue offers Escape to cancel every queued prompt",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-queued-cancel-all-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-queued-cancel-all-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const tracePath = join(root, "trace.log");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const workspace = realpathSync(workspacePath);
       const hold: HoldState = { started: false, cancelled: false };
       const firstQueued = "Keep ESC_QUEUE_FIRST_SENTINEL pending.";
@@ -4706,14 +4706,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-queued-cancel-all-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
       });
 
@@ -4783,10 +4783,10 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const workspace = join(artifacts, "workspace");
       const stderrPath = join(artifacts, "stderr.log");
       const tracePath = join(artifacts, "trace.log");
-      const tapePath = join(artifacts, "session.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(artifacts, "session.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const hold: HoldState = { started: false, cancelled: false };
       const heldGateway = startFakeGateway([
@@ -4802,16 +4802,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-active-ctrlc-exit-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: heldGateway.baseUrl,
-          FX_API_CHAT_URL: heldGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: heldGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "gateway,app,input,interrupt,worker,sse",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: heldGateway.baseUrl,
+          Y2_API_CHAT_URL: heldGateway.chatUrl,
+          Y2_API_CHAT_URL: heldGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "gateway,app,input,interrupt,worker,sse",
         },
       });
 
@@ -4849,7 +4849,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(readFileSync(stderrPath, "utf8")).toBe("");
       expect(existsSync(tapePath)).toBe(true);
       expect(
-        execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+        execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
           encoding: "utf8",
         }),
       ).not.toBe("");
@@ -4865,14 +4865,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const workspace = join(artifacts, "workspace");
       const stderrPath = join(artifacts, "stderr.log");
       const tracePath = join(artifacts, "trace.log");
-      const tapePath = join(artifacts, "session.fxtape");
+      const tapePath = join(artifacts, "session.y2tape");
       const prompt = "Recall CTRL_C_EXIT_HISTORY_SENTINEL exactly.";
       const finalText = "CTRL_C_EXIT_HISTORY_DONE";
       const exitHint = "press ctrl+c again to exit";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         '{"prompt_history":{"enabled":true}}',
       );
 
@@ -4889,16 +4889,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-ctrl-c-history-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-          FX_API_CHAT_URL: fakeGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt",
         },
       });
 
@@ -4981,7 +4981,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(readFileSync(stderrPath, "utf8")).toBe("");
       expect(existsSync(tapePath)).toBe(true);
       expect(
-        execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+        execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
           encoding: "utf8",
         }),
       ).not.toBe("");
@@ -5013,7 +5013,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         expect(observed.stderr).toBe(
           stage === "baseline-silent"
             ? ""
-            : "fx: LifecycleReconciliationCollision\n",
+            : "y2: LifecycleReconciliationCollision\n",
         );
         return;
       }
@@ -5071,10 +5071,10 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         .toBe(1);
       for (
         const sentinel of [
-          "FX_MODEL_TEXT_SENTINEL",
-          "FX_FINAL_RESPONSE_SENTINEL",
-          "FX_PATH_SENTINEL",
-          "FX_PATTERN_SENTINEL",
+          "Y2_MODEL_TEXT_SENTINEL",
+          "Y2_FINAL_RESPONSE_SENTINEL",
+          "Y2_PATH_SENTINEL",
+          "Y2_PATTERN_SENTINEL",
         ]
       ) {
         expect(observed.trace).not.toContain(sentinel);
@@ -5086,7 +5086,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "parallel read lifecycle updates preserve current grouped scrollback",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-status-scrollback-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-status-scrollback-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
@@ -5095,10 +5095,10 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         (_, index) => `SCROLL_PRE_${String(index + 1).padStart(2, "0")}`,
       );
       const final_text = "SCROLLBACK_FINAL_SENTINEL";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({}),
       );
       writeFileSync(join(workspace, "one.txt"), "first fixture\n");
@@ -5147,13 +5147,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-status-scrollback-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: scrollback_gateway.baseUrl,
-          FX_API_CHAT_URL: scrollback_gateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: scrollback_gateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: scrollback_gateway.baseUrl,
+          Y2_API_CHAT_URL: scrollback_gateway.chatUrl,
+          Y2_API_CHAT_URL: scrollback_gateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -5180,11 +5180,11 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "launch-row release preserves complete history during a large table append",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-launch-history-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-launch-history-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "launch-history.fxtape");
+      const tapePath = join(root, "launch-history.y2tape");
       const prefillMarkers = Array.from(
         { length: 5_000 },
         (_, index) =>
@@ -5205,7 +5205,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         "",
         tail,
       ].join("\n");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       mkdirSync(join(workspace, "docs"), { recursive: true });
       for (let index = 1; index <= 27; index += 1) {
@@ -5215,7 +5215,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         );
       }
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission_mode: "yolo",
@@ -5249,7 +5249,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       gateway = tableGateway;
       const launchScript = [
         `i=1; while [ "$i" -le ${prefillMarkers.length} ]; do printf "PREFILL_HISTORY_ROW_%04d\\n" "$i"; i=$((i + 1)); done`,
-        `exec ${FX_BIN}`,
+        `exec ${Y2_BIN}`,
       ].join("; ");
       session = await TmuxSession.create({
         cmd: `/bin/sh -c '${launchScript}'`,
@@ -5261,14 +5261,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-launch-history-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: tableGateway.baseUrl,
-          FX_API_CHAT_URL: tableGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: tableGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: tableGateway.baseUrl,
+          Y2_API_CHAT_URL: tableGateway.chatUrl,
+          Y2_API_CHAT_URL: tableGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -5303,23 +5303,23 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "dynamic MCP approval shows exact arguments and preserves deny once and session scope",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-mcp-approval-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-mcp-approval-")));
       const dynamicToolName = "mcp_fixture_echo";
-      const argumentSentinel = "FXC194_ARGUMENT_SENTINEL";
-      const secondArgumentSentinel = "FXC194_SECOND_ARGUMENT_SENTINEL";
+      const argumentSentinel = "Y2C194_ARGUMENT_SENTINEL";
+      const secondArgumentSentinel = "Y2C194_SECOND_ARGUMENT_SENTINEL";
       for (const decision of ["deny", "allow", "session"] as const) {
         const runRoot = join(root, decision);
         const home = join(runRoot, "home");
         const workspace = join(runRoot, "workspace");
         const stderrPath = join(runRoot, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true });
+        mkdirSync(join(home, ".y2"), { recursive: true });
         mkdirSync(workspace, { recursive: true });
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({}),
         );
         const fixture = writeDelayedMcpFixture(runRoot, home, 0);
-        const finalText = `FXC194_${decision.toUpperCase()}_COMPLETE`;
+        const finalText = `Y2C194_${decision.toUpperCase()}_COMPLETE`;
         const mcpGateway = startFakeGateway([
           fakeGatewaySse([
             {
@@ -5372,13 +5372,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
             env: {
               HOME: home,
               Y2_API_KEY: "fake-mcp-approval-key",
-              VERCEL_OIDC_TOKEN: undefined,
-              FX_AUTO_UPGRADE: "0",
-              FX_PERMISSION_MODE: "ask",
-              FX_GATEWAY_BASE_URL: mcpGateway.baseUrl,
-              FX_API_CHAT_URL: mcpGateway.chatUrl,
-              FX_E2E_GATEWAY_CHAT_URL: mcpGateway.chatUrl,
-              FX_MODEL: MODEL,
+              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              Y2_AUTO_UPGRADE: "0",
+              Y2_PERMISSION_MODE: "ask",
+              Y2_GATEWAY_BASE_URL: mcpGateway.baseUrl,
+              Y2_API_CHAT_URL: mcpGateway.chatUrl,
+              Y2_API_CHAT_URL: mcpGateway.chatUrl,
+              Y2_MODEL: MODEL,
             },
           });
 
@@ -5426,9 +5426,9 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "dynamic MCP approval from a child preserves live arguments and durable redaction",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-child-mcp-approval-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-child-mcp-approval-")));
       const dynamicToolName = "mcp_fixture_echo";
-      const argumentSentinel = "FXC194_CHILD_ARGUMENT_SENTINEL";
+      const argumentSentinel = "Y2C194_CHILD_ARGUMENT_SENTINEL";
       const childPrompt = "Select and call the inherited MCP echo fixture once.";
       const parentPrompt = "Create a one-off child to call the inherited MCP fixture.";
 
@@ -5437,17 +5437,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         const home = join(runRoot, "home");
         const workspace = join(runRoot, "workspace");
         const stderrPath = join(runRoot, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true });
+        mkdirSync(join(home, ".y2"), { recursive: true });
         mkdirSync(workspace, { recursive: true });
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             permission_mode: "ask",
             permission: { subagent: "allow" },
           }),
         );
         const fixture = writeDelayedMcpFixture(runRoot, home, 0);
-        const finalText = `FXC194_CHILD_${decision.toUpperCase()}_COMPLETE`;
+        const finalText = `Y2C194_CHILD_${decision.toUpperCase()}_COMPLETE`;
         const childSelectId = `child_mcp_select_${decision}`;
         const childCallId = `child_mcp_call_${decision}`;
         const parentCreateId = `parent_subagent_create_${decision}`;
@@ -5481,7 +5481,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
             return fakeGatewayToolCall(parentCreateId, "subagent", {
               command: {
                 create: {
-                  name: `fxc194-${decision}-child`,
+                  name: `y2c194-${decision}-child`,
                   mode: "one_off",
                   prompt: childPrompt,
                 },
@@ -5504,14 +5504,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
             env: {
               HOME: home,
               Y2_API_KEY: "fake-child-mcp-approval-key",
-              VERCEL_OIDC_TOKEN: undefined,
-              FX_AUTO_UPGRADE: "0",
-              FX_PERMISSION_MODE: "ask",
-              FX_GATEWAY_BASE_URL: mcpGateway.baseUrl,
-              FX_API_CHAT_URL: mcpGateway.chatUrl,
-              FX_E2E_GATEWAY_CHAT_URL: mcpGateway.chatUrl,
-              FX_MODEL: MODEL,
-              FX_SOUND: "0",
+              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              Y2_AUTO_UPGRADE: "0",
+              Y2_PERMISSION_MODE: "ask",
+              Y2_GATEWAY_BASE_URL: mcpGateway.baseUrl,
+              Y2_API_CHAT_URL: mcpGateway.chatUrl,
+              Y2_API_CHAT_URL: mcpGateway.chatUrl,
+              Y2_MODEL: MODEL,
+              Y2_SOUND: "0",
             },
           });
 
@@ -5560,18 +5560,18 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "dynamic MCP approval ellipsizes overlong arguments in a narrow terminal",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-narrow-mcp-approval-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-narrow-mcp-approval-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
       const dynamicToolName = "mcp_fixture_echo";
-      const argumentTail = "FXC194_OVERLONG_TAIL";
-      const overlongText = `FXC194_OVERLONG_HEAD_${"x".repeat(5_000)}\u001b[31m${argumentTail}`;
-      const finalText = "FXC194_NARROW_DENY_COMPLETE";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const argumentTail = "Y2C194_OVERLONG_TAIL";
+      const overlongText = `Y2C194_OVERLONG_HEAD_${"x".repeat(5_000)}\u001b[31m${argumentTail}`;
+      const finalText = "Y2C194_NARROW_DENY_COMPLETE";
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({}),
       );
       const fixture = writeDelayedMcpFixture(root, home, 0);
@@ -5612,14 +5612,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-narrow-mcp-approval-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "ask",
-          FX_GATEWAY_BASE_URL: mcpGateway.baseUrl,
-          FX_API_CHAT_URL: mcpGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: mcpGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_SOUND: "0",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "ask",
+          Y2_GATEWAY_BASE_URL: mcpGateway.baseUrl,
+          Y2_API_CHAT_URL: mcpGateway.chatUrl,
+          Y2_API_CHAT_URL: mcpGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_SOUND: "0",
         },
       });
 
@@ -5630,7 +5630,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         TIMEOUT,
       );
       expect(approval).toContain(dynamicToolName);
-      expect(approval).toContain("FXC194_OVER");
+      expect(approval).toContain("Y2C194_OVER");
       expect(approval).toContain("…");
       expect(approval).not.toContain(argumentTail);
       expect(approval.split("\n").every((line) => [...line].length <= 44)).toBe(true);
@@ -5647,15 +5647,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "dynamic MCP child rows transition from running to ran",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-mcp-lifecycle-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-mcp-lifecycle-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tracePath = join(root, "fx-trace.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tracePath = join(root, "y2-trace.log");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({}),
       );
       const fixture = writeDelayedMcpFixture(root, home, 2_000);
@@ -5699,15 +5699,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-mcp-lifecycle-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: mcpGateway.baseUrl,
-          FX_API_CHAT_URL: mcpGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: mcpGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "tool",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: mcpGateway.baseUrl,
+          Y2_API_CHAT_URL: mcpGateway.chatUrl,
+          Y2_API_CHAT_URL: mcpGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "tool",
         },
       });
 
@@ -5759,17 +5759,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "current compact view keeps unsupported tool failures visible with supported calls",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-unsupported-tool-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-unsupported-tool-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
       const resumedStderrPath = join(root, "resumed-stderr.log");
-      const tracePath = join(root, "fx-trace.log");
-      const tapePath = join(root, "session.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tracePath = join(root, "y2-trace.log");
+      const tapePath = join(root, "session.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({}),
       );
 
@@ -5804,15 +5804,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const gatewayEnv = {
         HOME: home,
         Y2_API_KEY: "fake-unsupported-tool-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_AUTO_UPGRADE: "0",
-        FX_PERMISSION_MODE: "auto",
-        FX_GATEWAY_BASE_URL: unsupportedGateway.baseUrl,
-        FX_API_CHAT_URL: unsupportedGateway.chatUrl,
-        FX_E2E_GATEWAY_CHAT_URL: unsupportedGateway.chatUrl,
-        FX_MODEL: MODEL,
-        FX_TRACE_LOG: tracePath,
-        FX_TRACE_SCOPES: "tool",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_AUTO_UPGRADE: "0",
+        Y2_PERMISSION_MODE: "auto",
+        Y2_GATEWAY_BASE_URL: unsupportedGateway.baseUrl,
+        Y2_API_CHAT_URL: unsupportedGateway.chatUrl,
+        Y2_API_CHAT_URL: unsupportedGateway.chatUrl,
+        Y2_MODEL: MODEL,
+        Y2_TRACE_LOG: tracePath,
+        Y2_TRACE_SCOPES: "tool",
       };
       session = await TmuxSession.create({
         cwd: workspace,
@@ -5821,7 +5821,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         stderrPath,
         env: {
           ...gatewayEnv,
-          FX_RECORD: tapePath,
+          Y2_RECORD: tapePath,
         },
       });
 
@@ -5886,7 +5886,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       session = null;
 
       session = await TmuxSession.create({
-        cmd: `${FX_BIN} --resume-last`,
+        cmd: `${Y2_BIN} --resume-last`,
         cwd: workspace,
         width: 100,
         height: 30,
@@ -5907,7 +5907,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "current compact command summaries hide no-op cwd prefixes and abbreviate the active workspace path",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-command-summary-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-command-summary-")));
       const home = join(root, "home");
       const workspace = join(
         root,
@@ -5915,12 +5915,12 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         "jeffsee",
         "code",
         "worktrees",
-        "vercel",
+        "retired_credential",
         "smart-spruce",
       );
       const nested = join(
         workspace,
-        "vercel",
+        "retired_credential",
         "packages",
         "cli",
         "test",
@@ -5933,11 +5933,11 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       );
       const stderrPath = join(root, "stderr.log");
       const resumedStderrPath = join(root, "resumed-stderr.log");
-      const tracePath = join(root, "fx-trace.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tracePath = join(root, "y2-trace.log");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(nested, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({}),
       );
 
@@ -5978,15 +5978,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const gatewayEnv = {
         HOME: home,
         Y2_API_KEY: "fake-tool-summary-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_AUTO_UPGRADE: "0",
-        FX_PERMISSION_MODE: "auto",
-        FX_GATEWAY_BASE_URL: summaryGateway.baseUrl,
-        FX_API_CHAT_URL: summaryGateway.chatUrl,
-        FX_E2E_GATEWAY_CHAT_URL: summaryGateway.chatUrl,
-        FX_MODEL: MODEL,
-        FX_TRACE_LOG: tracePath,
-        FX_TRACE_SCOPES: "tool",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_AUTO_UPGRADE: "0",
+        Y2_PERMISSION_MODE: "auto",
+        Y2_GATEWAY_BASE_URL: summaryGateway.baseUrl,
+        Y2_API_CHAT_URL: summaryGateway.chatUrl,
+        Y2_API_CHAT_URL: summaryGateway.chatUrl,
+        Y2_MODEL: MODEL,
+        Y2_TRACE_LOG: tracePath,
+        Y2_TRACE_SCOPES: "tool",
       };
       const withoutWorkspaceStatusline = (text: string): string =>
         text.split("\n").filter((line) =>
@@ -6008,7 +6008,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const compact = await session.captureFullScrollback();
       expect(compact).toContain("● 3 tool calls · 3 commands");
       expect(compact).toContain(
-        "Ran cd ./vercel/packages/cli/test/fixtures/unit/commands/git/connect/unlink && pwd",
+        "Ran cd ./retired_credential/packages/cli/test/fixtures/unit/commands/git/connect/unlink && pwd",
       );
       expect(withoutWorkspaceStatusline(compact)).not.toContain(workspace);
       expect(countOccurrences(compact, `Ran ${firstDisplayCommand}`)).toBe(1);
@@ -6020,7 +6020,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.sendKeys("C-o");
       const review = await session.waitForText(finalText, TIMEOUT);
       expect(review).toContain(
-        "├ Ran cd ./vercel/packages/cli/test/fixtures/unit/commands/git/connect/unlink",
+        "├ Ran cd ./retired_credential/packages/cli/test/fixtures/unit/commands/git/connect/unlink",
       );
       expect(review).toContain(`├ Ran ${firstDisplayCommand}`);
       expect(review).not.toContain(`Ran ${firstCommand}`);
@@ -6059,7 +6059,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       session = null;
 
       session = await TmuxSession.create({
-        cmd: `${FX_BIN} --resume-last`,
+        cmd: `${Y2_BIN} --resume-last`,
         cwd: workspace,
         width: 120,
         height: 30,
@@ -6070,7 +6070,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       const resumed = await session.captureFullScrollback();
       expect(resumed).toContain("● 3 tool calls · 3 commands");
       expect(resumed).toContain(
-        "Ran cd ./vercel/packages/cli/test/fixtures/unit/commands/git/connect/unlink && pwd",
+        "Ran cd ./retired_credential/packages/cli/test/fixtures/unit/commands/git/connect/unlink && pwd",
       );
       expect(resumed).toContain(`Ran ${firstDisplayCommand}`);
       expect(resumed).not.toContain(`Ran ${firstCommand}`);
@@ -6084,14 +6084,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "current compact view groups tool rows while Ctrl-O keeps full details",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-minimal-tool-groups-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-minimal-tool-groups-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "session.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
       const wrappedToolDetail = Array.from(
         { length: 16 },
         (_, index) => `WRAPPED_TOOL_DETAIL_${String(index + 1).padStart(2, "0")}`,
@@ -6217,15 +6217,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-minimal-tool-group-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: groupedGateway.baseUrl,
-          FX_API_CHAT_URL: groupedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: groupedGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: groupedGateway.baseUrl,
+          Y2_API_CHAT_URL: groupedGateway.chatUrl,
+          Y2_API_CHAT_URL: groupedGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -6279,7 +6279,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       for (const row of wrappedDetailRows) {
         expect(row.startsWith("│")).toBe(true);
       }
-      const replayFrames = execFileSync(FX_BIN, ["replay", tapePath, "--frames"], {
+      const replayFrames = execFileSync(Y2_BIN, ["replay", tapePath, "--frames"], {
         encoding: "utf8",
       });
       const replayWrappedRows = replayFrames
@@ -6304,14 +6304,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "current compact view keeps cancelled command feedback below its semantic group",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-minimal-cancelled-tool-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-minimal-cancelled-tool-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission_mode: "auto",
@@ -6336,14 +6336,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-minimal-cancelled-tool-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: cancelledGateway.baseUrl,
-          FX_API_CHAT_URL: cancelledGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: cancelledGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_THEME: "dark",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: cancelledGateway.baseUrl,
+          Y2_API_CHAT_URL: cancelledGateway.chatUrl,
+          Y2_API_CHAT_URL: cancelledGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_THEME: "dark",
           NO_COLOR: undefined,
         },
       });
@@ -6358,7 +6358,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(runningComposerRow).toBeGreaterThanOrEqual(0);
       await session.sendKeys("Escape");
 
-      const feedback = "■ Cancelled sleep 30 · What can fx do differently?";
+      const feedback = "■ Cancelled sleep 30 · What can y2 do differently?";
       const transitionComposerRows: number[] = [];
       let compact = "";
       const feedbackDeadline = Date.now() + TIMEOUT;
@@ -6398,13 +6398,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "current compact view labels provisional tool calls that never execute",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-minimal-not-executed-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-minimal-not-executed-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const provisionalGateway = startFakeGateway([
         fakeGatewaySse([
@@ -6431,13 +6431,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-minimal-not-executed-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: provisionalGateway.baseUrl,
-          FX_API_CHAT_URL: provisionalGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: provisionalGateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: provisionalGateway.baseUrl,
+          Y2_API_CHAT_URL: provisionalGateway.chatUrl,
+          Y2_API_CHAT_URL: provisionalGateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -6471,10 +6471,10 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(observed.stderr).toContain("[sse] event type=tool-input-end");
       for (
         const sentinel of [
-          "FX_MODEL_TEXT_SENTINEL",
-          "FX_FINAL_RESPONSE_SENTINEL",
-          "FX_PATH_SENTINEL",
-          "FX_PATTERN_SENTINEL",
+          "Y2_MODEL_TEXT_SENTINEL",
+          "Y2_FINAL_RESPONSE_SENTINEL",
+          "Y2_PATH_SENTINEL",
+          "Y2_PATTERN_SENTINEL",
         ]
       ) {
         expect(observed.stderr).not.toContain(sentinel);
@@ -6486,12 +6486,12 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "height-three startup rollback restores the fixture PTY",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-small-startup-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-small-startup-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const artifacts = createArtifactRoot();
       const donePath = join(artifacts, "done");
@@ -6505,17 +6505,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_TEST_BIN: FX_BIN,
-          FX_LIFECYCLE_ARTIFACT_DIR: artifacts,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_TEST_BIN: Y2_BIN,
+          Y2_LIFECYCLE_ARTIFACT_DIR: artifacts,
         },
       });
 
       await waitForPath(donePath);
       expect(readTrimmed(join(artifacts, "child.status"))).toBe("0");
       expect(readFileSync(join(artifacts, "stderr.log"), "utf8")).toBe(
-        "fx needs at least 5 terminal rows.\n",
+        "y2 needs at least 5 terminal rows.\n",
       );
       expect(readTrimmed(join(artifacts, "stty.after"))).toBe(
         readTrimmed(join(artifacts, "stty.before")),
@@ -6535,14 +6535,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
     "invalid added root startup restores the fixture PTY",
     async () => {
       root = realpathSync(
-        mkdtempSync(join(tmpdir(), "fx-tui-invalid-added-root-")),
+        mkdtempSync(join(tmpdir(), "y2-tui-invalid-added-root-")),
       );
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const invalidRoot = join(root, "missing-root");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const artifacts = createArtifactRoot();
       const donePath = join(artifacts, "done");
@@ -6555,18 +6555,18 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_TEST_BIN: FX_BIN,
-          FX_INVALID_ADDED_ROOT: invalidRoot,
-          FX_LIFECYCLE_ARTIFACT_DIR: artifacts,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_TEST_BIN: Y2_BIN,
+          Y2_INVALID_ADDED_ROOT: invalidRoot,
+          Y2_LIFECYCLE_ARTIFACT_DIR: artifacts,
         },
       });
 
       await waitForPath(donePath);
       expect(readTrimmed(join(artifacts, "child.status"))).not.toBe("0");
       expect(readFileSync(join(artifacts, "stderr.log"), "utf8")).toBe(
-        "fx: PathNotFound\n",
+        "y2: PathNotFound\n",
       );
       expect(readTrimmed(join(artifacts, "stty.after"))).toBe(
         readTrimmed(join(artifacts, "stty.before")),
@@ -6585,12 +6585,12 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "missing finish regenerates the unstarted tool and completes the response",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-gateway-lifecycle-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-gateway-lifecycle-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const finalText = "Recovered after the incomplete tool stream.";
       const queuedGateway = startFakeGateway([
@@ -6603,11 +6603,11 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-tui-gateway-lifecycle-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_BASE_URL: queuedGateway.baseUrl,
-          FX_API_CHAT_URL: queuedGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: queuedGateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_GATEWAY_BASE_URL: queuedGateway.baseUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_API_CHAT_URL: queuedGateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -6626,19 +6626,19 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "automatic command review keeps elapsed activity after assistant prose",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-auto-review-activity-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-auto-review-activity-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const finalText = "AUTO_REVIEW_ACTIVITY_DONE";
       let releaseClassifier!: (response: Response) => void;
       const heldClassifier = new Promise<Response>((resolve) => {
         releaseClassifier = resolve;
       });
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const commandGateway = startFakeGateway([
         fakeGatewaySse([
@@ -6673,15 +6673,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-auto-review-activity-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: commandGateway.baseUrl,
-          FX_API_CHAT_URL: commandGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: commandGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: commandGateway.baseUrl,
+          Y2_API_CHAT_URL: commandGateway.chatUrl,
+          Y2_API_CHAT_URL: commandGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -6707,7 +6707,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(readFileSync(stderrPath, "utf8")).toBe("");
       expect(existsSync(tapePath)).toBe(true);
       expect(
-        execFileSync(FX_BIN, ["replay", tapePath, "--frames"], {
+        execFileSync(Y2_BIN, ["replay", tapePath, "--frames"], {
           encoding: "utf8",
         }),
       ).toMatch(/Thinking \(\d+s\)/);
@@ -6718,17 +6718,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "argless streamed terminal start stays in composing activity while held open",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-run-command-provisional-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-run-command-provisional-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const tracePath = join(root, "trace.log");
       const stream = { started: false, cancelled: false };
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({}),
       );
 
@@ -6749,16 +6749,16 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-run-command-provisional-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: streamingGateway.baseUrl,
-          FX_API_CHAT_URL: streamingGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: streamingGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,tool,sse,worker,input,prompt,ui_activity,command_output",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: streamingGateway.baseUrl,
+          Y2_API_CHAT_URL: streamingGateway.chatUrl,
+          Y2_API_CHAT_URL: streamingGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,tool,sse,worker,input,prompt,ui_activity,command_output",
         },
       });
 
@@ -6794,7 +6794,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.kill();
       session = null;
       expect(
-        execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+        execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
           encoding: "utf8",
         }),
       ).not.toBe("");
@@ -6805,17 +6805,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "provider search renders a transcript lifecycle row with URL detail",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-provider-search-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-provider-search-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const tracePath = join(root, "trace.log");
-      const sourceUrl = "https://example.test/fx-provider-search";
+      const sourceUrl = "https://example.test/y2-provider-search";
       const finalText = "PROVIDER_SEARCH_DONE";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const providerGateway = startFakeGateway([
         fakeGatewaySse([
@@ -6829,7 +6829,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
             type: "tool-result",
             toolCallId: "provider_search_direct",
             result: {
-              results: [{ title: "Fx provider source", url: sourceUrl }],
+              results: [{ title: "Y2 provider source", url: sourceUrl }],
             },
           },
           {
@@ -6850,17 +6850,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-provider-search-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: providerGateway.baseUrl,
-          FX_API_CHAT_URL: providerGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: providerGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,tool,sse,worker,input,prompt,ui_activity,command_output",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: providerGateway.baseUrl,
+          Y2_API_CHAT_URL: providerGateway.chatUrl,
+          Y2_API_CHAT_URL: providerGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,tool,sse,worker,input,prompt,ui_activity,command_output",
         },
       });
 
@@ -6911,7 +6911,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(detail).toContain(sourceUrl);
       expect(detail).toContain("└ Searched web");
 
-      const replay = execFileSync(FX_BIN, ["replay", tapePath, "--frames"], {
+      const replay = execFileSync(Y2_BIN, ["replay", tapePath, "--frames"], {
         encoding: "utf8",
       });
       expect(replay).toContain("● 1 tool call · 1 read");
@@ -6926,19 +6926,19 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "multiline terminal keeps raw approval and persistence with compact activity",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-multiline-command-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-multiline-command-")));
       const home = join(root, "home");
       const workspacePath = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const command = "cat <<'EOF'\nline one\nEOF";
       const compactActivity = "└ Ran cat <<'EOF' line one EOF";
       const finalText = "MULTILINE_COMMAND_DONE";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspacePath, { recursive: true });
       const workspace = realpathSync(workspacePath);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission_mode: "ask",
@@ -6962,15 +6962,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-multiline-command-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "ask",
-          FX_GATEWAY_BASE_URL: commandGateway.baseUrl,
-          FX_API_CHAT_URL: commandGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: commandGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "ask",
+          Y2_GATEWAY_BASE_URL: commandGateway.baseUrl,
+          Y2_API_CHAT_URL: commandGateway.chatUrl,
+          Y2_API_CHAT_URL: commandGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -7004,13 +7004,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       session = null;
       expect(readFileSync(stderrPath, "utf8")).toBe("");
 
-      const sessionsRoot = join(home, ".fx", "sessions");
+      const sessionsRoot = join(home, ".y2", "sessions");
       const sessionId = readdirSync(sessionsRoot).find((entry) =>
         existsSync(join(sessionsRoot, entry, "session.json"))
       );
       if (!sessionId) throw new Error("multiline command session was not found");
       const saved = JSON.parse(
-        execFileSync(FX_BIN, ["session", "--id", sessionId, "--json"], {
+        execFileSync(Y2_BIN, ["session", "--id", sessionId, "--json"], {
           cwd: workspace,
           env: { ...process.env, HOME: home },
           encoding: "utf8",
@@ -7032,7 +7032,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         }),
       );
 
-      const replay = execFileSync(FX_BIN, ["replay", tapePath], {
+      const replay = execFileSync(Y2_BIN, ["replay", tapePath], {
         encoding: "utf8",
       });
       expect(replay).toContain(compactActivity);
@@ -7044,20 +7044,20 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "same-step streamed terminal calls complete with owned output blocks",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-parallel-command-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-parallel-command-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       const tracePath = join(root, "trace.log");
       const firstCommand = "printf 'FIRST_CMD_%s\\n' DONE";
       const secondCommand =
         "i=1; while [ \"$i\" -le 30 ]; do printf 'SECOND_CMD_LINE_%02d\\n' \"$i\"; i=$((i+1)); done";
       const finalText = "SAME_STEP_COMMAND_DONE";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission_mode: "auto",
@@ -7111,17 +7111,17 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-same-step-command-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_PERMISSION_MODE: "auto",
-          FX_GATEWAY_BASE_URL: commandGateway.baseUrl,
-          FX_API_CHAT_URL: commandGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: commandGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "agent,gateway,stream,tool,sse,worker,input,prompt,ui_activity,command_output",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_GATEWAY_BASE_URL: commandGateway.baseUrl,
+          Y2_API_CHAT_URL: commandGateway.chatUrl,
+          Y2_API_CHAT_URL: commandGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "agent,gateway,stream,tool,sse,worker,input,prompt,ui_activity,command_output",
         },
       });
 
@@ -7176,14 +7176,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.sendKeys("C-o");
       await session.waitForText(finalText, TIMEOUT);
 
-      const finalReplay = execFileSync(FX_BIN, ["replay", tapePath], {
+      const finalReplay = execFileSync(Y2_BIN, ["replay", tapePath], {
         encoding: "utf8",
       });
       expect(hasBareRunningRow(finalReplay)).toBe(false);
       expect(finalReplay).toContain("Ran printf 'FIRST_CMD_%s\\n' DONE");
       expect(finalReplay).toContain("Ran i=1; while");
 
-      const replayFrames = execFileSync(FX_BIN, ["replay", tapePath, "--frames"], {
+      const replayFrames = execFileSync(Y2_BIN, ["replay", tapePath, "--frames"], {
         encoding: "utf8",
       });
       const stableSecondCommandLine = "SECOND_CMD_LINE_24";
@@ -7203,13 +7203,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "length-truncated terminal completion preserves output without inventing a tool row",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-gateway-length-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-gateway-length-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const sentinelPath = join(workspace, "command-must-not-run.txt");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       gateway = startGateway(() =>
         lengthLimitedCommandResponse("printf executed > command-must-not-run.txt")
@@ -7219,11 +7219,11 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-tui-gateway-length-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -7249,14 +7249,14 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "model catalog opened during warmup refreshes without input or resize",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-model-cache-picker-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-model-cache-picker-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const settingsPath = join(home, ".fx", "settings.json");
+      const settingsPath = join(home, ".y2", "settings.json");
       const initialSettings = "{}";
       const firstCatalogModel = "anthropic/claude-fable-5";
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(settingsPath, initialSettings);
 
@@ -7283,10 +7283,10 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-model-cache-picker-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_E2E_GATEWAY_MODELS_URL: heldGateway.modelsUrl,
-          FX_MODEL: MODEL,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_E2E_GATEWAY_MODELS_URL: heldGateway.modelsUrl,
+          Y2_MODEL: MODEL,
         },
       });
 
@@ -7320,15 +7320,15 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
   test(
     "double Ctrl+C exits while model-cache warmup is held",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-model-cache-exit-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-model-cache-exit-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
       const tracePath = join(root, "trace.log");
-      const tapePath = join(root, "session.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "session.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const heldGateway = startHeldModelsGateway();
       gateway = heldGateway;
@@ -7339,13 +7339,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-model-cache-exit-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_E2E_GATEWAY_MODELS_URL: heldGateway.modelsUrl,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "gateway,app,input",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_E2E_GATEWAY_MODELS_URL: heldGateway.modelsUrl,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "gateway,app,input",
         },
       });
 
@@ -7375,7 +7375,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       expect(existsSync(tapePath)).toBe(true);
       expect(existsSync(tracePath)).toBe(true);
       expect(
-        execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+        execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
           encoding: "utf8",
         }),
       ).not.toBe("");
@@ -7679,16 +7679,16 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
   test(
     "closed tool groups enter native scrollback before the turn finishes",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-sb-tool-groups-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-sb-tool-groups-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       for (let index = 1; index <= 3; index += 1) {
         writeFileSync(join(workspace, `source-${index}.txt`), `source ${index}\n`);
       }
-      writeFileSync(join(home, ".fx", "settings.json"), sbSettings());
+      writeFileSync(join(home, ".y2", "settings.json"), sbSettings());
       writeFileSync(stderrPath, "");
 
       const finalText = "TOOL_GROUP_SCROLLBACK_FINAL";
@@ -7720,7 +7720,7 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
       const fakeGateway = gateway as ReturnType<typeof startFakeGateway>;
 
       session = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: workspace,
         width: 80,
         height: 14,
@@ -7729,13 +7729,13 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-sb-tool-groups-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-          FX_API_CHAT_URL: fakeGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_MAX_AGENT_STEPS: "4",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_MAX_AGENT_STEPS: "4",
         },
       });
 
@@ -7784,12 +7784,12 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
   test(
     "sequential tool group and streamed markdown keep native scrollback final",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-sb-release-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-sb-release-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "sb-release.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "sb-release.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(join(workspace, "docs"), { recursive: true });
       for (let index = 1; index <= 17; index += 1) {
         writeFileSync(
@@ -7797,7 +7797,7 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
           `source row ${index}\n`,
         );
       }
-      writeFileSync(join(home, ".fx", "settings.json"), sbSettings());
+      writeFileSync(join(home, ".y2", "settings.json"), sbSettings());
       writeFileSync(stderrPath, "");
 
       const codeALines = Array.from(
@@ -7857,7 +7857,7 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
       const fakeGateway = gateway as ReturnType<typeof startFakeGateway>;
 
       session = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: workspace,
         width: 100,
         height: 20,
@@ -7866,14 +7866,14 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-sb-release-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-          FX_API_CHAT_URL: fakeGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -7927,12 +7927,12 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
   test(
     "parallel tool batches and token-streamed markdown keep native scrollback final",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-sb-batch-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-sb-batch-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "sb-batch.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "sb-batch.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(join(workspace, "docs"), { recursive: true });
       for (let index = 1; index <= 20; index += 1) {
         writeFileSync(
@@ -7940,7 +7940,7 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
           `alpha scoped row ${index}\n`.repeat(3),
         );
       }
-      writeFileSync(join(home, ".fx", "settings.json"), sbSettings());
+      writeFileSync(join(home, ".y2", "settings.json"), sbSettings());
       writeFileSync(stderrPath, "");
 
       const fillerLines = Array.from(
@@ -8065,7 +8065,7 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
       const fakeGateway = gateway as ReturnType<typeof startFakeGateway>;
 
       session = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: workspace,
         width: 149,
         height: 51,
@@ -8074,14 +8074,14 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-sb-batch-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-          FX_API_CHAT_URL: fakeGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -8146,14 +8146,14 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
   test(
     "completed streamed UI blocks append without rewriting scrolled history",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-tui-sb-ui-blocks-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-tui-sb-ui-blocks-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "ui-blocks.fxtape");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      const tapePath = join(root, "ui-blocks.y2tape");
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), sbSettings());
+      writeFileSync(join(home, ".y2", "settings.json"), sbSettings());
       writeFileSync(stderrPath, "");
 
       const phaseOneRows = Array.from(
@@ -8287,7 +8287,7 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
       const fakeGateway = gateway as ReturnType<typeof startDynamicFakeGateway>;
 
       session = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: workspace,
         width: 100,
         height: 24,
@@ -8296,14 +8296,14 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-sb-ui-blocks-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-          FX_API_CHAT_URL: fakeGateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
-          FX_MODEL: MODEL,
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_API_CHAT_URL: fakeGateway.chatUrl,
+          Y2_MODEL: MODEL,
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
         },
       });
 
@@ -8410,14 +8410,14 @@ describe.skipIf(!tmuxAvailable())("transcript scrollback release", () => {
         session = undefined;
 
         const replay = JSON.parse(
-          execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+          execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
             encoding: "utf8",
           }),
         ) as { frame_count: number; stdout_bytes: number };
         expect(replay.frame_count).toBeGreaterThan(0);
         expect(replay.stdout_bytes).toBeGreaterThan(0);
         const goldenPath = join(root, "ui-blocks-golden.txt");
-        execFileSync(FX_BIN, ["replay", tapePath, "--golden", goldenPath]);
+        execFileSync(Y2_BIN, ["replay", tapePath, "--golden", goldenPath]);
         expect(readFileSync(goldenPath, "utf8")).toContain(
           "ANCHOR_PHASE_TWO_24",
         );

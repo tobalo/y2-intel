@@ -15,7 +15,7 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { pathToFileURL } from "node:url";
-import { FX_BIN, HAS_API_KEY, REPO_ROOT, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, HAS_API_KEY, REPO_ROOT, runY2 } from "../evals/eval-helpers";
 import {
   AUTO_PERPLEXITY_SERIALIZED_TOOL_NAMES,
   customProviderGuidanceState,
@@ -72,9 +72,9 @@ function acpStdioServer(
     command: process.execPath,
     args: [MCP_STDIO_FIXTURE],
     env: [
-      { name: "FX_MCP_RESULT_TEXT", value: resultText },
-      { name: "FX_MCP_PID_PATH", value: pidPath },
-      { name: "FX_MCP_MODE", value: mode },
+      { name: "Y2_MCP_RESULT_TEXT", value: resultText },
+      { name: "Y2_MCP_PID_PATH", value: pidPath },
+      { name: "Y2_MCP_MODE", value: mode },
       ...Object.entries(extraEnv).map(([name, value]) => ({ name, value })),
     ],
   };
@@ -193,11 +193,11 @@ function fakeGatewayEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-acp-file-key",
-    VERCEL_OIDC_TOKEN: "",
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: FAKE_GATEWAY_MODEL,
-    FX_AUTO_UPGRADE: "0",
+    REMOVED_LEGACY_OIDC_TOKEN: "",
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_AUTO_UPGRADE: "0",
   };
 }
 
@@ -305,7 +305,7 @@ function findPersistedAcpDeliveryIds(
   childId: string,
   payload: string,
 ): string[] {
-  const path = join(root.home, ".fx", "sessions", childId, "subagent", "communication.json");
+  const path = join(root.home, ".y2", "sessions", childId, "subagent", "communication.json");
   if (!existsSync(path)) return [];
   const record = JSON.parse(readFileSync(
     path,
@@ -364,7 +364,7 @@ function acpSubagentState(
   root: ReturnType<typeof createIsolatedRoot>,
   childId: string,
 ): string | null {
-  const path = join(root.home, ".fx", "sessions", childId, "subagent", "control.json");
+  const path = join(root.home, ".y2", "sessions", childId, "subagent", "control.json");
   if (!existsSync(path)) return null;
   const record = JSON.parse(readFileSync(path, "utf8")) as { state?: string };
   return record.state ?? null;
@@ -459,7 +459,7 @@ function expectAcpHumanUnreadIndependent(
   eventId: string,
 ) {
   const record = JSON.parse(readFileSync(
-    join(root.home, ".fx", "sessions", childId, "subagent", "communication.json"),
+    join(root.home, ".y2", "sessions", childId, "subagent", "communication.json"),
     "utf8",
   )) as {
     ledger: {
@@ -486,7 +486,7 @@ function expectAcpParentHistoryClean(
   parentSessionId: string,
   forbidden: string[],
 ) {
-  const sessionDir = join(root.home, ".fx", "sessions", parentSessionId);
+  const sessionDir = join(root.home, ".y2", "sessions", parentSessionId);
   for (const name of ["session.json", "events.jsonl"]) {
     const path = join(sessionDir, name);
     if (!existsSync(path)) continue;
@@ -496,14 +496,14 @@ function expectAcpParentHistoryClean(
   }
 }
 
-function writeSeededFxAuth(home: string, teamId?: string): void {
-  const fxDir = join(home, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "auth.json");
+function writeSeededY2Auth(home: string, teamId?: string): void {
+  const y2Dir = join(home, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "auth.json");
   const auth: Record<string, string | number> = {
     version: 1,
-    issuer: "https://vercel.com",
+    issuer: "https://identity.example",
     client_id: "test-client",
     access_token: SEEDED_GATEWAY_TOKEN,
     refresh_token: "seeded-refresh-token",
@@ -513,7 +513,7 @@ function writeSeededFxAuth(home: string, teamId?: string): void {
   };
   if (teamId) {
     auth.team_id = teamId;
-    auth.team_slug = "vercel-labs";
+    auth.team_slug = "example-org";
   }
   writeFileSync(authPath, JSON.stringify(auth) + "\n", { mode: 0o600 });
   chmodSync(authPath, 0o600);
@@ -530,10 +530,10 @@ function acpChatGptAccessToken(
 }
 
 function writeSeededAcpChatGptLogin(home: string, accessToken: string): void {
-  const fxDir = join(home, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "chatgpt-auth.json");
+  const y2Dir = join(home, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "chatgpt-auth.json");
   writeFileSync(authPath, JSON.stringify({
     version: 1,
     access_token: accessToken,
@@ -631,10 +631,10 @@ function startAcpFakeCodex(options: {
 }
 
 function writeSeededAcpGrokLogin(home: string, accessToken: string): void {
-  const fxDir = join(home, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "grok-auth.json");
+  const y2Dir = join(home, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "grok-auth.json");
   writeFileSync(authPath, JSON.stringify({
     version: 1,
     access_token: accessToken,
@@ -809,7 +809,7 @@ class AcpClient {
         inheritedEnv[key] = value;
       }
     }
-    const proc = nodeSpawn(FX_BIN, args, {
+    const proc = nodeSpawn(Y2_BIN, args, {
       env: {
         ...inheritedEnv,
         NO_COLOR: "1",
@@ -925,7 +925,7 @@ function createIsolatedRoot(prefix: string) {
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   const external = join(root, "external");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   mkdirSync(external, { recursive: true });
   return {
@@ -941,7 +941,7 @@ function createShortIsolatedRoot(prefix: string) {
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   const external = join(root, "external");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   mkdirSync(external, { recursive: true });
   return {
@@ -953,7 +953,7 @@ function createShortIsolatedRoot(prefix: string) {
 }
 
 async function waitForTerminalHostExit(root: string): Promise<void> {
-  const identityPath = join(root, "home", ".fx", "terminal-host", "host.json");
+  const identityPath = join(root, "home", ".y2", "terminal-host", "host.json");
   const deadline = Date.now() + TERMINAL_HOST_EXIT_TIMEOUT_MS;
   while (Date.now() < deadline) {
     if (!existsSync(identityPath)) return;
@@ -984,10 +984,10 @@ function writeAcpSession(
   sessionId: string,
   updatedAtMs: number,
 ): void {
-  const sessionDir = join(home, ".fx", "sessions", sessionId);
+  const sessionDir = join(home, ".y2", "sessions", sessionId);
   mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
-  chmodSync(join(home, ".fx"), 0o700);
-  chmodSync(join(home, ".fx", "sessions"), 0o700);
+  chmodSync(join(home, ".y2"), 0o700);
+  chmodSync(join(home, ".y2", "sessions"), 0o700);
   chmodSync(sessionDir, 0o700);
   writeFileSync(
     join(sessionDir, "session.json"),
@@ -1016,9 +1016,9 @@ function createPromptTerminalBoundary(root: string) {
     reapReady,
     release,
     env: {
-      FX_E2E_ACP_PROMPT_TERMINAL_READY: terminalReady,
-      FX_E2E_ACP_PROMPT_REAP_READY: reapReady,
-      FX_E2E_ACP_PROMPT_RELEASE: release,
+      Y2_E2E_ACP_PROMPT_TERMINAL_READY: terminalReady,
+      Y2_E2E_ACP_PROMPT_REAP_READY: reapReady,
+      Y2_E2E_ACP_PROMPT_RELEASE: release,
     },
   };
 }
@@ -1149,7 +1149,7 @@ async function continueRecovery(client: AcpClient, timeoutMs = LIVE_TIMEOUT) {
     method: "session/prompt",
     params: {
       prompt: [],
-      _meta: { fx: { continueRecovery: true } },
+      _meta: { y2: { continueRecovery: true } },
     },
   });
 
@@ -1187,22 +1187,22 @@ describe("acp: model-independent", () => {
   test(
     "active ACP session uses typed MCP Resources Prompts and Completion state",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-features-");
+      const root = createIsolatedRoot("y2-acp-mcp-features-");
       const pidPath = join(root.root, "mcp-features.pid");
       const wireLogPath = join(root.root, "mcp-features-wire.jsonl");
       const profilePidPath = join(root.root, "mcp-profile-features.pid");
       const profileWireLogPath = join(root.root, "mcp-profile-features-wire.jsonl");
       writeFileSync(
-        join(root.home, ".fx", "mcp.json"),
+        join(root.home, ".y2", "mcp.json"),
         JSON.stringify({
           mcp: {
             profile: {
               type: "local",
               command: [process.execPath, MCP_STDIO_FIXTURE],
               environment: {
-                FX_MCP_MODE: "features",
-                FX_MCP_PID_PATH: profilePidPath,
-                FX_MCP_WIRE_LOG: profileWireLogPath,
+                Y2_MCP_MODE: "features",
+                Y2_MCP_PID_PATH: profilePidPath,
+                Y2_MCP_WIRE_LOG: profileWireLogPath,
               },
             },
           },
@@ -1262,7 +1262,7 @@ describe("acp: model-independent", () => {
               "UNUSED",
               pidPath,
               "features",
-              { FX_MCP_WIRE_LOG: wireLogPath },
+              { Y2_MCP_WIRE_LOG: wireLogPath },
             )],
           },
           2,
@@ -1310,7 +1310,7 @@ describe("acp: model-independent", () => {
   test(
     "session/new omits the removed summary command",
     async () => {
-      const root = createIsolatedRoot("fx-acp-available-commands-");
+      const root = createIsolatedRoot("y2-acp-available-commands-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -1340,7 +1340,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP reports a paused recovery and continues it only on explicit metadata",
     async () => {
-      const root = createIsolatedRoot("fx-acp-model-recovery-");
+      const root = createIsolatedRoot("y2-acp-model-recovery-");
       const partialText = "ACP partial output before EOF.";
       const finalTextSuffix = "ACP recovery completed.";
       const gateway = startFakeGateway([
@@ -1397,7 +1397,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP sends continuation text normally with the full tool surface",
     async () => {
-      const root = createIsolatedRoot("fx-acp-continuation-text-");
+      const root = createIsolatedRoot("y2-acp-continuation-text-");
       const gateway = startFakeGateway([finalText("ACP_CONTINUATION_TEXT_COMPLETE")]);
       const submitted = "Continue from the last useful progress update.";
       try {
@@ -1448,7 +1448,7 @@ describe("acp: model-independent", () => {
   test(
     "read_file rejects a FIFO without waiting for a writer",
     async () => {
-      const root = createIsolatedRoot("fx-acp-read-file-fifo-");
+      const root = createIsolatedRoot("y2-acp-read-file-fifo-");
       const fifoPath = join(root.workspace, "search-pipe");
       const fifo = Bun.spawnSync(["mkfifo", fifoPath]);
       expect(fifo.exitCode).toBe(0);
@@ -1492,7 +1492,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP reload replays pending execution once and clears recovery after completion",
     async () => {
-      const root = createIsolatedRoot("fx-acp-reload-model-recovery-");
+      const root = createIsolatedRoot("y2-acp-reload-model-recovery-");
       const toolEvidence = "ACP_RESTART_TOOL_EVIDENCE";
       const partialText = "ACP_RESTART_PARTIAL_SENTINEL";
       const finalTextSuffix = "ACP_RESTART_FINAL_SENTINEL";
@@ -1605,7 +1605,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP sends a prompt above the old CLI limit with one capability snapshot",
     async () => {
-      const root = createIsolatedRoot("fx-acp-large-prompt-");
+      const root = createIsolatedRoot("y2-acp-large-prompt-");
       const gateway = startFakeGateway(
         [finalText("ACP_LARGE_PROMPT_COMPLETE")],
         {
@@ -1652,7 +1652,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP executes the shared public terminal tool through the native backend",
     async () => {
-      const root = createShortIsolatedRoot("fx-acp-terminal-");
+      const root = createShortIsolatedRoot("y2-acp-terminal-");
       const toolCallId = "acp_terminal_native_1";
       const gateway = startFakeGateway([
         fakeGatewayToolCall(toolCallId, "terminal", {
@@ -1676,7 +1676,7 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_TERMINAL_HOST_IDLE_MS: "200",
+            Y2_TERMINAL_HOST_IDLE_MS: "200",
           },
         });
         client.setPermissionOption("allow_once");
@@ -1713,7 +1713,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP added-root reads skip external deferral and added project instructions",
     async () => {
-      const root = createIsolatedRoot("fx-acp-added-root-");
+      const root = createIsolatedRoot("y2-acp-added-root-");
       const sentinel = "ACP_ADDED_ROOT_AGENTS_SENTINEL";
       const target = join(root.external, "fixture.txt");
       writeFileSync(join(root.external, "AGENTS.md"), sentinel + "\n");
@@ -1758,13 +1758,13 @@ describe("acp: model-independent", () => {
   test(
     "context limit warnings use ACP session updates and dedupe for the live session",
     async () => {
-      const root = createIsolatedRoot("fx-acp-context-limits-");
+      const root = createIsolatedRoot("y2-acp-context-limits-");
       writeFileSync(
         join(root.workspace, "AGENTS.md"),
         "ACP_RULE_PREFIX\nACP_RULE_SECOND\nACP_RULE_TAIL_SENTINEL\n",
       );
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           context_limits: { project_instruction_file_bytes: 96 },
           workspaces: {
@@ -1844,7 +1844,7 @@ describe("acp: model-independent", () => {
       const remoteUri = `https://example.test/${"a".repeat(256 * 1024)}/REMOTE_URI_TAIL_SENTINEL`;
 
       for (const testCase of cases) {
-        const root = createIsolatedRoot(`fx-acp-bounded-omission-${testCase.label}-`);
+        const root = createIsolatedRoot(`y2-acp-bounded-omission-${testCase.label}-`);
         const gateway = startFakeGateway([finalText(`ACP_BOUNDED_OMISSION_${testCase.label}`)]);
         try {
           client = await AcpClient.create({
@@ -1894,7 +1894,7 @@ describe("acp: model-independent", () => {
   test(
     "project omissions reach ACP session updates and model context",
     async () => {
-      const root = createIsolatedRoot("fx-acp-project-omissions-");
+      const root = createIsolatedRoot("y2-acp-project-omissions-");
       const { target } = writeProjectOmissionFixture(root);
       const gateway = startFakeGateway([finalText("ACP_PROJECT_OMISSIONS_COMPLETE")]);
       try {
@@ -1951,7 +1951,7 @@ describe("acp: model-independent", () => {
       }));
 
       for (const testCase of cases) {
-        const root = createIsolatedRoot(`fx-acp-aggregate-omissions-${testCase.label}-`);
+        const root = createIsolatedRoot(`y2-acp-aggregate-omissions-${testCase.label}-`);
         const gateway = startFakeGateway([finalText(`ACP_AGGREGATE_OMISSIONS_${testCase.label}`)]);
         try {
           client = await AcpClient.create({
@@ -2000,13 +2000,13 @@ describe("acp: model-independent", () => {
   test(
     "initialize reports that image prompt blocks are unsupported",
     async () => {
-      const root = createIsolatedRoot("fx-acp-initialize-");
+      const root = createIsolatedRoot("y2-acp-initialize-");
       try {
-        const version = await runFx(["--version"], {
+        const version = await runY2(["--version"], {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            VERCEL_OIDC_TOKEN: "",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
           timeoutMs: TIMEOUT,
         });
@@ -2018,7 +2018,7 @@ describe("acp: model-independent", () => {
           env: {
             HOME: root.home,
             Y2_API_KEY: "e2e-placeholder",
-            VERCEL_OIDC_TOKEN: "",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
         const resp = await client.request(
@@ -2029,7 +2029,7 @@ describe("acp: model-independent", () => {
         expect(resp.jsonrpc).toBe("2.0");
         expect(resp.id).toBe(1);
         expect(resp.result.protocolVersion).toBe(1);
-        expect(resp.result.agentInfo.name).toBe("fx");
+        expect(resp.result.agentInfo.name).toBe("y2");
         expect(resp.result.agentInfo.version).toBe(version.stdout.trim());
         expect(resp.result.agentCapabilities.loadSession).toBe(true);
         expect(resp.result.agentCapabilities.promptCapabilities.image).toBe(false);
@@ -2048,7 +2048,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP session/new calls a supplied modern HTTP MCP server",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-http-");
+      const root = createIsolatedRoot("y2-acp-mcp-http-");
       const httpFixture = startModernMcpHttpFixture("json");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_http", "mcp_select_tool", {
@@ -2117,7 +2117,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP routes legacy HTTP and SSE configs through new load resume and close",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-legacy-remote-");
+      const root = createIsolatedRoot("y2-acp-mcp-legacy-remote-");
       const newFixture = startLegacyStreamableHttpFixture("2025-11-25");
       const loadFixture = startLegacyHttpSseFixture();
       const resumeFixture = startLegacyHttpSseFixture();
@@ -2265,7 +2265,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP remote authentication never starts an interactive authorization flow",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-auth-required-");
+      const root = createIsolatedRoot("y2-acp-mcp-auth-required-");
       let mcpRequests = 0;
       let metadataRequests = 0;
       const server = Bun.serve({
@@ -2315,7 +2315,7 @@ describe("acp: model-independent", () => {
         expect(mcpRequests).toBe(1);
         expect(metadataRequests).toBe(0);
         expect(
-          existsSync(join(root.home, ".fx", "mcp-credentials")),
+          existsSync(join(root.home, ".y2", "mcp-credentials")),
         ).toBe(false);
         expect(client.stderr).toBe("");
       } finally {
@@ -2331,7 +2331,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP bearer headers authenticate HTTP without persisting the credential",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-bearer-");
+      const root = createIsolatedRoot("y2-acp-mcp-bearer-");
       const httpFixture = startModernMcpHttpFixture("json");
       const bearer = "acp-mcp-bearer-secret";
       const proxy = Bun.serve({
@@ -2389,7 +2389,7 @@ describe("acp: model-independent", () => {
           `${MODERN_HTTP_TOOL_RESULT}:authenticated`,
         );
         const session = readFileSync(
-          join(root.home, ".fx", "sessions", sessionId, "session.json"),
+          join(root.home, ".y2", "sessions", sessionId, "session.json"),
           "utf8",
         );
         expect(session).not.toContain(bearer);
@@ -2408,7 +2408,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP HTTP tools and headers are recreated through load and resume",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-http-lifecycle-");
+      const root = createIsolatedRoot("y2-acp-mcp-http-lifecycle-");
       const newFixture = startModernMcpHttpFixture("json");
       const loadFixture = startModernMcpHttpFixture("json");
       const resumeFixture = startModernMcpHttpFixture("json");
@@ -2538,7 +2538,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP replacement and close cancel stalled HTTP MCP calls",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-http-cancel-");
+      const root = createIsolatedRoot("y2-acp-mcp-http-cancel-");
       const replacementFixture = startModernMcpHttpFixture("stall_call");
       const fastFixture = startModernMcpHttpFixture("json");
       const closeFixture = startModernMcpHttpFixture("stall_call");
@@ -2644,7 +2644,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP stdin EOF cancels a stalled HTTP MCP call",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-http-eof-");
+      const root = createIsolatedRoot("y2-acp-mcp-http-eof-");
       const httpFixture = startModernMcpHttpFixture("stall_call");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_http_eof_slow", "mcp_select_tool", {
@@ -2693,7 +2693,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP rejects redirects, bad status, and bad media types from HTTP MCP",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-http-failures-");
+      const root = createIsolatedRoot("y2-acp-mcp-http-failures-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -2754,7 +2754,7 @@ describe("acp: model-independent", () => {
   test(
     "supplied stdio tools are recreated through new load and resume",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-lifecycle-");
+      const root = createIsolatedRoot("y2-acp-mcp-lifecycle-");
       const newPid = join(root.root, "mcp-new.pid");
       const loadPid = join(root.root, "mcp-load.pid");
       const resumePid = join(root.root, "mcp-resume.pid");
@@ -2857,7 +2857,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP without elicitation capability returns input-required without a direct request",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-mrtr-");
+      const root = createIsolatedRoot("y2-acp-mcp-mrtr-");
       const pidPath = join(root.root, "mcp-mrtr.pid");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_mrtr", "mcp_select_tool", { name: MCP_TOOL_NAME }),
@@ -2911,7 +2911,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP never sends a URL mode the client did not advertise",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-unadvertised-url-");
+      const root = createIsolatedRoot("y2-acp-mcp-unadvertised-url-");
       const pidPath = join(root.root, "mcp-unadvertised-url.pid");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_unadvertised", "mcp_select_tool", {
@@ -2943,7 +2943,7 @@ describe("acp: model-independent", () => {
               "unused",
               pidPath,
               "mrtr_url_required",
-              { FX_MCP_EXPECT_ELICITATION: "form" },
+              { Y2_MCP_EXPECT_ELICITATION: "form" },
             )],
           },
           2,
@@ -3008,7 +3008,7 @@ describe("acp: model-independent", () => {
       ] as const;
 
       for (const testCase of cases) {
-        const root = createIsolatedRoot(`fx-acp-mcp-cap-${testCase.label}-`);
+        const root = createIsolatedRoot(`y2-acp-mcp-cap-${testCase.label}-`);
         const pidPath = join(root.root, "mcp-cap.pid");
         const wirePath = join(root.root, "mcp-cap.wire.jsonl");
         const activeGateway = startFakeGateway([
@@ -3040,8 +3040,8 @@ describe("acp: model-independent", () => {
                 pidPath,
                 "mrtr_input_required",
                 {
-                  FX_MCP_WIRE_LOG: wirePath,
-                  FX_MCP_EXPECT_ELICITATION: testCase.supportsForm ? "both" : "none",
+                  Y2_MCP_WIRE_LOG: wirePath,
+                  Y2_MCP_EXPECT_ELICITATION: testCase.supportsForm ? "both" : "none",
                 },
               )],
             },
@@ -3084,7 +3084,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP form elicitation resumes the exact modern MCP operation",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-elicitation-form-");
+      const root = createIsolatedRoot("y2-acp-mcp-elicitation-form-");
       const pidPath = join(root.root, "mcp-elicitation-form.pid");
       const wirePath = join(root.root, "mcp-elicitation-form.wire.jsonl");
       const gateway = startFakeGateway([
@@ -3116,8 +3116,8 @@ describe("acp: model-independent", () => {
               pidPath,
               "mrtr_input_required",
               {
-                FX_MCP_WIRE_LOG: wirePath,
-                FX_MCP_EXPECT_ELICITATION: "form",
+                Y2_MCP_WIRE_LOG: wirePath,
+                Y2_MCP_EXPECT_ELICITATION: "form",
               },
             )],
           },
@@ -3196,7 +3196,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP EOF cancels a pending direct elicitation without hanging",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-elicitation-eof-");
+      const root = createIsolatedRoot("y2-acp-mcp-elicitation-eof-");
       const pidPath = join(root.root, "mcp-elicitation-eof.pid");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_eof", "mcp_select_tool", { name: MCP_TOOL_NAME }),
@@ -3224,7 +3224,7 @@ describe("acp: model-independent", () => {
               "unused",
               pidPath,
               "mrtr_input_required",
-              { FX_MCP_EXPECT_ELICITATION: "form" },
+              { Y2_MCP_EXPECT_ELICITATION: "form" },
             )],
           },
           2,
@@ -3262,10 +3262,10 @@ describe("acp: model-independent", () => {
     "secret-like form fields are rejected before ACP publication or model exposure",
     async () => {
       const sentinel = "S10_SECRET_SENTINEL_7f3c";
-      const root = createIsolatedRoot("fx-acp-mcp-elicitation-secret-");
+      const root = createIsolatedRoot("y2-acp-mcp-elicitation-secret-");
       const pidPath = join(root.root, "mcp-elicitation-secret.pid");
       const wirePath = join(root.root, "mcp-elicitation-secret.wire.jsonl");
-      const tracePath = join(root.root, "fx-trace.log");
+      const tracePath = join(root.root, "y2-trace.log");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_secret", "mcp_select_tool", { name: MCP_TOOL_NAME }),
         fakeGatewayToolCall("call_secret", MCP_TOOL_NAME, { text: "secret" }),
@@ -3277,8 +3277,8 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_TRACE_LOG: tracePath,
-            FX_TRACE_SCOPES: "mcp",
+            Y2_TRACE_LOG: tracePath,
+            Y2_TRACE_SCOPES: "mcp",
           },
         });
         await client.request(
@@ -3298,8 +3298,8 @@ describe("acp: model-independent", () => {
               pidPath,
               "mrtr_secret_required",
               {
-                FX_MCP_WIRE_LOG: wirePath,
-                FX_MCP_EXPECT_ELICITATION: "form",
+                Y2_MCP_WIRE_LOG: wirePath,
+                Y2_MCP_EXPECT_ELICITATION: "form",
               },
             )],
           },
@@ -3341,7 +3341,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP URL consent completes only after modern MCP retry without prefetching",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-elicitation-url-");
+      const root = createIsolatedRoot("y2-acp-mcp-elicitation-url-");
       const pidPath = join(root.root, "mcp-elicitation-url.pid");
       const wirePath = join(root.root, "mcp-elicitation-url.wire.jsonl");
       let urlRequests = 0;
@@ -3381,9 +3381,9 @@ describe("acp: model-independent", () => {
               pidPath,
               "mrtr_url_required",
               {
-                FX_MCP_WIRE_LOG: wirePath,
-                FX_MCP_EXPECT_ELICITATION: "url",
-                FX_MCP_ELICITATION_URL: targetUrl,
+                Y2_MCP_WIRE_LOG: wirePath,
+                Y2_MCP_EXPECT_ELICITATION: "url",
+                Y2_MCP_ELICITATION_URL: targetUrl,
               },
             )],
           },
@@ -3413,7 +3413,7 @@ describe("acp: model-independent", () => {
         });
         expect(direct.message).toContain("MCP server fixture");
         expect(direct.message).toContain("127.0.0.1");
-        expect(direct.elicitationId).toMatch(/^fx-\d+$/);
+        expect(direct.elicitationId).toMatch(/^y2-\d+$/);
         expect(urlRequests).toBe(0);
 
         const completions = prompt.messages.filter((message) =>
@@ -3455,7 +3455,7 @@ describe("acp: model-independent", () => {
   test(
     "negotiated legacy MCP form requests use the versioned direct adapter",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-legacy-elicitation-");
+      const root = createIsolatedRoot("y2-acp-mcp-legacy-elicitation-");
       const fixture = startLegacyStreamableHttpFixture("2025-06-18", {
         mode: "elicitation_form",
       });
@@ -3546,7 +3546,7 @@ describe("acp: model-independent", () => {
   test(
     "legacy URL completion is correlated from the notification listener to ACP",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-legacy-url-");
+      const root = createIsolatedRoot("y2-acp-mcp-legacy-url-");
       let targetRequests = 0;
       const target = Bun.serve({
         port: 0,
@@ -3617,7 +3617,7 @@ describe("acp: model-independent", () => {
           url: targetUrl,
           message: expect.stringContaining("MCP server fixture"),
         });
-        expect(direct.elicitationId).toMatch(/^fx-\d+$/);
+        expect(direct.elicitationId).toMatch(/^y2-\d+$/);
         expect(fixture.elicitationResponses).toEqual([{
           jsonrpc: "2.0",
           id: 9001,
@@ -3670,7 +3670,7 @@ describe("acp: model-independent", () => {
   test(
     "legacy URL completion waits for ACP consent and publishes exactly once",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-legacy-url-early-");
+      const root = createIsolatedRoot("y2-acp-mcp-legacy-url-early-");
       const fixture = startLegacyStreamableHttpFixture("2025-11-25", {
         mode: "elicitation_url",
         completeBeforeElicitationResponse: true,
@@ -3759,7 +3759,7 @@ describe("acp: model-independent", () => {
   test(
     "declined legacy URL consent suppresses an early completion",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-legacy-url-decline-");
+      const root = createIsolatedRoot("y2-acp-mcp-legacy-url-decline-");
       const fixture = startLegacyStreamableHttpFixture("2025-11-25", {
         mode: "elicitation_url",
         completeBeforeElicitationResponse: true,
@@ -3843,7 +3843,7 @@ describe("acp: model-independent", () => {
   test(
     "session cancellation interrupts a pending MCP elicitation",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-elicitation-cancel-");
+      const root = createIsolatedRoot("y2-acp-mcp-elicitation-cancel-");
       const pidPath = join(root.root, "mcp-elicitation-cancel.pid");
       const gateway = startFakeGateway([
         fakeGatewayToolCall("select_cancelled_form", "mcp_select_tool", {
@@ -3875,7 +3875,7 @@ describe("acp: model-independent", () => {
               "unused",
               pidPath,
               "mrtr_input_required",
-              { FX_MCP_EXPECT_ELICITATION: "form" },
+              { Y2_MCP_EXPECT_ELICITATION: "form" },
             )],
           },
           2,
@@ -3924,7 +3924,7 @@ describe("acp: model-independent", () => {
   test(
     "sequential ACP sessions isolate same-named MCP tools",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-isolation-");
+      const root = createIsolatedRoot("y2-acp-mcp-isolation-");
       const firstPid = join(root.root, "mcp-first.pid");
       const secondPid = join(root.root, "mcp-second.pid");
       const gateway = startFakeGateway([
@@ -4007,18 +4007,18 @@ describe("acp: model-independent", () => {
   test(
     "ACP rejects invalid or unsupported MCP config and never loads profile MCP",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-admission-");
+      const root = createIsolatedRoot("y2-acp-mcp-admission-");
       const profilePid = join(root.root, "profile.pid");
       const suppliedPid = join(root.root, "supplied.pid");
       const gateway = startFakeGateway([]);
       writeFileSync(
-        join(root.home, ".fx", "mcp.json"),
+        join(root.home, ".y2", "mcp.json"),
         JSON.stringify({
           mcp: {
             profile: {
               type: "local",
               command: [process.execPath, MCP_STDIO_FIXTURE],
-              environment: { FX_MCP_PID_PATH: profilePid },
+              environment: { Y2_MCP_PID_PATH: profilePid },
             },
           },
         }),
@@ -4145,7 +4145,7 @@ describe("acp: model-independent", () => {
   test(
     "replacement and close cancel slow MCP calls and reap children",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-cancel-");
+      const root = createIsolatedRoot("y2-acp-mcp-cancel-");
       const replacementPid = join(root.root, "replacement-slow.pid");
       const replacementWire = join(root.root, "replacement-slow.jsonl");
       const fastPid = join(root.root, "replacement-fast.pid");
@@ -4173,7 +4173,7 @@ describe("acp: model-independent", () => {
               "UNREACHABLE",
               replacementPid,
               "stall_operation",
-              { FX_MCP_WIRE_LOG: replacementWire },
+              { Y2_MCP_WIRE_LOG: replacementWire },
             )],
           },
           2,
@@ -4217,7 +4217,7 @@ describe("acp: model-independent", () => {
               "UNREACHABLE",
               closePid,
               "stall_operation",
-              { FX_MCP_WIRE_LOG: closeWire },
+              { Y2_MCP_WIRE_LOG: closeWire },
             )],
           },
           7,
@@ -4254,7 +4254,7 @@ describe("acp: model-independent", () => {
   test(
     "stdin EOF cancels a stalled MCP call and reaps its child and reader",
     async () => {
-      const root = createIsolatedRoot("fx-acp-mcp-eof-");
+      const root = createIsolatedRoot("y2-acp-mcp-eof-");
       const pidPath = join(root.root, "stalled.pid");
       const wirePath = join(root.root, "stalled.jsonl");
       const tracePath = join(root.root, "trace.log");
@@ -4267,8 +4267,8 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_TRACE_LOG: tracePath,
-            FX_TRACE_SCOPES: "interrupt,mcp",
+            Y2_TRACE_LOG: tracePath,
+            Y2_TRACE_SCOPES: "interrupt,mcp",
           },
         });
         await client.request("initialize", { protocolVersion: 1 }, 1);
@@ -4279,7 +4279,7 @@ describe("acp: model-independent", () => {
               "UNREACHABLE",
               pidPath,
               "stall_operation",
-              { FX_MCP_WIRE_LOG: wirePath },
+              { Y2_MCP_WIRE_LOG: wirePath },
             )],
           },
           2,
@@ -4315,14 +4315,14 @@ describe("acp: model-independent", () => {
   test(
     "invalid initialize requests return invalid_params without poisoning the connection",
     async () => {
-      const root = createIsolatedRoot("fx-acp-invalid-initialize-");
+      const root = createIsolatedRoot("y2-acp-invalid-initialize-");
       try {
         client = await AcpClient.create({
           cwd: root.workspace,
           env: {
             HOME: root.home,
             Y2_API_KEY: "e2e-placeholder",
-            VERCEL_OIDC_TOKEN: "",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
 
@@ -4364,14 +4364,14 @@ describe("acp: model-independent", () => {
   test(
     "prompt before session creation returns the canonical no-session error",
     async () => {
-      const root = createIsolatedRoot("fx-acp-prompt-without-session-");
+      const root = createIsolatedRoot("y2-acp-prompt-without-session-");
       try {
         client = await AcpClient.create({
           cwd: root.workspace,
           env: {
             HOME: root.home,
             Y2_API_KEY: "e2e-placeholder",
-            VERCEL_OIDC_TOKEN: "",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
         expect(
@@ -4410,7 +4410,7 @@ describe("acp: model-independent", () => {
   test(
     "image prompt rejection preserves history and admits the next text prompt",
     async () => {
-      const root = createIsolatedRoot("fx-acp-image-rejection-");
+      const root = createIsolatedRoot("y2-acp-image-rejection-");
       const boundary = createPromptTerminalBoundary(root.root);
       const gateway = startFakeGateway([finalText("valid image follow-up complete")]);
       try {
@@ -4440,7 +4440,7 @@ describe("acp: model-independent", () => {
           message: "Image prompt blocks are not supported",
         });
         expect(gateway.requests).toHaveLength(0);
-        const detailBefore = await runFx(["session", "--id", sessionId, "--json"], {
+        const detailBefore = await runY2(["session", "--id", sessionId, "--json"], {
           cwd: root.workspace,
           env: { HOME: root.home },
           timeoutMs: TIMEOUT,
@@ -4471,26 +4471,26 @@ describe("acp: model-independent", () => {
   test(
     "ACP automatic ask returns to the agent before requesting permission",
     async () => {
-      const acceptedRoot = createIsolatedRoot("fx-acp-auto-file-accepted-");
-      const blockedRoot = createIsolatedRoot("fx-acp-auto-file-check-");
+      const acceptedRoot = createIsolatedRoot("y2-acp-auto-file-accepted-");
+      const blockedRoot = createIsolatedRoot("y2-acp-auto-file-check-");
       try {
         const acceptedTarget = join(acceptedRoot.external, "accepted.txt");
         writeFileSync(acceptedTarget, "before");
         const acceptedPrompt =
           `Use only the write_file tool to overwrite ${acceptedTarget}.`;
         const acceptedGateway = startFakeGateway([
-          fileToolCall("write_external_accepted", acceptedTarget, "FX_ACP_AUTO_ACCEPTED"),
+          fileToolCall("write_external_accepted", acceptedTarget, "Y2_ACP_AUTO_ACCEPTED"),
           finalText("ACP external write accepted"),
         ]);
         try {
-          writeSeededFxAuth(acceptedRoot.home, "team_123");
+          writeSeededY2Auth(acceptedRoot.home, "team_123");
           client = await AcpClient.create({
             cwd: acceptedRoot.workspace,
             env: {
               ...fakeGatewayEnv(acceptedRoot, acceptedGateway),
               Y2_API_KEY: undefined,
-              VERCEL_OIDC_TOKEN: undefined,
-              FX_DISABLE_KEYCHAIN: "1",
+              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              Y2_DISABLE_KEYCHAIN: "1",
             },
           });
           await startCodeSession(client);
@@ -4499,13 +4499,13 @@ describe("acp: model-independent", () => {
           expect(JSON.stringify(accepted.messages)).not.toContain(
             "Auto agent approved this request: Writing file.",
           );
-          expect(readFileSync(acceptedTarget, "utf-8")).toBe("FX_ACP_AUTO_ACCEPTED");
+          expect(readFileSync(acceptedTarget, "utf-8")).toBe("Y2_ACP_AUTO_ACCEPTED");
           expect(acceptedGateway.classifierRequests).toHaveLength(1);
           expect(acceptedGateway.classifierRequests[0]!.headers.get("authorization")).toBe(
             `Bearer ${SEEDED_GATEWAY_TOKEN}`,
           );
           expect(
-            acceptedGateway.classifierRequests[0]!.headers.get("x-vercel-ai-gateway-team"),
+            acceptedGateway.classifierRequests[0]!.headers.get("x-retired_credential-retired-gateway-team"),
           ).toBe("team_123");
           expect(acceptedGateway.classifierRequests[0]!.body).toContain(
             acceptedPrompt,
@@ -4514,7 +4514,7 @@ describe("acp: model-independent", () => {
             "action: prepared_file_mutation",
           );
           expect(acceptedGateway.classifierRequests[0]!.body).toContain(
-            "FX_ACP_AUTO_ACCEPTED",
+            "Y2_ACP_AUTO_ACCEPTED",
           );
         } finally {
           acceptedGateway.stop();
@@ -4526,7 +4526,7 @@ describe("acp: model-independent", () => {
         const blockedPrompt =
           `Use only the write_file tool to overwrite ${blockedTarget}.`;
         const blockedGateway = startFakeGateway([
-          fileToolCall("write_external_blocked", blockedTarget, "FX_ACP_AUTO_BLOCKED"),
+          fileToolCall("write_external_blocked", blockedTarget, "Y2_ACP_AUTO_BLOCKED"),
           finalText("ACP external write blocked"),
         ], { classifierDecision: "caution" });
         try {
@@ -4578,7 +4578,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP keeps the session active after repeated advisory cautions",
     async () => {
-      const root = createIsolatedRoot("fx-acp-auto-recovery-");
+      const root = createIsolatedRoot("y2-acp-auto-recovery-");
       const target = join(root.external, "recovery.txt");
       writeFileSync(target, "before");
       const gateway = startFakeGateway(
@@ -4632,7 +4632,7 @@ describe("acp: model-independent", () => {
   test(
     "terminal prompt response admits immediate session/list before worker exit",
     async () => {
-      const root = createIsolatedRoot("fx-acp-terminal-list-");
+      const root = createIsolatedRoot("y2-acp-terminal-list-");
       const boundary = createPromptTerminalBoundary(root.root);
       const gateway = startFakeGateway([finalText("first prompt complete")]);
       try {
@@ -4675,7 +4675,7 @@ describe("acp: model-independent", () => {
   test(
     "terminal prompt response admits an immediate second session/prompt",
     async () => {
-      const root = createIsolatedRoot("fx-acp-terminal-prompt-");
+      const root = createIsolatedRoot("y2-acp-terminal-prompt-");
       const boundary = createPromptTerminalBoundary(root.root);
       const gateway = startFakeGateway([
         finalText("first prompt complete"),
@@ -4716,7 +4716,7 @@ describe("acp: model-independent", () => {
   test(
     "expected prompt validation error preserves -32602 and admits next prompt",
     async () => {
-      const root = createIsolatedRoot("fx-acp-terminal-validation-");
+      const root = createIsolatedRoot("y2-acp-terminal-validation-");
       const boundary = createPromptTerminalBoundary(root.root);
       const gateway = startFakeGateway([finalText("valid prompt complete")]);
       try {
@@ -4758,7 +4758,7 @@ describe("acp: model-independent", () => {
   test(
     "non-retryable prompt failure preserves -32603 and leaves the server usable",
     async () => {
-      const root = createIsolatedRoot("fx-acp-terminal-failure-");
+      const root = createIsolatedRoot("y2-acp-terminal-failure-");
       const boundary = createPromptTerminalBoundary(root.root);
       const gateway = startFakeGateway([
         fakeGatewaySse([
@@ -4812,7 +4812,7 @@ describe("acp: model-independent", () => {
   test(
     "auth failure names the selected source without leaking the provider body",
     async () => {
-      const root = createIsolatedRoot("fx-acp-auth-failure-");
+      const root = createIsolatedRoot("y2-acp-auth-failure-");
       const providerDetail = "rejected fake-acp-file-key provider body";
       const gateway = startFakeGateway([
         new Response(JSON.stringify({ error: { message: providerDetail } }), {
@@ -4867,7 +4867,7 @@ describe("acp: model-independent", () => {
   test(
     "running prompt rejects non-cancel requests",
     async () => {
-      const root = createIsolatedRoot("fx-acp-running-prompt-");
+      const root = createIsolatedRoot("y2-acp-running-prompt-");
       const heldResponse = deferred<Response>();
       const gateway = startFakeGateway([() => heldResponse.promise]);
       try {
@@ -4912,7 +4912,7 @@ describe("acp: model-independent", () => {
   test(
     "stdin shutdown joins a terminal prompt worker before teardown",
     async () => {
-      const root = createIsolatedRoot("fx-acp-terminal-shutdown-");
+      const root = createIsolatedRoot("y2-acp-terminal-shutdown-");
       const boundary = createPromptTerminalBoundary(root.root);
       const gateway = startFakeGateway([finalText("shutdown prompt complete")]);
       try {
@@ -4948,7 +4948,7 @@ describe("acp: model-independent", () => {
   test(
     "session/cancel requests receive JSON-RPC responses",
     async () => {
-      const root = createIsolatedRoot("fx-acp-cancel-framing-");
+      const root = createIsolatedRoot("y2-acp-cancel-framing-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -4999,7 +4999,7 @@ describe("acp: model-independent", () => {
   test(
     "malformed local tool arguments recover with a normal final stop",
     async () => {
-      const root = createIsolatedRoot("fx-acp-malformed-arguments-");
+      const root = createIsolatedRoot("y2-acp-malformed-arguments-");
       const tracePath = join(root.root, "trace.log");
       const malformedArguments = '{"depth":1,"depth":2}';
       const malformedCallId = "acp_malformed_1";
@@ -5017,8 +5017,8 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_TRACE_LOG: tracePath,
-            FX_TRACE_SCOPES: "agent,gateway",
+            Y2_TRACE_LOG: tracePath,
+            Y2_TRACE_SCOPES: "agent,gateway",
           },
         });
         await startCodeSession(client);
@@ -5060,21 +5060,21 @@ describe("acp: model-independent", () => {
   test(
     "missing API key returns JSON-RPC error on initialize",
     async () => {
-      const root = createIsolatedRoot("fx-acp-missing-auth-");
+      const root = createIsolatedRoot("y2-acp-missing-auth-");
       try {
         client = await AcpClient.create({
           cwd: root.workspace,
           env: {
             HOME: root.home,
             Y2_API_KEY: "",
-            VERCEL_OIDC_TOKEN: "",
-            FX_DISABLE_KEYCHAIN: "1",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
+            Y2_DISABLE_KEYCHAIN: "1",
           },
         });
         const resp = await client.request("initialize", { protocolVersion: 1 }, 1) as any;
         expect(resp.error).toBeDefined();
-        expect(resp.error.message).toContain("fx login");
-        expect(resp.error.message).toContain("fx setup");
+        expect(resp.error.message).toContain("y2 login");
+        expect(resp.error.message).toContain("y2 setup");
         expect(resp.error.message).toContain("Y2_API_KEY");
         expect(client.stderr).toBe("");
       } finally {
@@ -5089,7 +5089,7 @@ describe("acp: model-independent", () => {
     "invalid JSON returns parse error without stderr",
     async () => {
       client = await AcpClient.create({
-        env: { Y2_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "", REMOVED_LEGACY_OIDC_TOKEN: "" },
       });
       (client as any).proc.stdin!.write("this is not json\n");
       const resp = await client.readLine() as any;
@@ -5104,7 +5104,7 @@ describe("acp: model-independent", () => {
     "exact and oversized request frames preserve the ACP connection boundary",
     async () => {
       client = await AcpClient.create({
-        env: { Y2_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "", REMOVED_LEGACY_OIDC_TOKEN: "" },
       });
       const stdin = (client as any).proc.stdin!;
       const frameLimit = 8 * 1024 * 1024;
@@ -5155,7 +5155,7 @@ describe("acp: model-independent", () => {
     "method before initialize returns error -32600",
     async () => {
       client = await AcpClient.create({
-        env: { Y2_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "", REMOVED_LEGACY_OIDC_TOKEN: "" },
       });
       const resp = await client.request("session/new", {}, 1) as any;
       expect(resp.error).toBeDefined();
@@ -5168,7 +5168,7 @@ describe("acp: model-independent", () => {
   test(
     "session/list leaves an empty home unchanged",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-acp-no-create-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-acp-no-create-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -5180,8 +5180,8 @@ describe("acp: model-independent", () => {
           env: {
             HOME: realpathSync(home),
             Y2_API_KEY: "e2e-placeholder",
-            VERCEL_OIDC_TOKEN: "",
-            FX_E2E_FAIL_ON_DURABLE_MUTATION: "1",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
+            Y2_E2E_FAIL_ON_DURABLE_MUTATION: "1",
           },
         });
         expect((await client.request("initialize", { protocolVersion: 1 }, 1) as any).result).toBeDefined();
@@ -5189,7 +5189,7 @@ describe("acp: model-independent", () => {
         expect(response.result).toEqual({ sessions: [] });
         await client.close();
 
-        expect(existsSync(join(home, ".fx"))).toBe(false);
+        expect(existsSync(join(home, ".y2"))).toBe(false);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
@@ -5200,7 +5200,7 @@ describe("acp: model-independent", () => {
   test(
     "session/list is scoped to the server workspace and exact load still works",
     async () => {
-      const root = createIsolatedRoot("fx-acp-workspace-session-list-");
+      const root = createIsolatedRoot("y2-acp-workspace-session-list-");
       const gateway = startFakeGateway([]);
       try {
         writeAcpSession(root.home, root.workspace, "workspace-a-session", 20);
@@ -5246,7 +5246,7 @@ describe("acp: model-independent", () => {
   test(
     "session/load reports contention and succeeds after the owner exits",
     async () => {
-      const root = createIsolatedRoot("fx-acp-session-load-contention-");
+      const root = createIsolatedRoot("y2-acp-session-load-contention-");
       const gateway = startFakeGateway([]);
       const sessionId = "contended-session";
       let owner: AcpClient | undefined;
@@ -5315,7 +5315,7 @@ describe("acp: model-independent", () => {
   test(
     "durable mutation sentinel terminates a writable session path",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-acp-write-sentinel-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-acp-write-sentinel-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -5327,8 +5327,8 @@ describe("acp: model-independent", () => {
           env: {
             HOME: realpathSync(home),
             Y2_API_KEY: "e2e-placeholder",
-            VERCEL_OIDC_TOKEN: "",
-            FX_E2E_FAIL_ON_DURABLE_MUTATION: "1",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
+            Y2_E2E_FAIL_ON_DURABLE_MUTATION: "1",
           },
         });
         expect((await client.request("initialize", { protocolVersion: 1 }, 1) as any).result).toBeDefined();
@@ -5339,7 +5339,7 @@ describe("acp: model-independent", () => {
           params: { mcpServers: [] },
         });
         expect(await client.waitForExit()).toBe(86);
-        expect(existsSync(join(home, ".fx"))).toBe(false);
+        expect(existsSync(join(home, ".y2"))).toBe(false);
       } finally {
         rmSync(root, { recursive: true, force: true });
       }
@@ -5354,7 +5354,7 @@ describe("acp: model-independent", () => {
         omitHome: true,
         env: {
           Y2_API_KEY: "e2e-placeholder",
-          VERCEL_OIDC_TOKEN: "",
+          REMOVED_LEGACY_OIDC_TOKEN: "",
         },
       });
       expect(
@@ -5381,17 +5381,17 @@ describe("acp: model-independent", () => {
   test(
     "session load addresses a special-token ID literally",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-acp-exact-id-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-acp-exact-id-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         mkdirSync(home);
         mkdirSync(workspace);
         const workspaceRoot = realpathSync(workspace);
-        const sessionDir = join(home, ".fx", "sessions", "last");
+        const sessionDir = join(home, ".y2", "sessions", "last");
         mkdirSync(sessionDir, { recursive: true, mode: 0o700 });
-        chmodSync(join(home, ".fx"), 0o700);
-        chmodSync(join(home, ".fx", "sessions"), 0o700);
+        chmodSync(join(home, ".y2"), 0o700);
+        chmodSync(join(home, ".y2", "sessions"), 0o700);
         chmodSync(sessionDir, 0o700);
         writeFileSync(
           join(sessionDir, "session.json"),
@@ -5415,7 +5415,7 @@ describe("acp: model-independent", () => {
           env: {
             HOME: home,
             Y2_API_KEY: "e2e-placeholder",
-            VERCEL_OIDC_TOKEN: "",
+            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
         expect(
@@ -5455,7 +5455,7 @@ describe("acp: model-independent", () => {
   test(
     "session load replays completed assistant execution before the final answer",
     async () => {
-      const root = createIsolatedRoot("fx-acp-load-execution-");
+      const root = createIsolatedRoot("y2-acp-load-execution-");
       writeFileSync(
         join(root.workspace, "fixture.txt"),
         "ACP_HISTORY_EVIDENCE\n",
@@ -5541,8 +5541,8 @@ describe("acp: model-independent", () => {
   test(
     "code mode deterministically gates external missing-parent writes by rule",
     async () => {
-      const deniedRoot = createIsolatedRoot("fx-acp-deterministic-denied-");
-      const allowedRoot = createIsolatedRoot("fx-acp-deterministic-allowed-");
+      const deniedRoot = createIsolatedRoot("y2-acp-deterministic-denied-");
+      const allowedRoot = createIsolatedRoot("y2-acp-deterministic-allowed-");
       const deniedTarget = join(
         deniedRoot.external,
         "missing",
@@ -5556,7 +5556,7 @@ describe("acp: model-independent", () => {
         "allowed.txt",
       );
       writeFileSync(
-        join(deniedRoot.home, ".fx", "settings.json"),
+        join(deniedRoot.home, ".y2", "settings.json"),
         JSON.stringify({
           permission: {
             edit: {
@@ -5591,7 +5591,7 @@ describe("acp: model-independent", () => {
         await client.close();
 
         writeFileSync(
-          join(allowedRoot.home, ".fx", "settings.json"),
+          join(allowedRoot.home, ".y2", "settings.json"),
           JSON.stringify({
             permission: {
               edit: {
@@ -5629,7 +5629,7 @@ describe("acp: model-independent", () => {
   test(
     "provider length with tool calls returns max output tokens without execution",
     async () => {
-      const root = createIsolatedRoot("fx-acp-length-tool-");
+      const root = createIsolatedRoot("y2-acp-length-tool-");
       const sentinelPath = join(root.workspace, "command-must-not-run.txt");
       const gateway = startFakeGateway([
         lengthLimitedCommandCall("printf executed > command-must-not-run.txt"),
@@ -5664,7 +5664,7 @@ describe("acp: model-independent", () => {
   test(
     "provider length after silent tools returns max output tokens without continuation",
     async () => {
-      const root = createIsolatedRoot("fx-acp-silent-tools-length-");
+      const root = createIsolatedRoot("y2-acp-silent-tools-length-");
       writeFileSync(join(root.workspace, "a.txt"), "a\n");
       writeFileSync(join(root.workspace, "b.txt"), "b\n");
       const gateway = startFakeGateway([
@@ -5703,7 +5703,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP binds an explicitly invoked skill into the prompt",
     async () => {
-      const root = createIsolatedRoot("fx-acp-explicit-skill-");
+      const root = createIsolatedRoot("y2-acp-explicit-skill-");
       const skillDirectory = join(root.workspace, "skills", "acp-explicit");
       const skillBody = "ACP_EXPLICIT_SKILL_BODY";
       mkdirSync(skillDirectory, { recursive: true });
@@ -5750,7 +5750,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP rejects an explicitly invoked skill deleted after session startup",
     async () => {
-      const root = createIsolatedRoot("fx-acp-stale-explicit-skill-");
+      const root = createIsolatedRoot("y2-acp-stale-explicit-skill-");
       const skillDirectory = join(root.workspace, "skills", "acp-stale");
       const skillBody = "ACP_STALE_SKILL_BODY_MUST_NOT_LEAK";
       mkdirSync(skillDirectory, { recursive: true });
@@ -5797,7 +5797,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP keeps valid skills when a malformed neighbor is diagnosed",
     async () => {
-      const root = createIsolatedRoot("fx-acp-skill-diagnostics-");
+      const root = createIsolatedRoot("y2-acp-skill-diagnostics-");
       const tracePath = join(root.root, "trace.log");
       const validDirectory = join(root.workspace, "skills", "acp-valid-skill");
       const malformedDirectory = join(
@@ -5825,8 +5825,8 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_TRACE_LOG: tracePath,
-            FX_TRACE_SCOPES: "skill,skills,acp,config",
+            Y2_TRACE_LOG: tracePath,
+            Y2_TRACE_SCOPES: "skill,skills,acp,config",
           },
         });
         await startCodeSession(client);
@@ -5895,7 +5895,7 @@ describe("acp: model-independent", () => {
   test(
     "session/prompt refreshes project context before each turn",
     async () => {
-      const root = createIsolatedRoot("fx-acp-context-refresh-");
+      const root = createIsolatedRoot("y2-acp-context-refresh-");
       const firstMarker = "ACP_CONTEXT_FIRST_SENTINEL";
       const secondMarker = "ACP_CONTEXT_SECOND_SENTINEL";
       const transientMarker =
@@ -5946,7 +5946,7 @@ describe("acp: model-independent", () => {
   test(
     "session/prompt applies scoped instructions from a local resource target",
     async () => {
-      const root = createIsolatedRoot("fx-acp-resource-context-");
+      const root = createIsolatedRoot("y2-acp-resource-context-");
       const nested = join(root.workspace, "nested scope");
       const sibling = join(root.workspace, "sibling");
       mkdirSync(nested, { recursive: true });
@@ -6014,7 +6014,7 @@ describe("acp: model-independent", () => {
   test(
     "session/prompt defers a scoped mutation until its instructions are visible",
     async () => {
-      const root = createIsolatedRoot("fx-acp-tool-context-");
+      const root = createIsolatedRoot("y2-acp-tool-context-");
       const nested = join(root.workspace, "nested");
       const sibling = join(root.workspace, "sibling");
       mkdirSync(nested, { recursive: true });
@@ -6031,7 +6031,7 @@ describe("acp: model-independent", () => {
       writeFileSync(join(nested, "AGENTS.md"), `${nestedRule}\n${nestedTail}\n`);
       writeFileSync(join(sibling, "AGENTS.md"), `${siblingRule}\n`);
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           context_limits: { project_instruction_file_bytes: 48 },
         }),
@@ -6107,10 +6107,10 @@ describe("acp: model-independent", () => {
   test(
     "permission requests reuse tool ids and session grants",
     async () => {
-      const root = createIsolatedRoot("fx-acp-permission-parity-");
+      const root = createIsolatedRoot("y2-acp-permission-parity-");
       const target = join(root.external, "approved.txt");
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({ permission: { edit: { [`${root.external}/**`]: "ask" } } }),
       );
       const gateway = startFakeGateway([
@@ -6175,10 +6175,10 @@ describe("acp: model-independent", () => {
   test(
     "explicit rejection blocks execution with a failed terminal status",
     async () => {
-      const root = createIsolatedRoot("fx-acp-permission-reject-");
+      const root = createIsolatedRoot("y2-acp-permission-reject-");
       const target = join(root.external, "rejected.txt");
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({ permission: { edit: { [`${root.external}/**`]: "ask" } } }),
       );
       const gateway = startFakeGateway([
@@ -6215,10 +6215,10 @@ describe("acp: model-independent", () => {
   test(
     "ACP allow-once command approval executes with shared authority",
     async () => {
-      const root = createIsolatedRoot("fx-acp-command-approval-");
+      const root = createIsolatedRoot("y2-acp-command-approval-");
       const marker = join(root.workspace, "approved-command.txt");
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({ permission: { bash: { "printf *": "ask" } } }),
       );
       const gateway = startFakeGateway([
@@ -6260,7 +6260,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP advertises and executes canonical subagents with inherited tools",
     async () => {
-      const root = createIsolatedRoot("fx-acp-subagent-tools-");
+      const root = createIsolatedRoot("y2-acp-subagent-tools-");
       const childPrompt = "Inspect the workspace without making changes.";
       const routeChildAndParent = (body: string) => {
         if (body.includes('"toolCallId":"acp_create_1"') &&
@@ -6314,20 +6314,20 @@ describe("acp: model-independent", () => {
     test(
       `ACP ${label} child inherits only its supplied MCP session runtime`,
       async () => {
-        const root = createIsolatedRoot(`fx-acp-${label}-child-mcp-`);
+        const root = createIsolatedRoot(`y2-acp-${label}-child-mcp-`);
         const suppliedPid = join(root.root, "supplied-mcp.pid");
         const suppliedWire = join(root.root, "supplied-mcp-wire.jsonl");
         const profilePid = join(root.root, "profile-mcp.pid");
         writeFileSync(
-          join(root.home, ".fx", "mcp.json"),
+          join(root.home, ".y2", "mcp.json"),
           JSON.stringify({
             mcp: {
               profile: {
                 type: "local",
                 command: [process.execPath, MCP_STDIO_FIXTURE],
                 environment: {
-                  FX_MCP_RESULT_TEXT: "PROFILE_MUST_NOT_RUN",
-                  FX_MCP_PID_PATH: profilePid,
+                  Y2_MCP_RESULT_TEXT: "PROFILE_MUST_NOT_RUN",
+                  Y2_MCP_PID_PATH: profilePid,
                 },
               },
             },
@@ -6404,7 +6404,7 @@ describe("acp: model-independent", () => {
                 "ACP_CHILD_SESSION_RESULT",
                 suppliedPid,
                 "normal",
-                { FX_MCP_WIRE_LOG: suppliedWire },
+                { Y2_MCP_WIRE_LOG: suppliedWire },
               )],
             },
             2,
@@ -6460,7 +6460,7 @@ describe("acp: model-independent", () => {
   test(
     "session/load denies pending one-off then returns not found after retirement",
     async () => {
-      const root = createIsolatedRoot("fx-acp-one-off-load-");
+      const root = createIsolatedRoot("y2-acp-one-off-load-");
       const childName = "acp-readonly-child";
       const childPrompt = "ACP_ONE_OFF_LOAD_CHILD";
       const childCompletion = heldFakeGatewayFinalText();
@@ -6495,7 +6495,7 @@ describe("acp: model-independent", () => {
         );
         expect(result.promptResult.result.stopReason).toBe("end_turn");
         childCompletion.release("ACP_ONE_OFF_LOAD_CHILD_DONE");
-        const sessionsDir = join(root.home, ".fx", "sessions");
+        const sessionsDir = join(root.home, ".y2", "sessions");
         let control: { id: string; path: string } | undefined;
         await waitForCondition(
           "ACP one-off child completion",
@@ -6558,7 +6558,7 @@ describe("acp: model-independent", () => {
 
         await client.close();
         client = null;
-        const acknowledged = await runFx([
+        const acknowledged = await runY2([
           "ask",
           "--json",
           "--auto",
@@ -6607,7 +6607,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP delivers periodic child notifications at the next available parent step",
     async () => {
-      const root = createIsolatedRoot("fx-acp-parent-delivery-");
+      const root = createIsolatedRoot("y2-acp-parent-delivery-");
       const childPrompt = "ACP_PARENT_DELIVERY_CHILD_PROMPT";
       const intervalPayload = "coalesced_ticks";
       let intervalEventIds: string[] = [];
@@ -6788,7 +6788,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP delivers a 64 KiB child message in five bounded projections",
     async () => {
-      const root = createIsolatedRoot("fx-acp-64k-parent-delivery-");
+      const root = createIsolatedRoot("y2-acp-64k-parent-delivery-");
       const childPrompt = "ACP_64K_DELIVERY_CHILD_PROMPT";
       const largeMessage = "ACP_64K_PARENT_MESSAGE:".padEnd(64 * 1024, "x");
       let parentSessionId = "";
@@ -6942,7 +6942,7 @@ describe("acp: model-independent", () => {
   test(
     "mode changes during a prompt apply to the next prompt",
     async () => {
-      const root = createIsolatedRoot("fx-acp-active-mode-");
+      const root = createIsolatedRoot("y2-acp-active-mode-");
       const heldResponse = deferred<Response>();
       const probePath = join(root.workspace, "mode-probe.txt");
       const gateway = startFakeGateway([
@@ -7001,7 +7001,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP cancellation aborts held automatic review and keeps server usable",
     async () => {
-      const root = createIsolatedRoot("fx-acp-auto-review-cancel-");
+      const root = createIsolatedRoot("y2-acp-auto-review-cancel-");
       const marker = join(root.workspace, "cancelled-review-must-not-run.txt");
       const heldReview = deferred<Response>();
       const gateway = startFakeGateway(
@@ -7081,7 +7081,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP persistent Codex children retain their provider across messages",
     async () => {
-      const root = createIsolatedRoot("fx-acp-codex-subagent-");
+      const root = createIsolatedRoot("y2-acp-codex-subagent-");
       const gateway = startFakeGateway([]);
       const childFirstPrompt = "CODEX_CHILD_FIRST_TURN";
       const childSecondPrompt = "CODEX_CHILD_SECOND_TURN";
@@ -7140,8 +7140,8 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
-            FX_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
+            Y2_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
+            Y2_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
           },
         });
         await client.request("initialize", { protocolVersion: 1 }, 1);
@@ -7170,7 +7170,7 @@ describe("acp: model-independent", () => {
         );
         const childState = JSON.parse(
           readFileSync(
-            join(root.home, ".fx", "sessions", childId, "session.json"),
+            join(root.home, ".y2", "sessions", childId, "session.json"),
             "utf8",
           ),
         ) as { preferences: { provider: string; model: string } };
@@ -7215,7 +7215,7 @@ describe("acp: model-independent", () => {
   test(
     "ACP persistent Grok children retain their provider across messages",
     async () => {
-      const root = createIsolatedRoot("fx-acp-grok-subagent-");
+      const root = createIsolatedRoot("y2-acp-grok-subagent-");
       const gateway = startFakeGateway([]);
       const childFirstPrompt = "GROK_CHILD_FIRST_TURN";
       const childSecondPrompt = "GROK_CHILD_SECOND_TURN";
@@ -7261,9 +7261,9 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
-            FX_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
-            FX_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
+            Y2_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
+            Y2_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
+            Y2_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
           },
         });
         await client.request("initialize", { protocolVersion: 1 }, 1);
@@ -7286,7 +7286,7 @@ describe("acp: model-independent", () => {
         );
         await waitForCondition("first Grok child idle state", () => acpSubagentState(root, childId) === "idle", TIMEOUT);
         const childState = JSON.parse(
-          readFileSync(join(root.home, ".fx", "sessions", childId, "session.json"), "utf8"),
+          readFileSync(join(root.home, ".y2", "sessions", childId, "session.json"), "utf8"),
         ) as { preferences: { provider: string; model: string } };
         expect(childState.preferences.provider).toBe("grok");
         expect(childState.preferences.model).toBe("grok-4.20");
@@ -7305,7 +7305,7 @@ describe("acp: model-independent", () => {
           expect(JSON.parse(request.body).model).toBe("grok-4.20");
           expect(request.tokenAuth).toBe("xai-grok-cli");
           expect(request.authenticateResponse).toBe("authenticate-response");
-          expect(request.clientIdentifier).toBe("fx");
+          expect(request.clientIdentifier).toBe("y2");
           expect(request.clientVersion).toBe("1.0.6");
           expect(request.modelOverride).toBe("grok-4.20");
           expect(request.grokUserId).toBe("acct_grok_acp");
@@ -7327,10 +7327,10 @@ describe("acp: model-independent", () => {
   test(
     "stdin shutdown cancels a pending permission request",
     async () => {
-      const root = createIsolatedRoot("fx-acp-permission-shutdown-");
+      const root = createIsolatedRoot("y2-acp-permission-shutdown-");
       const target = join(root.external, "never-written.txt");
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({ permission: { edit: { [`${root.external}/**`]: "ask" } } }),
       );
       const gateway = startFakeGateway([
@@ -7386,7 +7386,7 @@ describe("acp: model catalog authentication", () => {
     test(
       `session/new ${scenario.name}`,
       async () => {
-        const root = createIsolatedRoot("fx-acp-team-model-options-");
+        const root = createIsolatedRoot("y2-acp-team-model-options-");
         const gateway = startFakeGateway([], {
           models(request) {
             const url = new URL(request.url);
@@ -7402,14 +7402,14 @@ describe("acp: model catalog authentication", () => {
           },
         });
         try {
-          writeSeededFxAuth(root.home, scenario.teamId);
+          writeSeededY2Auth(root.home, scenario.teamId);
           client = await AcpClient.create({
             cwd: root.workspace,
             env: {
               ...fakeGatewayEnv(root, gateway),
               Y2_API_KEY: undefined,
-              VERCEL_OIDC_TOKEN: undefined,
-              FX_DISABLE_KEYCHAIN: "1",
+              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              Y2_DISABLE_KEYCHAIN: "1",
             },
           });
           await client.request("initialize", { protocolVersion: 1 }, 1);
@@ -7422,7 +7422,7 @@ describe("acp: model catalog authentication", () => {
           expect(new URL(modelRequest.url).searchParams.get("teamId")).toBe(
             scenario.expectedTeamId,
           );
-          expect(modelRequest.headers.get("x-vercel-ai-gateway-team")).toBeNull();
+          expect(modelRequest.headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
 
           const modelOpt = resp.result.configOptions.find((o: any) => o.id === "model");
           expect(modelOpt).toBeDefined();
@@ -7445,7 +7445,7 @@ describe("acp: model catalog authentication", () => {
   test(
     "--model flag overrides selected model without inheriting the default Fast mode",
     async () => {
-      const root = createIsolatedRoot("fx-acp-model-override-");
+      const root = createIsolatedRoot("y2-acp-model-override-");
       const gateway = startFakeGateway([finalText("override complete")], {
         models: [
           { id: FAKE_GATEWAY_MODEL, type: "language", tags: ["tool-use"] },
@@ -7461,7 +7461,7 @@ describe("acp: model catalog authentication", () => {
         client = await AcpClient.create({
           args: ["acp", "--model", "provider/fast-override"],
           cwd: root.workspace,
-          env: { ...fakeGatewayEnv(root, gateway), FX_MODEL: undefined },
+          env: { ...fakeGatewayEnv(root, gateway), Y2_MODEL: undefined },
         });
         await client.request("initialize", { protocolVersion: 1 }, 1);
         const resp = await client.request("session/new", { mcpServers: [] }, 2) as any;
@@ -7532,7 +7532,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/new returns sessionId and configOptions",
     async () => {
-      const root = createIsolatedRoot("fx-acp-session-new-");
+      const root = createIsolatedRoot("y2-acp-session-new-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -7569,7 +7569,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/list returns sessions array",
     async () => {
-      const root = createIsolatedRoot("fx-acp-session-list-");
+      const root = createIsolatedRoot("y2-acp-session-list-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -7592,7 +7592,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/set_mode updates mode",
     async () => {
-      const root = createIsolatedRoot("fx-acp-set-mode-");
+      const root = createIsolatedRoot("y2-acp-set-mode-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -7616,7 +7616,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/load returns configOptions for a known session",
     async () => {
-      const root = createIsolatedRoot("fx-acp-session-load-");
+      const root = createIsolatedRoot("y2-acp-session-load-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -7649,7 +7649,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/set_config_option updates model and returns configOptions",
     async () => {
-      const root = createIsolatedRoot("fx-acp-set-config-");
+      const root = createIsolatedRoot("y2-acp-set-config-");
       const gateway = startFakeGateway([], {
         models: [
           { id: FAKE_GATEWAY_MODEL, type: "language", tags: ["tool-use"] },
@@ -7687,7 +7687,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session provider changes use Codex credentials without crossing origins",
     async () => {
-      const root = createIsolatedRoot("fx-acp-chatgpt-route-");
+      const root = createIsolatedRoot("y2-acp-chatgpt-route-");
       const gateway = startFakeGateway([]);
       const codex = startAcpFakeCodex({ unauthorizedResponses: 1 });
       writeSeededAcpChatGptLogin(root.home, codex.accessToken);
@@ -7696,9 +7696,9 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
-            FX_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
-            FX_E2E_CHATGPT_TOKEN_URL: codex.tokenUrl,
+            Y2_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
+            Y2_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
+            Y2_E2E_CHATGPT_TOKEN_URL: codex.tokenUrl,
           },
         });
         await client.request("initialize", { protocolVersion: 1 }, 1);
@@ -7741,7 +7741,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session provider changes use Grok credentials with byte-identical account-stable replay",
     async () => {
-      const root = createIsolatedRoot("fx-acp-grok-route-");
+      const root = createIsolatedRoot("y2-acp-grok-route-");
       const gateway = startFakeGateway([]);
       const grok = startAcpFakeGrok({ unauthorizedResponses: 1 });
       writeSeededAcpGrokLogin(root.home, grok.accessToken);
@@ -7750,11 +7750,11 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
           cwd: root.workspace,
           env: {
             ...fakeGatewayEnv(root, gateway),
-            FX_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
-            FX_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
-            FX_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
-            FX_E2E_GROK_TOKEN_URL: grok.tokenUrl,
-            FX_E2E_GROK_USERINFO_URL: grok.userinfoUrl,
+            Y2_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
+            Y2_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
+            Y2_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
+            Y2_E2E_GROK_TOKEN_URL: grok.tokenUrl,
+            Y2_E2E_GROK_USERINFO_URL: grok.userinfoUrl,
           },
         });
         await client.request("initialize", { protocolVersion: 1 }, 1);
@@ -7787,7 +7787,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
         for (const request of grok.requests) {
           expect(request.tokenAuth).toBe("xai-grok-cli");
           expect(request.authenticateResponse).toBe("authenticate-response");
-          expect(request.clientIdentifier).toBe("fx");
+          expect(request.clientIdentifier).toBe("y2");
           expect(request.clientVersion).toBe("1.0.6");
           expect(request.modelOverride).toBe("grok-4.20");
           expect(request.grokUserId).toBe("acct_grok_acp");
@@ -7812,7 +7812,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/prompt returns response with stopReason",
     async () => {
-      const root = createIsolatedRoot("fx-acp-session-prompt-");
+      const root = createIsolatedRoot("y2-acp-session-prompt-");
       const gateway = startFakeGateway([finalText("pong")]);
       try {
         client = await AcpClient.create({
@@ -7857,7 +7857,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/cancel does not crash the server",
     async () => {
-      const root = createIsolatedRoot("fx-acp-session-cancel-");
+      const root = createIsolatedRoot("y2-acp-session-cancel-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({
@@ -7886,7 +7886,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "session/new model configOptions has multiple options",
     async () => {
-      const root = createIsolatedRoot("fx-acp-model-options-");
+      const root = createIsolatedRoot("y2-acp-model-options-");
       const gateway = startFakeGateway([], {
         models: [
           { id: FAKE_GATEWAY_MODEL, type: "language", tags: ["tool-use"] },
@@ -7915,7 +7915,7 @@ describe.skipIf(!HAS_API_KEY)("acp: model-backed protocol", () => {
   test(
     "no stderr output during normal ACP operation",
     async () => {
-      const root = createIsolatedRoot("fx-acp-no-stderr-");
+      const root = createIsolatedRoot("y2-acp-no-stderr-");
       const gateway = startFakeGateway([]);
       try {
         client = await AcpClient.create({

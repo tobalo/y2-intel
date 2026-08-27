@@ -2323,7 +2323,7 @@ test "unavailable profile usage keeps reconciled generation pending in host runt
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try runtime.usage.applyGeneration(alloc, .{
@@ -2383,7 +2383,7 @@ test "readable profile usage does not attach publishers or flush recovery" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try runtime.usage.applyGeneration(alloc, .{
@@ -2410,7 +2410,7 @@ test "readable profile usage does not attach publishers or flush recovery" {
     try std.testing.expectEqual(checkpoint_calls, checkpoint.calls);
     try std.testing.expectError(
         error.FileNotFound,
-        tmp.dir.access(io_mod.getIo(), ".fx/usage.jsonl", .{}),
+        tmp.dir.access(io_mod.getIo(), ".y2/usage.jsonl", .{}),
     );
 }
 

@@ -1168,7 +1168,7 @@ pub const OperationRequestFingerprintInput = struct {
 
 pub fn operationRequestFingerprint(input: OperationRequestFingerprintInput) [32]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.operation-request.v1\x00");
+    hash.update("y2.subagent.operation-request.v1\x00");
     hashString(&hash, input.actor_id);
     hashString(&hash, input.target_id);
     hashOptionalString(&hash, input.source_id);
@@ -1250,7 +1250,7 @@ pub fn legacyImplicitAutoCreateRequestFingerprint(
     if (create.permission_mode_explicit) return null;
 
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.operation-request.v1\x00");
+    hash.update("y2.subagent.operation-request.v1\x00");
     hashString(&hash, input.actor_id);
     hashString(&hash, input.target_id);
     hashOptionalString(&hash, input.source_id);
@@ -1266,7 +1266,7 @@ pub fn legacyImplicitAutoCreateRequestFingerprint(
 
 pub fn operationFingerprint(input: OperationFingerprintInput) [32]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.operation-effect.v1\x00");
+    hash.update("y2.subagent.operation-effect.v1\x00");
     const request_fingerprint = operationRequestFingerprint(.{
         .command = input.command,
         .actor_id = input.actor_id,

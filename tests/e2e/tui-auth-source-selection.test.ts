@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, REPO_ROOT, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, REPO_ROOT, runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -23,7 +23,7 @@ import {
 } from "./tmux-helpers";
 
 const HAS_TMUX = tmuxAvailable();
-if (process.env.FX_REQUIRE_TMUX === "1" && !HAS_TMUX) {
+if (process.env.Y2_REQUIRE_TMUX === "1" && !HAS_TMUX) {
   throw new Error("tmux is required for tui-auth-source-selection.test.ts");
 }
 
@@ -31,7 +31,7 @@ const tmuxTest = test.skipIf(!HAS_TMUX);
 const profileStoredKeyTmuxTest = test.skipIf(!HAS_TMUX || process.platform === "darwin");
 const TIMEOUT = 30_000;
 const ENV_TOKEN = "env-api-key-token";
-const LOGIN_TOKEN = "fx-login-token";
+const LOGIN_TOKEN = "y2-login-token";
 const STORED_TOKEN = "stored-api-key-token";
 const LOGIN_RESPONSE = "LOGIN_SOURCE_RESPONSE";
 const STORED_RESPONSE = "STORED_SOURCE_RESPONSE";
@@ -89,10 +89,10 @@ afterEach(async () => {
 });
 
 function writeSeededChatGptLogin(testHome: string, accessToken = chatgptAccessToken()): void {
-  const fxDir = join(testHome, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "chatgpt-auth.json");
+  const y2Dir = join(testHome, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "chatgpt-auth.json");
   writeFileSync(authPath, JSON.stringify({
     version: 1,
     access_token: accessToken,
@@ -104,10 +104,10 @@ function writeSeededChatGptLogin(testHome: string, accessToken = chatgptAccessTo
 }
 
 function writeSeededGrokLogin(testHome: string, accessToken: string, accountId = "acct_grok_e2e"): void {
-  const fxDir = join(testHome, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "grok-auth.json");
+  const y2Dir = join(testHome, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "grok-auth.json");
   writeFileSync(authPath, JSON.stringify({
     version: 1,
     access_token: accessToken,
@@ -124,7 +124,7 @@ function readSingleUsageSnapshot(testHome: string): {
   settled_through_sequence: number;
   pending: unknown[];
 } {
-  const sessionsDir = join(testHome, ".fx", "sessions");
+  const sessionsDir = join(testHome, ".y2", "sessions");
   const usagePaths = readdirSync(sessionsDir, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => join(sessionsDir, entry.name, "usage-v2.json"))
@@ -140,16 +140,16 @@ function readSingleUsageSnapshot(testHome: string): {
   }).snapshot;
 }
 
-function writeSeededFxLogin(
+function writeSeededRetiredLogin(
   testHome: string,
   expiresAtMs = Date.now() + 60 * 60 * 1000,
-  issuer = "https://vercel.com",
+  issuer = "https://identity.example",
   teamId?: string,
 ): void {
-  const fxDir = join(testHome, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "auth.json");
+  const y2Dir = join(testHome, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "auth.json");
   const auth: Record<string, string | number> = {
     version: 1,
     issuer,
@@ -168,7 +168,7 @@ function writeSeededFxLogin(
   chmodSync(authPath, 0o600);
 }
 
-async function startFx(
+async function startY2(
   testHome: string,
   testStderrPath: string,
   fakeGateway: ReturnType<typeof startFakeGateway>,
@@ -178,24 +178,24 @@ async function startFx(
   cwd?: string,
 ): Promise<TmuxSession> {
   return TmuxSession.create({
-    cmd: FX_BIN,
+    cmd: Y2_BIN,
     cwd,
     env: {
       HOME: testHome,
       Y2_API_KEY: ENV_TOKEN,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-      FX_API_CHAT_URL: fakeGateway.chatUrl,
-      FX_E2E_GATEWAY_MODELS_URL: `${fakeGateway.baseUrl}/coding-agent/v1/models`,
-      FX_MODEL: FAKE_GATEWAY_MODEL,
-      FX_AUTO_UPGRADE: "0",
-      FX_NO_OPEN_BROWSER: "1",
-      FX_OAUTH_CLIENT_ID: "test-client",
-      FX_E2E_OAUTH_ISSUER_URL: oauthIssuerUrl,
-      FX_TRACE_LOG: tracePath,
-      FX_TRACE_SCOPES: tracePath ? "auth,prompt" : undefined,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+      Y2_API_CHAT_URL: fakeGateway.chatUrl,
+      Y2_E2E_GATEWAY_MODELS_URL: `${fakeGateway.baseUrl}/coding-agent/v1/models`,
+      Y2_MODEL: FAKE_GATEWAY_MODEL,
+      Y2_AUTO_UPGRADE: "0",
+      Y2_NO_OPEN_BROWSER: "1",
+      Y2_OAUTH_CLIENT_ID: "test-client",
+      Y2_E2E_OAUTH_ISSUER_URL: oauthIssuerUrl,
+      Y2_TRACE_LOG: tracePath,
+      Y2_TRACE_SCOPES: tracePath ? "auth,prompt" : undefined,
       ...envOverrides,
     },
     stderrPath: testStderrPath,
@@ -334,7 +334,7 @@ function startFakeOAuth(
             access_token: accessToken,
             refresh_token: "acquired-refresh-token",
             expires_in: tokenExpiresIn,
-            scope: "openid offline_access use:ai-gateway",
+            scope: "openid offline_access use:retired-gateway",
             token_type: "Bearer",
           });
         }
@@ -460,10 +460,10 @@ function startFakeChatGptOAuth(
     accessToken,
     requests,
     env: {
-      FX_E2E_CHATGPT_ISSUER_URL: baseUrl,
-      FX_E2E_CHATGPT_TOKEN_URL: `${baseUrl}/chatgpt/token`,
-      FX_E2E_OPENAI_CODEX_MODELS_URL: `${baseUrl}/chatgpt/models`,
-      FX_E2E_OPENAI_CODEX_RESPONSES_URL: `${baseUrl}/chatgpt/responses`,
+      Y2_E2E_CHATGPT_ISSUER_URL: baseUrl,
+      Y2_E2E_CHATGPT_TOKEN_URL: `${baseUrl}/chatgpt/token`,
+      Y2_E2E_OPENAI_CODEX_MODELS_URL: `${baseUrl}/chatgpt/models`,
+      Y2_E2E_OPENAI_CODEX_RESPONSES_URL: `${baseUrl}/chatgpt/responses`,
     },
     baseUrl,
     setModels(next: typeof models) {
@@ -536,8 +536,8 @@ function startFakeGrokOAuth(options: {
         if (!redirectUri || !state || url.searchParams.get("nonce")) {
           return new Response("invalid authorize request", { status: 400 });
         }
-        if (url.searchParams.get("referrer") !== "fx") {
-          return new Response("missing fx referrer", { status: 400 });
+        if (url.searchParams.get("referrer") !== "y2") {
+          return new Response("missing y2 referrer", { status: 400 });
         }
         const callback = new URL(redirectUri);
         callback.searchParams.set("code", "grok-code");
@@ -599,13 +599,13 @@ function startFakeGrokOAuth(options: {
     tokenCalls: () => tokenCalls,
     baseUrl,
     env: {
-      FX_E2E_GROK_ISSUER_URL: baseUrl,
-      FX_E2E_GROK_TOKEN_URL: `${baseUrl}/oauth2/token`,
-      FX_E2E_GROK_USERINFO_URL: `${baseUrl}/oauth2/userinfo`,
-      FX_E2E_GROK_REVOKE_URL: `${baseUrl}/oauth2/revoke`,
-      FX_E2E_XAI_GROK_MODELS_URL: `${baseUrl}/v1/models`,
-      FX_E2E_XAI_GROK_MODALITIES_URL: `${baseUrl}/v1/language-models`,
-      FX_E2E_XAI_GROK_RESPONSES_URL: `${baseUrl}/v1/responses`,
+      Y2_E2E_GROK_ISSUER_URL: baseUrl,
+      Y2_E2E_GROK_TOKEN_URL: `${baseUrl}/oauth2/token`,
+      Y2_E2E_GROK_USERINFO_URL: `${baseUrl}/oauth2/userinfo`,
+      Y2_E2E_GROK_REVOKE_URL: `${baseUrl}/oauth2/revoke`,
+      Y2_E2E_XAI_GROK_MODELS_URL: `${baseUrl}/v1/models`,
+      Y2_E2E_XAI_GROK_MODALITIES_URL: `${baseUrl}/v1/language-models`,
+      Y2_E2E_XAI_GROK_RESPONSES_URL: `${baseUrl}/v1/responses`,
     },
     setModels(next: typeof models) {
       models = next;
@@ -625,7 +625,7 @@ async function runGrokLoginWithBrowser(
     if (value === undefined) delete childEnv[key];
     else childEnv[key] = value;
   }
-  const proc = nodeSpawn(FX_BIN, ["login", "grok"], {
+  const proc = nodeSpawn(Y2_BIN, ["login", "grok"], {
     cwd: REPO_ROOT,
     env: childEnv,
     stdio: [authorizationCode ? "pipe" : "ignore", "pipe", "pipe"],
@@ -701,7 +701,7 @@ async function runCodexLoginWithBrowser(
     if (value === undefined) delete childEnv[key];
     else childEnv[key] = value;
   }
-  const proc = nodeSpawn(FX_BIN, ["login", "codex"], {
+  const proc = nodeSpawn(Y2_BIN, ["login", "codex"], {
     cwd: REPO_ROOT,
     env: childEnv,
     stdio: ["ignore", "pipe", "pipe"],
@@ -1030,7 +1030,7 @@ function startFakeGrokResourceRecovery() {
 tmuxTest(
   "inline sign-in renders the device flow and Ctrl+C cancels without a session",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-inline-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-inline-login-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
@@ -1038,30 +1038,30 @@ tmuxTest(
       tokenDelayMs: 5_000,
     });
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/login");
     await session.waitForText("Connections", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel account", TIMEOUT);
+    await session.waitForText("Retired credential account", TIMEOUT);
     await session.sendKeys("Enter");
     const signInScreen = await session.waitForPane(
       (pane) =>
-        pane.includes("Sign in with Vercel") &&
+        pane.includes("Sign in with Retired credential") &&
         pane.includes("TEST-CODE") &&
         pane.includes("/verify") &&
         pane.includes("Waiting for authorization") &&
         pane.includes("Enter reopens browser · Esc cancels"),
       TIMEOUT,
     );
-    expect(signInScreen).not.toContain("Starting Vercel sign-in");
+    expect(signInScreen).not.toContain("Starting Retired credential sign-in");
 
     await session.sendKeys("C-c");
     await session.waitForComposer(TIMEOUT);
 
     expect(session.isAlive()).toBe(true);
-    expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
-    expect(await session.captureFullScrollback()).not.toContain("Signed in to Vercel.");
+    expect(existsSync(join(home, ".y2", "auth.json"))).toBe(false);
+    expect(await session.captureFullScrollback()).not.toContain("Signed in to Retired credential.");
     expect(readFileSync(stderrPath, "utf8")).toBe("");
   },
   60_000,
@@ -1070,13 +1070,13 @@ tmuxTest(
 tmuxTest(
   "Codex sign-in renders browser OAuth without a device code and cancels cleanly",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-chatgpt-cancel-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-chatgpt-cancel-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     chatgptOauth = startFakeChatGptOAuth();
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -1108,7 +1108,7 @@ tmuxTest(
     await session.waitForComposer(TIMEOUT);
 
     expect(session.isAlive()).toBe(true);
-    expect(existsSync(join(home, ".fx", "chatgpt-auth.json"))).toBe(false);
+    expect(existsSync(join(home, ".y2", "chatgpt-auth.json"))).toBe(false);
     expect(await session.captureFullScrollback()).not.toContain("Signed in with Codex.");
     expect(readFileSync(stderrPath, "utf8")).toBe("");
   },
@@ -1118,7 +1118,7 @@ tmuxTest(
 tmuxTest(
   "setup provider switch reauthenticates current Codex and replaces an unavailable model",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-chatgpt-success-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-chatgpt-success-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([], {
@@ -1128,7 +1128,7 @@ tmuxTest(
     });
     chatgptOauth = startFakeChatGptOAuth();
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -1136,7 +1136,7 @@ tmuxTest(
       undefined,
       {
         ...chatgptOauth.env,
-        FX_MODEL: undefined,
+        Y2_MODEL: undefined,
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -1149,7 +1149,7 @@ tmuxTest(
     await completeDisplayedCodexLogin(session, chatgptOauth);
     await session.waitForText("Switched to Codex subscription with gpt-5.6-sol.", TIMEOUT);
 
-    const authPath = join(home, ".fx", "chatgpt-auth.json");
+    const authPath = join(home, ".y2", "chatgpt-auth.json");
     expect(existsSync(authPath)).toBe(true);
     expect(statSync(authPath).mode & 0o077).toBe(0);
 
@@ -1217,7 +1217,7 @@ tmuxTest(
     const authorizeRequestsBeforeRoundTrip = chatgptOauth.requests.filter(
       (request) => request.path === "/oauth/authorize",
     ).length;
-    const settingsPath = join(home, ".fx", "settings.json");
+    const settingsPath = join(home, ".y2", "settings.json");
     const gatewayModelBefore = JSON.parse(readFileSync(settingsPath, "utf8")).models.gateway;
     expect(typeof gatewayModelBefore).toBe("string");
     const savedCodex = JSON.parse(readFileSync(settingsPath, "utf8"));
@@ -1227,7 +1227,7 @@ tmuxTest(
     await session.waitForSessionEnd(TIMEOUT);
     session = null;
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -1235,7 +1235,7 @@ tmuxTest(
       undefined,
       {
         ...chatgptOauth.env,
-        FX_MODEL: undefined,
+        Y2_MODEL: undefined,
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -1244,7 +1244,7 @@ tmuxTest(
     await openProviderPicker(session);
     await session.sendKeys("Up");
     await session.sendKeys("Enter");
-    await session.waitForText("Switched to Vercel AI Gateway", TIMEOUT);
+    await session.waitForText("Switched to Retired credential retired gateway", TIMEOUT);
     const savedGateway = JSON.parse(readFileSync(settingsPath, "utf8"));
     expect(savedGateway.provider).toBe("gateway");
     expect(savedGateway.models.gateway).toBe(gatewayModelBefore);
@@ -1288,19 +1288,19 @@ tmuxTest(
 tmuxTest(
   "interactive Codex login activates a Codex catalog model",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-chatgpt-login-activation-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-chatgpt-login-activation-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     chatgptOauth = startFakeChatGptOAuth();
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
       undefined,
       undefined,
-      { ...chatgptOauth.env, FX_MODEL: undefined },
+      { ...chatgptOauth.env, Y2_MODEL: undefined },
     );
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/login");
@@ -1312,7 +1312,7 @@ tmuxTest(
     await completeDisplayedCodexLogin(session, chatgptOauth);
     await session.waitForText("Switched to Codex subscription with gpt-5.6-sol.", TIMEOUT);
 
-    const selected = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+    const selected = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
     expect(selected.provider).toBe("codex");
     expect(selected.models.codex).toBe("gpt-5.6-sol");
     await session.sendText("/status");
@@ -1325,19 +1325,19 @@ tmuxTest(
 tmuxTest(
   "ChatGPT response transport cancels blocked HTTP without stopping the shell",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-chatgpt-response-cancel-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-chatgpt-response-cancel-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     chatgptOauth = startFakeChatGptOAuth({ responseDelayMs: 10_000 });
     writeSeededChatGptLogin(home, chatgptOauth.accessToken);
     writeFileSync(
-      join(home, ".fx", "settings.json"),
+      join(home, ".y2", "settings.json"),
       JSON.stringify({ provider: "codex", codex_model: "gpt-5.6-sol" }) + "\n",
       { mode: 0o600 },
     );
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -1345,7 +1345,7 @@ tmuxTest(
       undefined,
       {
         ...chatgptOauth.env,
-        FX_MODEL: undefined,
+        Y2_MODEL: undefined,
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -1365,16 +1365,16 @@ tmuxTest(
 tmuxTest(
   "setup hub exposes each child screen and Escape returns to the hub",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-setup-hub-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-setup-hub-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN, undefined, 3600, 1, {
       tokenDelayMs: 5_000,
     });
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.resizeWindow(100, 36);
     await session.sendText("/setup");
@@ -1383,16 +1383,16 @@ tmuxTest(
         pane.includes("Setup") &&
         pane.includes("Connections") &&
         pane.includes("Model provider") &&
-        pane.includes("Vercel team") &&
+        pane.includes("Retired credential team") &&
         pane.includes("Credential source"),
       TIMEOUT,
     );
     expect(root).toContain("Y2_API_KEY");
-    expect(root).not.toContain("fx login");
-    expect(root).not.toContain("Vercel account");
+    expect(root).not.toContain("y2 login");
+    expect(root).not.toContain("Retired credential account");
 
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel account", TIMEOUT);
+    await session.waitForText("Retired credential account", TIMEOUT);
     await session.sendKeys("Enter");
     await session.waitForText("Enter reopens browser · Esc cancels", TIMEOUT);
     await session.sendKeys("Escape");
@@ -1402,7 +1402,7 @@ tmuxTest(
     await session.sendKeys("Down");
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
-    const apiKey = await session.waitForText("Paste your AI Gateway API key", TIMEOUT);
+    const apiKey = await session.waitForText("Paste your retired gateway API key", TIMEOUT);
     expect(apiKey).toContain("Saves to");
     await session.sendKeys("Escape");
     await session.waitForText("Connections", TIMEOUT);
@@ -1420,7 +1420,7 @@ tmuxTest(
 
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel team · Search:", TIMEOUT);
+    await session.waitForText("Retired credential team · Search:", TIMEOUT);
     await session.sendKeys("Escape");
     await session.waitForText("Credential source", TIMEOUT);
 
@@ -1431,7 +1431,7 @@ tmuxTest(
       TIMEOUT,
     );
     expect(sources).toContain("Y2_API_KEY");
-    expect(sources).toContain("fx login");
+    expect(sources).toContain("y2 login");
     await session.sendKeys("Escape");
     await session.sendKeys("Escape");
     await session.waitForComposer(TIMEOUT);
@@ -1443,9 +1443,9 @@ tmuxTest(
 );
 
 tmuxTest(
-  "first-run Vercel team Escape continues into the setup hub",
+  "first-run Retired credential team Escape continues into the setup hub",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-onboarding-team-back-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-onboarding-team-back-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
@@ -1455,51 +1455,51 @@ tmuxTest(
       3600,
       Number.POSITIVE_INFINITY,
       {
-        teams: [{ id: "team_123", slug: "vercel-labs", name: "Vercel Labs" }],
+        teams: [{ id: "team_123", slug: "example-org", name: "Retired credential Labs" }],
       },
     );
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
       Y2_API_KEY: undefined,
-      FX_SKIP_ONBOARDING: "0",
+      Y2_SKIP_ONBOARDING: "0",
     });
-    await session.waitForText("Welcome to fx", TIMEOUT);
+    await session.waitForText("Welcome to y2", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel team · Search:", TIMEOUT);
+    await session.waitForText("Retired credential team · Search:", TIMEOUT);
     await session.sendKeys("Escape");
     const setup = await session.waitForPane(
       (pane) => pane.includes("Setup") && /Connections\s+connected/.test(pane),
       TIMEOUT,
     );
-    expect(setup).toMatch(/^› Vercel team\s+choose a team$/m);
-    expect(setup).not.toContain("Welcome to fx");
+    expect(setup).toMatch(/^› Retired credential team\s+choose a team$/m);
+    expect(setup).not.toContain("Welcome to y2");
     expect(setup).not.toContain("sign in to manage");
     expect(readFileSync(stderrPath, "utf8")).toBe("");
   },
   60_000,
 );
 
-async function startFxWithoutAuth(
+async function startY2WithoutAuth(
   testHome: string,
   testStderrPath: string,
   fakeGateway: ReturnType<typeof startFakeGateway>,
   cwd?: string,
 ): Promise<TmuxSession> {
   return TmuxSession.create({
-    cmd: FX_BIN,
+    cmd: Y2_BIN,
     cwd,
     env: {
       HOME: testHome,
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_OAUTH_CLIENT_ID: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-      FX_API_CHAT_URL: fakeGateway.chatUrl,
-      FX_E2E_GATEWAY_MODELS_URL: `${fakeGateway.baseUrl}/coding-agent/v1/models`,
-      FX_MODEL: FAKE_GATEWAY_MODEL,
-      FX_AUTO_UPGRADE: "0",
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_OAUTH_CLIENT_ID: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_GATEWAY_BASE_URL: fakeGateway.baseUrl,
+      Y2_API_CHAT_URL: fakeGateway.chatUrl,
+      Y2_E2E_GATEWAY_MODELS_URL: `${fakeGateway.baseUrl}/coding-agent/v1/models`,
+      Y2_MODEL: FAKE_GATEWAY_MODEL,
+      Y2_AUTO_UPGRADE: "0",
     },
     stderrPath: testStderrPath,
     width: 100,
@@ -1558,7 +1558,7 @@ async function openSwitchCredential(pickerSession: TmuxSession): Promise<void> {
 }
 
 function savedCredentialSource(testHome: string): string | undefined {
-  const settingsPath = join(testHome, ".fx", "settings.json");
+  const settingsPath = join(testHome, ".y2", "settings.json");
   if (!existsSync(settingsPath)) return undefined;
   return (JSON.parse(readFileSync(settingsPath, "utf8")) as { credential_source?: string })
     .credential_source;
@@ -1567,13 +1567,13 @@ function savedCredentialSource(testHome: string): string | undefined {
 profileStoredKeyTmuxTest(
   "stored-key setup persists ahead of the environment",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-stored-key-preference-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-stored-key-preference-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([fakeGatewayFinalText(STORED_RESPONSE)]);
 
-    session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-      FX_DISABLE_KEYCHAIN: undefined,
+    session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+      Y2_DISABLE_KEYCHAIN: undefined,
     });
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
@@ -1582,31 +1582,31 @@ profileStoredKeyTmuxTest(
     await session.sendText("/setup");
     await session.waitForText("Connections", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("AI Gateway API key", TIMEOUT);
+    await session.waitForText("retired gateway API key", TIMEOUT);
     await session.sendKeys("Down");
     await session.sendKeys("Down");
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
-    await session.waitForText("Paste your AI Gateway API key", TIMEOUT);
+    await session.waitForText("Paste your retired gateway API key", TIMEOUT);
     await session.sendLiteralText(STORED_TOKEN);
     await session.sendKeys("Enter");
     await session.waitForText("Saved the API key to profile file and made it active", TIMEOUT);
     const returnedConnections = await session.waitForPane(
-      (pane) => pane.includes("Connections") && pane.includes("AI Gateway API key"),
+      (pane) => pane.includes("Connections") && pane.includes("retired gateway API key"),
       TIMEOUT,
     );
-    expect(returnedConnections).toMatch(/^› AI Gateway API key\s+stored$/m);
+    expect(returnedConnections).toMatch(/^› retired gateway API key\s+stored$/m);
     await session.sendText("/status");
     await session.waitForText("auth=stored API key (profile file)", TIMEOUT);
     expect(savedCredentialSource(home)).toBe("stored_key");
 
-    const keyPath = join(home, ".fx", "api-key");
+    const keyPath = join(home, ".y2", "api-key");
     expect(readFileSync(keyPath, "utf8")).toBe(STORED_TOKEN);
     expect(statSync(keyPath).mode & 0o777).toBe(0o600);
 
     await session.kill();
-    session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-      FX_DISABLE_KEYCHAIN: undefined,
+    session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+      Y2_DISABLE_KEYCHAIN: undefined,
     });
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
@@ -1625,7 +1625,7 @@ profileStoredKeyTmuxTest(
 tmuxTest(
   "direct login persists ahead of the environment until Automatic is selected",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-direct-login-preference-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-direct-login-preference-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([
@@ -1635,7 +1635,7 @@ tmuxTest(
     ]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
     await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
@@ -1643,12 +1643,12 @@ tmuxTest(
     await session.sendText("/login");
     await session.waitForText("Connections", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel account", TIMEOUT);
+    await session.waitForText("Retired credential account", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Signed in to Vercel", TIMEOUT);
+    await session.waitForText("Signed in to Retired credential", TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=fx login", TIMEOUT);
-    expect(savedCredentialSource(home)).toBe("fx_login");
+    await session.waitForText("auth=y2 login", TIMEOUT);
+    expect(savedCredentialSource(home)).toBe("retired_login");
     await session.sendText("use the direct login credential");
     await session.waitForText(DIRECT_LOGIN_RESPONSE, TIMEOUT);
     expect(gateway.requests[0].headers.get("authorization")).toBe(
@@ -1656,10 +1656,10 @@ tmuxTest(
     );
 
     await session.kill();
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=fx login", TIMEOUT);
+    await session.waitForText("auth=y2 login", TIMEOUT);
     await session.sendText("use the remembered direct login credential");
     await session.waitForText(RESTART_RESPONSE, TIMEOUT);
     expect(gateway.requests[1].headers.get("authorization")).toBe(
@@ -1675,7 +1675,7 @@ tmuxTest(
     await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
 
     await session.kill();
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
     await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
@@ -1689,9 +1689,9 @@ tmuxTest(
 );
 
 tmuxTest(
-  "Change team activates and persists fx login ahead of the environment",
+  "Change team activates and persists y2 login ahead of the environment",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-team-preference-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-team-preference-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([fakeGatewayFinalText(LOGIN_RESPONSE)]);
@@ -1701,12 +1701,12 @@ tmuxTest(
       3600,
       Number.POSITIVE_INFINITY,
       {
-        teams: [{ id: "team_123", slug: "vercel-labs", name: "Vercel Labs" }],
+        teams: [{ id: "team_123", slug: "example-org", name: "Retired credential Labs" }],
       },
     );
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
     await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
@@ -1716,25 +1716,25 @@ tmuxTest(
     await session.sendKeys("Down");
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel team · Search:", TIMEOUT);
+    await session.waitForText("Retired credential team · Search:", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Changed Vercel team to Vercel Labs", TIMEOUT);
+    await session.waitForText("Changed Retired credential team to Retired credential Labs", TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=fx login", TIMEOUT);
-    expect(savedCredentialSource(home)).toBe("fx_login");
+    await session.waitForText("auth=y2 login", TIMEOUT);
+    expect(savedCredentialSource(home)).toBe("retired_login");
 
-    const savedAuth = JSON.parse(readFileSync(join(home, ".fx", "auth.json"), "utf8")) as {
+    const savedAuth = JSON.parse(readFileSync(join(home, ".y2", "auth.json"), "utf8")) as {
       team_id?: string;
       team_slug?: string;
     };
     expect(savedAuth.team_id).toBe("team_123");
-    expect(savedAuth.team_slug).toBe("vercel-labs");
+    expect(savedAuth.team_slug).toBe("example-org");
 
     await session.kill();
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=fx login", TIMEOUT);
+    await session.waitForText("auth=y2 login", TIMEOUT);
     await session.sendText("use the selected team after restart");
     await session.waitForText(LOGIN_RESPONSE, TIMEOUT);
     expect(gateway.requests[0].headers.get("authorization")).toBe(`Bearer ${LOGIN_TOKEN}`);
@@ -1745,13 +1745,13 @@ tmuxTest(
 );
 
 tmuxTest(
-  "API key and fx login coexist through selection, restart, login, and logout",
+  "API key and y2 login coexist through selection, restart, login, and logout",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-lifecycle-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-lifecycle-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
-    writeSeededFxLogin(home);
-    const authPath = join(home, ".fx", "auth.json");
+    writeSeededRetiredLogin(home);
+    const authPath = join(home, ".y2", "auth.json");
     const seededAuthFile = readFileSync(authPath, "utf8");
     gateway = startFakeGateway([
       fakeGatewayFinalText(ENV_RESPONSE),
@@ -1762,9 +1762,9 @@ tmuxTest(
     ]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     const initial = await session.waitForComposer(TIMEOUT);
-    expect(initial).not.toContain("Sign in with Vercel");
+    expect(initial).not.toContain("Sign in with Retired credential");
     expect(initial).not.toContain("Switch credential");
 
     await session.sendText("/status");
@@ -1777,16 +1777,16 @@ tmuxTest(
 
     await openSwitchCredential(session);
     const inventory = await session.waitForPane(
-      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("y2 login"),
       TIMEOUT,
     );
-    expect(inventory).not.toContain("VERCEL_OIDC_TOKEN");
+    expect(inventory).not.toContain("REMOVED_LEGACY_OIDC_TOKEN");
     expect(inventory).not.toMatch(/^\s+stored API key\b/m);
 
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
     await session.sendText("/status");
-    await session.waitForText("auth=fx login", TIMEOUT);
+    await session.waitForText("auth=y2 login", TIMEOUT);
     expect(readFileSync(authPath, "utf8")).toBe(seededAuthFile);
     await session.sendText("use the selected login credential");
     await session.waitForText(LOGIN_RESPONSE, TIMEOUT);
@@ -1797,12 +1797,12 @@ tmuxTest(
     const firstRunOutput = await session.captureFullScrollback();
     const firstRunStderr = readFileSync(stderrPath, "utf8");
     await session.kill();
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    // The switch above is remembered, so the restart keeps fx login rather than
+    // The switch above is remembered, so the restart keeps y2 login rather than
     // letting Y2_API_KEY reclaim it through precedence.
-    await session.waitForText("auth=fx login", TIMEOUT);
+    await session.waitForText("auth=y2 login", TIMEOUT);
     expect(readFileSync(authPath, "utf8")).toBe(seededAuthFile);
     await session.sendText("use the remembered credential after restart");
     await session.waitForText(RESTART_RESPONSE, TIMEOUT);
@@ -1812,9 +1812,9 @@ tmuxTest(
     await session.sendText("/login");
     await session.waitForText("Connections", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel account", TIMEOUT);
+    await session.waitForText("Retired credential account", TIMEOUT);
     await session.sendKeys("Enter");
-    const loginCompleted = await session.waitForText("Signed in to Vercel", TIMEOUT);
+    const loginCompleted = await session.waitForText("Signed in to Retired credential", TIMEOUT);
     expect(loginCompleted).not.toContain("Setup");
     expect(oauth.requests.map((request) => `${request.method} ${request.path}`)).toEqual([
       "GET /.well-known/openid-configuration",
@@ -1837,18 +1837,18 @@ tmuxTest(
     expect(acquiredAuth.refresh_token).toBe("acquired-refresh-token");
     expect(statSync(authPath).mode & 0o777).toBe(0o600);
     expect(
-      (await session.captureFullScrollback()).match(/Signed in to Vercel\./g) ?? [],
+      (await session.captureFullScrollback()).match(/Signed in to Retired credential\./g) ?? [],
     ).toHaveLength(1);
 
     await session.sendText("/status");
-    await session.waitForText("auth=fx login", TIMEOUT);
+    await session.waitForText("auth=y2 login", TIMEOUT);
     await session.sendText("direct login prompt");
     await session.waitForText(DIRECT_LOGIN_RESPONSE, TIMEOUT);
     expect(gateway.requests).toHaveLength(4);
     expect(gateway.requests[3].headers.get("authorization")).toBe(`Bearer ${ACQUIRED_LOGIN_TOKEN}`);
 
     await session.sendText("/logout");
-    const loggedOut = await session.waitForText("Signed out of fx.", TIMEOUT);
+    const loggedOut = await session.waitForText("Signed out of y2.", TIMEOUT);
     expect(loggedOut).not.toContain("remote session could not be revoked");
     expect(existsSync(authPath)).toBe(false);
     expect(
@@ -1885,9 +1885,9 @@ tmuxTest(
 );
 
 tmuxTest(
-  "searched Vercel login team stays open and loads private models",
+  "searched Retired credential login team stays open and loads private models",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-team-models-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-team-models-"));
     stderrPath = join(home, "stderr.log");
     const tracePath = join(home, "trace.log");
     writeFileSync(stderrPath, "");
@@ -1918,7 +1918,7 @@ tmuxTest(
       },
     );
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -1926,8 +1926,8 @@ tmuxTest(
       tracePath,
       {
         Y2_API_KEY: undefined,
-        FX_E2E_GATEWAY_MODELS_URL: undefined,
-        FX_TRACE_SCOPES: "auth,prompt,catalog",
+        Y2_E2E_GATEWAY_MODELS_URL: undefined,
+        Y2_TRACE_SCOPES: "auth,prompt,catalog",
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -1937,18 +1937,18 @@ tmuxTest(
     await session.sendText("/login");
     await session.waitForText("Connections", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel account", TIMEOUT);
+    await session.waitForText("Retired credential account", TIMEOUT);
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel team · Search:", TIMEOUT);
+    await session.waitForText("Retired credential team · Search:", TIMEOUT);
     await session.sendKeys("Escape");
     const setupAfterSignIn = await session.waitForPane(
       (pane) => pane.includes("Setup") && /Connections\s+connected/.test(pane),
       TIMEOUT,
     );
-    expect(setupAfterSignIn).toMatch(/^› Vercel team\s+choose a team$/m);
+    expect(setupAfterSignIn).toMatch(/^› Retired credential team\s+choose a team$/m);
     expect(setupAfterSignIn).not.toContain("sign in to manage");
     await session.sendKeys("Enter");
-    await session.waitForText("Vercel team · Search:", TIMEOUT);
+    await session.waitForText("Retired credential team · Search:", TIMEOUT);
     await session.resizeWindow(80, 5);
     await session.sendLiteralText("example");
     await session.waitForPane((pane) => pane.includes("Search: example"), TIMEOUT);
@@ -1965,7 +1965,7 @@ tmuxTest(
     await session.resizeWindow(80, 24);
     await session.waitForPane(
       (pane) =>
-        pane.includes("Vercel team · Search:") &&
+        pane.includes("Retired credential team · Search:") &&
         pane.includes("Search: example") &&
         pane.includes("Example Internal Team") &&
         !pane.includes("Other Team"),
@@ -1978,7 +1978,7 @@ tmuxTest(
       teamPickerGrid[searchRow]!.indexOf("Search: example") + "Search: example".length;
     expect(session.cursorPosition()).toEqual({ row: searchRow, col: searchEnd });
     await session.sendKeys("Enter");
-    await session.waitForText("Signed in to Vercel", TIMEOUT);
+    await session.waitForText("Signed in to Retired credential", TIMEOUT);
     await waitForModelRequestCount(gateway, 3);
 
     await session.sendText("/models");
@@ -1992,7 +1992,7 @@ tmuxTest(
     expect(gateway.modelRequests[1].headers.get("authorization")).toBeNull();
     const authenticatedRequest = gateway.modelRequests[2];
     expect(authenticatedRequest.headers.get("authorization")).toBe(`Bearer ${ACQUIRED_LOGIN_TOKEN}`);
-    expect(authenticatedRequest.headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(authenticatedRequest.headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
     expect(new URL(authenticatedRequest.url).searchParams.get("teamId")).toBe("team_123");
     expect(gateway.modelRequests).toHaveLength(3);
     const trace = readFileSync(tracePath, "utf8");
@@ -2000,7 +2000,7 @@ tmuxTest(
       line.includes("[catalog] event=model_catalog_load ")
     );
     expect(catalogEvents.at(-1)).toContain(
-      "requested_access=authenticated credential_source=fx_login effective_access=authenticated",
+      "requested_access=authenticated credential_source=retired_login effective_access=authenticated",
     );
     for (const secret of [ACQUIRED_LOGIN_TOKEN, "team_123", "example-internal-team"]) {
       expect(trace).not.toContain(secret);
@@ -2013,14 +2013,14 @@ tmuxTest(
 tmuxTest(
   "model catalog warmup follows auth source changes exactly once",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-catalog-lifecycle-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-catalog-lifecycle-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await waitForModelRequestCount(gateway, 1);
     expect(gateway.modelRequests).toHaveLength(1);
@@ -2028,7 +2028,7 @@ tmuxTest(
 
     await openSwitchCredential(session);
     await session.waitForPane(
-      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("y2 login"),
       TIMEOUT,
     );
     await session.sendKeys("Down");
@@ -2036,10 +2036,10 @@ tmuxTest(
     await waitForModelRequestCount(gateway, 2);
     expect(gateway.modelRequests).toHaveLength(2);
     expect(gateway.modelRequests[1].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[1].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[1].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
 
     await session.sendText("/logout");
-    await session.waitForText("Signed out of fx.", TIMEOUT);
+    await session.waitForText("Signed out of y2.", TIMEOUT);
     await waitForModelRequestCount(gateway, 3);
     expect(gateway.modelRequests).toHaveLength(3);
     expect(gateway.modelRequests[2].headers.get("authorization")).toBe(`Bearer ${ENV_TOKEN}`);
@@ -2049,11 +2049,11 @@ tmuxTest(
 );
 
 test(
-  "fx login falls back once when a custom OAuth client is invalid",
+  "y2 login falls back once when a custom OAuth client is invalid",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-login-client-fallback-"));
-    writeSeededFxLogin(home);
-    const authPath = join(home, ".fx", "auth.json");
+    home = mkdtempSync(join(tmpdir(), "y2-tui-login-client-fallback-"));
+    writeSeededRetiredLogin(home);
+    const authPath = join(home, ".y2", "auth.json");
     oauth = startFakeOAuth(
       ACQUIRED_LOGIN_TOKEN,
       undefined,
@@ -2062,23 +2062,23 @@ test(
       { deviceError: "invalid_client" },
     );
 
-    const result = await runFx(["login"], {
+    const result = await runY2(["login"], {
       env: {
         HOME: home,
         Y2_API_KEY: undefined,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_SKIP_ONBOARDING: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_OAUTH_CLIENT_ID: "test-client",
-        FX_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_OAUTH_CLIENT_ID: "test-client",
+        Y2_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
       },
       timeoutMs: TIMEOUT,
     });
 
     expect(result.code, `stdout: ${result.stdout}\nstderr: ${result.stderr}`).toBe(0);
-    expect(result.stdout).toContain("Signed in to Vercel.");
+    expect(result.stdout).toContain("Signed in to Retired credential.");
     expect(oauth.requests.map((request) => `${request.method} ${request.path}`)).toEqual([
       "GET /.well-known/openid-configuration",
       "POST /oauth/device",
@@ -2117,19 +2117,19 @@ test(
 test(
   "Codex CLI browser login fetches raw models and replays one 401 without Gateway leakage",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-codex-cli-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-codex-cli-login-"));
     gateway = startFakeGateway([]);
     chatgptOauth = startFakeChatGptOAuth({ unauthorizedResponses: 1 });
     const env = {
       HOME: home,
       Y2_API_KEY: ENV_TOKEN,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_AUTO_UPGRADE: "0",
-      FX_NO_OPEN_BROWSER: "1",
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_NO_OPEN_BROWSER: "1",
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
       ...chatgptOauth.env,
     };
 
@@ -2139,22 +2139,22 @@ test(
     expect(login.stdout).not.toContain("Code:");
     expect(login.stderr).toBe("");
 
-    const authPath = join(home, ".fx", "chatgpt-auth.json");
+    const authPath = join(home, ".y2", "chatgpt-auth.json");
     expect(existsSync(authPath)).toBe(true);
     expect(statSync(authPath).mode & 0o077).toBe(0);
-    const settingsPath = join(home, ".fx", "settings.json");
+    const settingsPath = join(home, ".y2", "settings.json");
     const selected = JSON.parse(readFileSync(settingsPath, "utf8"));
     expect(selected.provider).toBe("codex");
     expect(selected.models.codex).toBe("gpt-5.6-sol");
 
-    const models = await runFx(["models", "--json"], { env, timeoutMs: TIMEOUT });
+    const models = await runY2(["models", "--json"], { env, timeoutMs: TIMEOUT });
     const modelIds = (JSON.parse(models.stdout) as { models: Array<{ id: string }> }).models
       .map((model) => model.id);
     expect(modelIds).toContain("gpt-5.6-sol");
     expect(modelIds).toContain("gpt-5.4-mini");
     expect(modelIds.some((id) => id.includes("openai-codex/"))).toBe(false);
 
-    const ask = await runFx(["ask", "--json", "--auto", "--no-save", "Answer directly."], {
+    const ask = await runY2(["ask", "--json", "--auto", "--no-save", "Answer directly."], {
       env,
       timeoutMs: TIMEOUT,
     });
@@ -2170,7 +2170,7 @@ test(
 
     const gatewayRequestsBeforeImage = gateway.requests.length;
     const gatewayModelRequestsBeforeImage = gateway.modelRequests.length;
-    const imageAsk = await runFx([
+    const imageAsk = await runY2([
       "ask",
       "--json",
       "--auto",
@@ -2198,12 +2198,12 @@ test(
     const tokenRequestsBeforeRoundTrip = chatgptOauth.requests.filter(
       (request) => request.path === "/chatgpt/token",
     ).length;
-    expect((await runFx(["provider", "gateway"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
-    expect((await runFx(["provider", "codex"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
+    expect((await runY2(["provider", "gateway"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
+    expect((await runY2(["provider", "codex"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
     expect(chatgptOauth.requests.filter((request) => request.path === "/chatgpt/token"))
       .toHaveLength(tokenRequestsBeforeRoundTrip);
 
-    const logout = await runFx(["logout", "codex"], { env, timeoutMs: TIMEOUT });
+    const logout = await runY2(["logout", "codex"], { env, timeoutMs: TIMEOUT });
     expect(logout.code).toBe(0);
     expect(logout.stdout).toContain("Signed out of Codex.");
     expect(existsSync(authPath)).toBe(false);
@@ -2214,20 +2214,20 @@ test(
 test(
   "Grok CLI browser login fetches subscription models and replays one account-stable 401",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-cli-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-cli-login-"));
     gateway = startFakeGateway([]);
     const grok = startFakeGrokOAuth({ unauthorizedResponses: 1 });
     try {
       const env = {
         HOME: home,
         Y2_API_KEY: ENV_TOKEN,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_SKIP_ONBOARDING: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         ...grok.env,
       };
 
@@ -2236,14 +2236,14 @@ test(
       expect(login.stdout).toContain("Signed in with Grok.");
       expect(login.stderr).toBe("");
 
-      const authPath = join(home, ".fx", "grok-auth.json");
+      const authPath = join(home, ".y2", "grok-auth.json");
       expect(existsSync(authPath)).toBe(true);
       expect(statSync(authPath).mode & 0o077).toBe(0);
-      const settings = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+      const settings = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
       expect(settings.provider).toBe("grok");
       expect(settings.models.grok).toBe("grok-4.20");
 
-      const models = await runFx(["models", "--json"], { env, timeoutMs: TIMEOUT });
+      const models = await runY2(["models", "--json"], { env, timeoutMs: TIMEOUT });
       const modelIds = (JSON.parse(models.stdout) as { models: Array<{ id: string }> }).models
         .map((model) => model.id);
       expect(modelIds).toEqual(["grok-4.20", "grok-4.6"]);
@@ -2260,7 +2260,7 @@ test(
         expect(request.userId).toBeNull();
       }
 
-      const ask = await runFx(["ask", "--json", "--auto", "Answer directly."], {
+      const ask = await runY2(["ask", "--json", "--auto", "Answer directly."], {
         env,
         timeoutMs: TIMEOUT,
       });
@@ -2276,7 +2276,7 @@ test(
       for (const request of responses) {
         expect(request.tokenAuth).toBe("xai-grok-cli");
         expect(request.authenticateResponse).toBe("authenticate-response");
-        expect(request.clientIdentifier).toBe("fx");
+        expect(request.clientIdentifier).toBe("y2");
         expect(request.clientVersion).toBe("1.0.6");
         expect(request.modelOverride).toBe("grok-4.20");
         expect(request.grokUserId).toBe("acct_grok_e2e");
@@ -2289,11 +2289,11 @@ test(
         expect(request.headers.get("authorization")).not.toContain("grok-");
       }
 
-      expect((await runFx(["provider", "gateway"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
-      expect((await runFx(["provider", "grok"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
+      expect((await runY2(["provider", "gateway"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
+      expect((await runY2(["provider", "grok"], { env, timeoutMs: TIMEOUT })).code).toBe(0);
       expect(grok.tokenCalls()).toBe(2);
 
-      const logout = await runFx(["logout", "grok"], { env, timeoutMs: TIMEOUT });
+      const logout = await runY2(["logout", "grok"], { env, timeoutMs: TIMEOUT });
       expect(logout.code, `stdout: ${logout.stdout}\nstderr: ${logout.stderr}`).toBe(0);
       expect(logout.stdout).toContain("Signed out of Grok.");
       expect(grok.requests.some((request) => request.path === "/oauth2/revoke")).toBe(true);
@@ -2308,20 +2308,20 @@ test(
 test(
   "Grok CLI accepts an authorization code copied from the browser",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-cli-code-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-cli-code-"));
     gateway = startFakeGateway([]);
     const grok = startFakeGrokOAuth();
     try {
       const result = await runGrokLoginWithBrowser({
         HOME: home,
         Y2_API_KEY: ENV_TOKEN,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_SKIP_ONBOARDING: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         ...grok.env,
       }, "grok-code");
 
@@ -2330,7 +2330,7 @@ test(
       expect(result.stdout).not.toContain("grok-code");
       expect(result.stderr).toBe("");
       expect(grok.tokenCalls()).toBe(1);
-      expect(existsSync(join(home, ".fx", "grok-auth.json"))).toBe(true);
+      expect(existsSync(join(home, ".y2", "grok-auth.json"))).toBe(true);
     } finally {
       grok.stop();
     }
@@ -2339,22 +2339,22 @@ test(
 );
 
 test("Grok logout removes local credentials when remote revocation fails", async () => {
-  home = mkdtempSync(join(tmpdir(), "fx-grok-logout-revoke-failure-"));
+  home = mkdtempSync(join(tmpdir(), "y2-grok-logout-revoke-failure-"));
   const grok = startFakeGrokOAuth({ revokeStatus: 503 });
   try {
     writeSeededGrokLogin(home, grok.initialAccessToken);
     writeFileSync(
-      join(home, ".fx", "settings.json"),
+      join(home, ".y2", "settings.json"),
       JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
       { mode: 0o600 },
     );
-    const authPath = join(home, ".fx", "grok-auth.json");
-    const result = await runFx(["logout", "grok"], {
+    const authPath = join(home, ".y2", "grok-auth.json");
+    const result = await runY2(["logout", "grok"], {
       env: {
         HOME: home,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_E2E_GROK_REVOKE_URL: grok.env.FX_E2E_GROK_REVOKE_URL,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_E2E_GROK_REVOKE_URL: grok.env.Y2_E2E_GROK_REVOKE_URL,
       },
       timeoutMs: TIMEOUT,
     });
@@ -2362,47 +2362,47 @@ test("Grok logout removes local credentials when remote revocation fails", async
     expect(result.stdout).toContain("Signed out of Grok.");
     expect(result.stderr).toContain("remote revocation could not be confirmed");
     expect(existsSync(authPath)).toBe(false);
-    expect(JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8")).provider)
+    expect(JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8")).provider)
       .toBe("grok");
-    const ask = await runFx(["ask", "--json", "--no-save", "Still Grok?"], {
-      env: { HOME: home, FX_DISABLE_KEYCHAIN: "1", FX_AUTO_UPGRADE: "0" },
+    const ask = await runY2(["ask", "--json", "--no-save", "Still Grok?"], {
+      env: { HOME: home, Y2_DISABLE_KEYCHAIN: "1", Y2_AUTO_UPGRADE: "0" },
       timeoutMs: TIMEOUT,
     });
     expect(ask.code).toBe(1);
-    expect(ask.stderr).toContain("fx login grok");
+    expect(ask.stderr).toContain("y2 login grok");
   } finally {
     grok.stop();
   }
 });
 
 test("Grok 401 replay refuses a different account before the second provider send", async () => {
-  home = mkdtempSync(join(tmpdir(), "fx-grok-account-mismatch-"));
+  home = mkdtempSync(join(tmpdir(), "y2-grok-account-mismatch-"));
   gateway = startFakeGateway([]);
   const grok = startFakeGrokOAuth({ unauthorizedResponses: 1, userinfoSub: "acct_other" });
   try {
     writeSeededGrokLogin(home, grok.initialAccessToken);
     writeFileSync(
-      join(home, ".fx", "settings.json"),
+      join(home, ".y2", "settings.json"),
       JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
       { mode: 0o600 },
     );
     const env = {
       HOME: home,
       Y2_API_KEY: ENV_TOKEN,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_AUTO_UPGRADE: "0",
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
       ...grok.env,
     };
-    const ask = await runFx(["ask", "--json", "--auto", "--no-save", "Answer."], {
+    const ask = await runY2(["ask", "--json", "--auto", "--no-save", "Answer."], {
       env,
       timeoutMs: TIMEOUT,
     });
     expect(ask.code).toBe(1);
     expect(grok.requests.filter((request) => request.path === "/v1/responses")).toHaveLength(1);
-    const saved = JSON.parse(readFileSync(join(home, ".fx", "grok-auth.json"), "utf8")) as {
+    const saved = JSON.parse(readFileSync(join(home, ".y2", "grok-auth.json"), "utf8")) as {
       access_token: string;
       account_id: string;
     };
@@ -2417,19 +2417,19 @@ test("Grok 401 replay refuses a different account before the second provider sen
 });
 
 test("Grok CLI sends verified images directly without advertising the vision fallback", async () => {
-  home = mkdtempSync(join(tmpdir(), "fx-grok-native-image-"));
+  home = mkdtempSync(join(tmpdir(), "y2-grok-native-image-"));
   gateway = startFakeGateway([]);
   const grok = startFakeGrokOAuth();
   try {
     writeSeededGrokLogin(home, grok.initialAccessToken);
     writeFileSync(
-      join(home, ".fx", "settings.json"),
+      join(home, ".y2", "settings.json"),
       JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
       { mode: 0o600 },
     );
     const imagePath = join(home, "attachment.png");
     writeFileSync(imagePath, Buffer.from("89504e470d0a1a0a72657374", "hex"));
-    const ask = await runFx([
+    const ask = await runY2([
       "ask",
       "--json",
       "--auto",
@@ -2441,11 +2441,11 @@ test("Grok CLI sends verified images directly without advertising the vision fal
       env: {
         HOME: home,
         Y2_API_KEY: ENV_TOKEN,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         ...grok.env,
       },
       timeoutMs: TIMEOUT,
@@ -2464,13 +2464,13 @@ test("Grok CLI sends verified images directly without advertising the vision fal
 tmuxTest(
   "interactive Grok login activates Grok and setup round-trips without reauthentication",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-tui-switch-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-tui-switch-"));
     stderrPath = join(home, "stderr.log");
     gateway = startFakeGateway([fakeGatewayFinalText("GATEWAY_AFTER_GROK")]);
     const grok = startFakeGrokOAuth();
     try {
-      session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-        FX_MODEL: undefined,
+      session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+        Y2_MODEL: undefined,
         ...grok.env,
       });
       await session.waitForText("auto ·", TIMEOUT);
@@ -2492,13 +2492,13 @@ tmuxTest(
       await session.sendKeys("Up");
       await session.sendKeys("Up");
       await session.sendKeys("Enter");
-      await session.waitForText("Switched to Vercel AI Gateway", TIMEOUT);
+      await session.waitForText("Switched to Retired credential retired gateway", TIMEOUT);
       await openProviderPicker(session);
       await session.sendKeys("Down");
       await session.sendKeys("Down");
       await session.sendKeys("Enter");
       await session.waitForText("Switched to Grok subscription with grok-4.20.", TIMEOUT);
-      const settingsPath = join(home, ".fx", "settings.json");
+      const settingsPath = join(home, ".y2", "settings.json");
       const persistenceDeadline = Date.now() + TIMEOUT;
       let saved: { provider: string; models: { grok: string } } | undefined;
       while (Date.now() < persistenceDeadline) {
@@ -2527,13 +2527,13 @@ tmuxTest(
 tmuxTest(
   "interactive Grok login accepts a bracketed-paste authorization code",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-tui-code-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-tui-code-"));
     stderrPath = join(home, "stderr.log");
     gateway = startFakeGateway([]);
     const grok = startFakeGrokOAuth();
     try {
-      session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-        FX_MODEL: undefined,
+      session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+        Y2_MODEL: undefined,
         ...grok.env,
       });
       await session.waitForComposer(TIMEOUT);
@@ -2565,7 +2565,7 @@ tmuxTest(
       const scrollback = await session.captureFullScrollback();
       expect(scrollback).not.toContain("grok-code");
       expect(grok.tokenCalls()).toBe(1);
-      expect(existsSync(join(home, ".fx", "grok-auth.json"))).toBe(true);
+      expect(existsSync(join(home, ".y2", "grok-auth.json"))).toBe(true);
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     } finally {
       grok.stop();
@@ -2577,19 +2577,19 @@ tmuxTest(
 tmuxTest(
   "Grok model selection uses provider-advertised context and effort metadata",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-effort-selection-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-effort-selection-"));
     stderrPath = join(home, "stderr.log");
     gateway = startFakeGateway([]);
     const grok = startFakeGrokOAuth();
     try {
       writeSeededGrokLogin(home, grok.initialAccessToken);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "grok", grok_model: "grok-4.20", statusLine: { context: true } }) + "\n",
         { mode: 0o600 },
       );
-      session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-        FX_MODEL: undefined,
+      session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+        Y2_MODEL: undefined,
         ...grok.env,
       });
       await session.waitForComposer(TIMEOUT);
@@ -2612,7 +2612,7 @@ tmuxTest(
       expect(body.model).toBe("grok-4.6");
       expect(body.reasoning?.effort).toBe("xhigh");
       expect(await session.capturePane()).toContain("/500k");
-      expect(readFileSync(join(home, ".fx", "settings.json"), "utf8")).toContain('"effort":"xhigh"');
+      expect(readFileSync(join(home, ".y2", "settings.json"), "utf8")).toContain('"effort":"xhigh"');
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     } finally {
       grok.stop();
@@ -2624,22 +2624,22 @@ tmuxTest(
 tmuxTest(
   "Grok resource exhaustion stays on-provider and leaves later input usable",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-resource-recovery-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-resource-recovery-"));
     stderrPath = join(home, "stderr.log");
     gateway = startFakeGateway([]);
     const grok = startFakeGrokResourceRecovery();
     try {
       writeSeededGrokLogin(home, grok.accessToken, "acct_resource_limit");
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
         { mode: 0o600 },
       );
-      session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-        FX_MODEL: undefined,
-        FX_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
-        FX_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
-        FX_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
+      session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+        Y2_MODEL: undefined,
+        Y2_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
+        Y2_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
+        Y2_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
       });
       await session.waitForComposer(TIMEOUT);
       const failureVisible = session.waitForText("request failed: XaiGrokSseEventTooLarge", TIMEOUT);
@@ -2665,29 +2665,29 @@ tmuxTest(
 test(
   "ChatGPT tool loops round-trip encrypted reasoning without Gateway leakage",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-chatgpt-tool-loop-"));
+    home = mkdtempSync(join(tmpdir(), "y2-chatgpt-tool-loop-"));
     gateway = startFakeGateway([]);
     const codex = startFakeCodexToolLoop();
     try {
       writeSeededChatGptLogin(home, codex.accessToken);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "codex", codex_model: "gpt-5.6-sol" }) + "\n",
         { mode: 0o600 },
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "--no-save", "Read the README, then finish."],
         {
           env: {
             HOME: home,
             Y2_API_KEY: "gateway-tool-loop-sentinel",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-            FX_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
-            FX_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
+            Y2_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
           },
           timeoutMs: TIMEOUT,
         },
@@ -2710,7 +2710,7 @@ test(
 tmuxTest(
   "Codex remains usable beyond Gateway observation capacity in one process",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-codex-capacity-loop-"));
+    home = mkdtempSync(join(tmpdir(), "y2-codex-capacity-loop-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
@@ -2718,14 +2718,14 @@ tmuxTest(
     try {
       writeSeededChatGptLogin(home, codex.accessToken);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "codex", codex_model: "gpt-5.6-sol" }) + "\n",
         { mode: 0o600 },
       );
-      session = await startFx(home, stderrPath, gateway, undefined, undefined, {
-        FX_MODEL: undefined,
-        FX_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
-        FX_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
+      session = await startY2(home, stderrPath, gateway, undefined, undefined, {
+        Y2_MODEL: undefined,
+        Y2_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
+        Y2_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
       });
       await session.waitForComposer(TIMEOUT);
       await session.sendText("Read enough lines to complete the capacity loop.");
@@ -2748,30 +2748,30 @@ tmuxTest(
 test(
   "Grok tool loops round-trip encrypted reasoning without Gateway leakage",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-tool-loop-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-tool-loop-"));
     gateway = startFakeGateway([]);
     const grok = startFakeGrokToolLoop();
     try {
       writeSeededGrokLogin(home, grok.accessToken, "acct_tool_loop");
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
         { mode: 0o600 },
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "--no-save", "Read the README, then finish."],
         {
           env: {
             HOME: home,
             Y2_API_KEY: "gateway-grok-tool-loop-sentinel",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-            FX_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
-            FX_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
-            FX_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
+            Y2_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
+            Y2_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
           },
           timeoutMs: TIMEOUT,
         },
@@ -2794,29 +2794,29 @@ test(
 test(
   "Codex CLI login preserves durable auth but does not claim success when activation fails",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-codex-cli-activation-failure-"));
+    home = mkdtempSync(join(tmpdir(), "y2-codex-cli-activation-failure-"));
     gateway = startFakeGateway([]);
     chatgptOauth = startFakeChatGptOAuth();
     chatgptOauth.setModels([]);
     const env = {
       HOME: home,
       Y2_API_KEY: ENV_TOKEN,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_AUTO_UPGRADE: "0",
-      FX_NO_OPEN_BROWSER: "1",
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_NO_OPEN_BROWSER: "1",
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
       ...chatgptOauth.env,
     };
 
     const login = await runCodexLoginWithBrowser(env);
     expect(login.code).toBe(1);
     expect(login.stdout).not.toContain("Signed in with Codex.");
-    expect(login.stderr).toContain("fx login: could not load the target model catalog (malformed_response)");
-    expect(existsSync(join(home, ".fx", "chatgpt-auth.json"))).toBe(true);
-    const settingsPath = join(home, ".fx", "settings.json");
+    expect(login.stderr).toContain("y2 login: could not load the target model catalog (malformed_response)");
+    expect(existsSync(join(home, ".y2", "chatgpt-auth.json"))).toBe(true);
+    const settingsPath = join(home, ".y2", "settings.json");
     expect(existsSync(settingsPath)).toBe(false);
   },
   60_000,
@@ -2825,7 +2825,7 @@ test(
 test(
   "Grok CLI login preserves durable auth but does not claim success when activation fails",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-cli-activation-failure-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-cli-activation-failure-"));
     gateway = startFakeGateway([]);
     const grok = startFakeGrokOAuth();
     grok.setModels([]);
@@ -2833,22 +2833,22 @@ test(
       const env = {
         HOME: home,
         Y2_API_KEY: ENV_TOKEN,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_SKIP_ONBOARDING: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         ...grok.env,
       };
 
       const login = await runGrokLoginWithBrowser(env);
       expect(login.code).toBe(1);
       expect(login.stdout).not.toContain("Signed in with Grok.");
-      expect(login.stderr).toContain("fx login: target model catalog is empty");
-      expect(existsSync(join(home, ".fx", "grok-auth.json"))).toBe(true);
-      expect(existsSync(join(home, ".fx", "settings.json"))).toBe(false);
+      expect(login.stderr).toContain("y2 login: target model catalog is empty");
+      expect(existsSync(join(home, ".y2", "grok-auth.json"))).toBe(true);
+      expect(existsSync(join(home, ".y2", "settings.json"))).toBe(false);
     } finally {
       grok.stop();
     }
@@ -2859,7 +2859,7 @@ test(
 test(
   "Codex rejects the vision fallback without another provider request",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-codex-vision-disabled-"));
+    home = mkdtempSync(join(tmpdir(), "y2-codex-vision-disabled-"));
     gateway = startFakeGateway([]);
     const codex = startFakeCodexToolLoop({
       toolName: "vision",
@@ -2869,23 +2869,23 @@ test(
     try {
       writeSeededChatGptLogin(home, codex.accessToken);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "codex", codex_model: "gpt-5.6-sol" }) + "\n",
         { mode: 0o600 },
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "--no-save", "Answer without using a vision fallback."],
         {
           env: {
             HOME: home,
             Y2_API_KEY: "gateway-vision-sentinel",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-            FX_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
-            FX_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
+            Y2_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
           },
           timeoutMs: TIMEOUT,
         },
@@ -2915,7 +2915,7 @@ test(
 test(
   "Grok rejects the vision fallback because native image input owns OCR",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-vision-disabled-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-vision-disabled-"));
     gateway = startFakeGateway([]);
     const grok = startFakeGrokToolLoop({
       toolName: "vision",
@@ -2925,24 +2925,24 @@ test(
     try {
       writeSeededGrokLogin(home, grok.accessToken, "acct_vision");
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
         { mode: 0o600 },
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "--no-save", "Answer without a vision fallback."],
         {
           env: {
             HOME: home,
             Y2_API_KEY: "gateway-grok-vision-sentinel",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-            FX_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
-            FX_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
-            FX_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
+            Y2_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
+            Y2_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
           },
           timeoutMs: TIMEOUT,
         },
@@ -2967,29 +2967,29 @@ test(
 test(
   "Codex automatic review uses gpt-5.4-mini while Gateway review stays untouched",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-codex-auto-review-"));
+    home = mkdtempSync(join(tmpdir(), "y2-codex-auto-review-"));
     gateway = startFakeGateway([]);
     const codex = startFakeCodexAutoReview();
     try {
       writeSeededChatGptLogin(home, codex.accessToken);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "codex", codex_model: "gpt-5.6-sol" }) + "\n",
         { mode: 0o600 },
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "Run pwd, then finish."],
         {
           env: {
             HOME: home,
             Y2_API_KEY: "gateway-auto-review-sentinel",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-            FX_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
-            FX_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_OPENAI_CODEX_RESPONSES_URL: codex.responsesUrl,
+            Y2_E2E_OPENAI_CODEX_MODELS_URL: codex.modelsUrl,
           },
           timeoutMs: TIMEOUT,
         },
@@ -3021,30 +3021,30 @@ test(
 test(
   "Grok automatic review reuses the admitted Grok model and never reaches Gateway",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-grok-auto-review-"));
+    home = mkdtempSync(join(tmpdir(), "y2-grok-auto-review-"));
     gateway = startFakeGateway([]);
     const grok = startFakeGrokAutoReview();
     try {
       writeSeededGrokLogin(home, grok.accessToken, "acct_auto_review");
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({ provider: "grok", grok_model: "grok-4.20" }) + "\n",
         { mode: 0o600 },
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "Run pwd, then finish."],
         {
           env: {
             HOME: home,
             Y2_API_KEY: "gateway-grok-auto-review-sentinel",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-            FX_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
-            FX_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
-            FX_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_XAI_GROK_RESPONSES_URL: grok.responsesUrl,
+            Y2_E2E_XAI_GROK_MODELS_URL: grok.modelsUrl,
+            Y2_E2E_XAI_GROK_MODALITIES_URL: grok.modalitiesUrl,
           },
           timeoutMs: TIMEOUT,
         },
@@ -3060,7 +3060,7 @@ test(
       for (const headers of grok.headers) {
         expect(headers.tokenAuth).toBe("xai-grok-cli");
         expect(headers.authenticateResponse).toBe("authenticate-response");
-        expect(headers.clientIdentifier).toBe("fx");
+        expect(headers.clientIdentifier).toBe("y2");
         expect(headers.clientVersion).toBe("1.0.6");
         expect(headers.modelOverride).toBe("grok-4.20");
         expect(headers.grokUserId).toBe("acct_auto_review");
@@ -3083,11 +3083,11 @@ test(
 );
 
 test(
-  "fx login bounds invalid OAuth client fallback to two device requests",
+  "y2 login bounds invalid OAuth client fallback to two device requests",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-login-client-fallback-failure-"));
-    writeSeededFxLogin(home);
-    const authPath = join(home, ".fx", "auth.json");
+    home = mkdtempSync(join(tmpdir(), "y2-tui-login-client-fallback-failure-"));
+    writeSeededRetiredLogin(home);
+    const authPath = join(home, ".y2", "auth.json");
     const seededAuthFile = readFileSync(authPath, "utf8");
     oauth = startFakeOAuth(
       ACQUIRED_LOGIN_TOKEN,
@@ -3097,17 +3097,17 @@ test(
       { deviceError: "invalid_client", rejectAllDeviceClients: true },
     );
 
-    const result = await runFx(["login"], {
+    const result = await runY2(["login"], {
       env: {
         HOME: home,
         Y2_API_KEY: undefined,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_SKIP_ONBOARDING: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_OAUTH_CLIENT_ID: "test-client",
-        FX_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_OAUTH_CLIENT_ID: "test-client",
+        Y2_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
       },
       timeoutMs: TIMEOUT,
     });
@@ -3126,7 +3126,7 @@ test(
     expect(deviceRequests[1].clientId).toBeDefined();
     expect(deviceRequests[1].clientId).not.toBe("test-client");
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("fx login: failed to sign in\n");
+    expect(result.stderr).toBe("y2 login: failed to sign in\n");
     expect(result.stderr).not.toContain(oauth.providerDetail);
     expect(readFileSync(authPath, "utf8")).toBe(seededAuthFile);
   },
@@ -3134,11 +3134,11 @@ test(
 );
 
 test(
-  "fx login does not fall back for another OAuth device error",
+  "y2 login does not fall back for another OAuth device error",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-login-client-no-fallback-"));
-    writeSeededFxLogin(home);
-    const authPath = join(home, ".fx", "auth.json");
+    home = mkdtempSync(join(tmpdir(), "y2-tui-login-client-no-fallback-"));
+    writeSeededRetiredLogin(home);
+    const authPath = join(home, ".y2", "auth.json");
     const seededAuthFile = readFileSync(authPath, "utf8");
     oauth = startFakeOAuth(
       ACQUIRED_LOGIN_TOKEN,
@@ -3148,17 +3148,17 @@ test(
       { deviceError: "invalid_request" },
     );
 
-    const result = await runFx(["login"], {
+    const result = await runY2(["login"], {
       env: {
         HOME: home,
         Y2_API_KEY: undefined,
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_SKIP_ONBOARDING: "1",
-        FX_AUTO_UPGRADE: "0",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_OAUTH_CLIENT_ID: "test-client",
-        FX_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_OAUTH_CLIENT_ID: "test-client",
+        Y2_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
       },
       timeoutMs: TIMEOUT,
     });
@@ -3174,7 +3174,7 @@ test(
     expect(deviceRequests).toHaveLength(1);
     expect(deviceRequests[0].clientId).toBe("test-client");
     expect(result.stdout).toBe("");
-    expect(result.stderr).toBe("fx login: failed to sign in\n");
+    expect(result.stderr).toBe("y2 login: failed to sign in\n");
     expect(result.stderr).not.toContain(oauth.providerDetail);
     expect(readFileSync(authPath, "utf8")).toBe(seededAuthFile);
   },
@@ -3184,7 +3184,7 @@ test(
 tmuxTest(
   "missing auth after deferred onboarding preserves the complete prompt",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-preflight-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-preflight-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     const imagePath = join(home, "attachment.png");
@@ -3196,9 +3196,9 @@ tmuxTest(
       }],
     });
 
-    session = await startFxWithoutAuth(home, stderrPath, gateway);
+    session = await startY2WithoutAuth(home, stderrPath, gateway);
     const initial = await session.waitForComposer(TIMEOUT);
-    expect(initial).not.toContain("Sign in with Vercel");
+    expect(initial).not.toContain("Sign in with Retired credential");
     expect(initial).not.toContain("Switch credential");
 
     await session.sendText(`/image ${imagePath}`);
@@ -3206,12 +3206,12 @@ tmuxTest(
     await session.sendText(" preserve this exact prompt");
     const blocked = await session.waitForPane(
       (pane) =>
-        pane.includes("Fx needs access to Vercel AI Gateway") &&
+        pane.includes("Y2 needs access to Retired credential retired gateway") &&
         pane.includes("preserve this exact prompt") &&
         pane.includes("Image 1"),
       TIMEOUT,
     );
-    expect(blocked).not.toContain("Welcome to fx");
+    expect(blocked).not.toContain("Welcome to y2");
     expect(blocked).not.toContain("Switch credential");
     expect(gateway.requests).toHaveLength(0);
     expect(session.isAlive()).toBe(true);
@@ -3223,10 +3223,10 @@ tmuxTest(
 tmuxTest(
   "logout rejects an invalid revocation endpoint and removes the active login",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-logout-active-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-logout-active-login-"));
     stderrPath = join(home, "stderr.log");
     const tracePath = join(home, "trace.log");
-    const tapePath = join(home, "logout.fxtape");
+    const tapePath = join(home, "logout.y2tape");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([
       fakeGatewayFinalText(LOGIN_RESPONSE),
@@ -3234,28 +3234,28 @@ tmuxTest(
     ]);
     catcher = startRequestCatcher();
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN, catcher.endpoint);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, tracePath, {
-      FX_RECORD: tapePath,
-      FX_RECORD_INPUT: "1",
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl, tracePath, {
+      Y2_RECORD: tapePath,
+      Y2_RECORD_INPUT: "1",
     });
     await session.waitForComposer(TIMEOUT);
     await openSwitchCredential(session);
     await session.waitForPane(
-      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("y2 login"),
       TIMEOUT,
     );
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
-    await session.sendText("prove fx login is active before logout");
+    await session.sendText("prove y2 login is active before logout");
     await session.waitForText(LOGIN_RESPONSE, TIMEOUT);
     expect(gateway.requests[0].headers.get("authorization")).toBe(`Bearer ${LOGIN_TOKEN}`);
 
     await session.sendText("/logout");
     const loggedOut = await session.waitForPane(
       (pane) =>
-        pane.includes("Signed out of fx.") &&
+        pane.includes("Signed out of y2.") &&
         pane.includes("remote session could not be revoked"),
       TIMEOUT,
     );
@@ -3263,7 +3263,7 @@ tmuxTest(
     expect(
       loggedOut.match(/remote session could not be revoked/g) ?? [],
     ).toHaveLength(1);
-    expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
+    expect(existsSync(join(home, ".y2", "auth.json"))).toBe(false);
 
     await session.sendText("/status");
     await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
@@ -3272,7 +3272,7 @@ tmuxTest(
       (pane) => pane.includes("Y2_API_KEY") && pane.includes("Automatic"),
       TIMEOUT,
     );
-    expect(inventory).not.toMatch(/^\s+fx login\s+(?:current|available)\s*$/m);
+    expect(inventory).not.toMatch(/^\s+y2 login\s+(?:current|available)\s*$/m);
     await session.sendKeys("Escape");
 
     await session.sendText("prove environment auth remains active");
@@ -3307,20 +3307,20 @@ tmuxTest(
 );
 
 tmuxTest(
-  "logout preserves an active API key when fx login is inactive",
+  "logout preserves an active API key when y2 login is inactive",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-logout-inactive-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-logout-inactive-login-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([fakeGatewayFinalText(ENV_RESPONSE)]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/logout");
-    await session.waitForText("Signed out of fx.", TIMEOUT);
-    expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
+    await session.waitForText("Signed out of y2.", TIMEOUT);
+    expect(existsSync(join(home, ".y2", "auth.json"))).toBe(false);
 
     await session.sendText("/status");
     await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
@@ -3334,21 +3334,21 @@ tmuxTest(
 );
 
 tmuxTest(
-  "logout removes an fx login rejected for unsafe permissions",
+  "logout removes an y2 login rejected for unsafe permissions",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-logout-rejected-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-logout-rejected-login-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
-    const authPath = join(home, ".fx", "auth.json");
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    const authPath = join(home, ".y2", "auth.json");
     chmodSync(authPath, 0o644);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/logout");
-    const loggedOut = await session.waitForText("Signed out of fx.", TIMEOUT);
+    const loggedOut = await session.waitForText("Signed out of y2.", TIMEOUT);
     expect(existsSync(authPath)).toBe(false);
 
     await session.sendText("/status");
@@ -3369,28 +3369,28 @@ tmuxTest(
 tmuxTest(
   "logout recalculates auth when local cleanup cannot be completed",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-logout-delete-failure-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-logout-delete-failure-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([fakeGatewayFinalText(LOGIN_RESPONSE)]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
-    const fxDir = join(home, ".fx");
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    const y2Dir = join(home, ".y2");
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
       Y2_API_KEY: undefined,
     });
     await session.waitForComposer(TIMEOUT);
-    const authPath = join(fxDir, "auth.json");
+    const authPath = join(y2Dir, "auth.json");
     rmSync(authPath);
     mkdirSync(authPath, { mode: 0o700 });
 
     await session.sendText("/logout");
     const failed = await session.waitForText(
-      "Could not confirm durable fx logout. The active source was recalculated.",
+      "Could not confirm durable y2 logout. The active source was recalculated.",
       TIMEOUT,
     );
-    expect(failed).not.toContain("Signed out of fx.");
+    expect(failed).not.toContain("Signed out of y2.");
     expect(failed).toContain(
       "Warning: signed out locally, but the remote session could not be revoked.",
     );
@@ -3408,20 +3408,20 @@ tmuxTest(
 tmuxTest(
   "logout with the only credential keeps the shell open and reopens onboarding on the next prompt",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-logout-only-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-logout-only-login-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
       Y2_API_KEY: undefined,
-      FX_SKIP_ONBOARDING: "1",
+      Y2_SKIP_ONBOARDING: "1",
     });
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/logout");
-    await session.waitForText("Signed out of fx.", TIMEOUT);
+    await session.waitForText("Signed out of y2.", TIMEOUT);
     await session.sendText("/status");
     await session.waitForText("auth=missing", TIMEOUT);
 
@@ -3431,11 +3431,11 @@ tmuxTest(
         pane.includes("Setup") &&
         pane.includes("Connections") &&
         pane.includes("Model provider") &&
-        pane.includes("Vercel team") &&
+        pane.includes("Retired credential team") &&
         pane.includes("Credential source"),
       TIMEOUT,
     );
-    expect(inventory).not.toMatch(/^\s+fx login\s+/m);
+    expect(inventory).not.toMatch(/^\s+y2 login\s+/m);
     await session.sendKeys("Escape");
     await session.waitForPane(
       (pane) => !pane.includes("Connections") && !pane.includes("Routing"),
@@ -3447,13 +3447,13 @@ tmuxTest(
     const picker = await session.waitForPane(
       (pane) =>
         pane.includes(prompt) &&
-        pane.includes("Welcome to fx") &&
-        pane.includes("Sign in with Vercel") &&
+        pane.includes("Welcome to y2") &&
+        pane.includes("Sign in with Retired credential") &&
         pane.includes("Add an API key") &&
         pane.includes("Esc to set up later"),
       TIMEOUT,
     );
-    expect(picker).not.toMatch(/^\s+fx login\s+/m);
+    expect(picker).not.toMatch(/^\s+y2 login\s+/m);
     expect(picker).not.toContain("Switch credential");
     expect(picker).not.toContain("Skip for now");
     expect(gateway.requests).toHaveLength(0);
@@ -3466,7 +3466,7 @@ tmuxTest(
 tmuxTest(
   "HTTP auth failure names the selected source and suppresses provider detail",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-http-failure-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-http-failure-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     const providerDetail = `rejected ${ENV_TOKEN} in provider response`;
@@ -3477,7 +3477,7 @@ tmuxTest(
       }),
     ]);
 
-    session = await startFx(home, stderrPath, gateway);
+    session = await startY2(home, stderrPath, gateway);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("exercise interactive auth failure");
     const failed = await session.waitForPane(
@@ -3499,24 +3499,24 @@ tmuxTest(
 tmuxTest(
   "expired selected login preserves the prompt and avoids Gateway before explicit recovery",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-source-failure-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-source-failure-"));
     stderrPath = join(home, "stderr.log");
     const tracePath = join(home, "trace.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([fakeGatewayFinalText(REFRESH_RECOVERY_RESPONSE)]);
     oauth = startFakeOAuth(null);
-    writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
-    session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, tracePath);
+    session = await startY2(home, stderrPath, gateway, oauth.issuerUrl, tracePath);
     await session.waitForComposer(TIMEOUT);
     await openSwitchCredential(session);
     await session.waitForPane(
-      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("y2 login"),
       TIMEOUT,
     );
     await session.sendKeys("Down");
     await session.sendKeys("Enter");
-    writeSeededFxLogin(home, Date.now() - 60_000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() - 60_000, oauth.issuerUrl);
 
     const promptHead = "PRESERVE_CURSOR_";
     const promptTail = "AFTER_SELECTED_LOGIN_REFRESH_FAILURE";
@@ -3527,7 +3527,7 @@ tmuxTest(
     await session.sendKeys("Enter");
     const failed = await session.waitForPane(
       (pane) =>
-        pane.includes("fx login credential refresh failed.") &&
+        pane.includes("y2 login credential refresh failed.") &&
         pane.includes("Choose another source below") &&
         pane.includes("Setup") &&
         pane.includes("Model provider"),
@@ -3548,7 +3548,7 @@ tmuxTest(
     const preserved = await session.waitForPane(
       (pane) =>
         pane.includes(`${promptHead}${promptTail}`) &&
-        !pane.includes("current: fx login"),
+        !pane.includes("current: y2 login"),
       TIMEOUT,
     );
     expect(preserved).toContain(`${promptHead}${promptTail}`);
@@ -3571,7 +3571,7 @@ tmuxTest(
 tmuxTest(
   "prompt refresh replaces an expired public catalog with the selected team catalog",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-refresh-team-models-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-refresh-team-models-"));
     stderrPath = join(home, "stderr.log");
     const tracePath = join(home, "trace.log");
     writeFileSync(stderrPath, "");
@@ -3590,9 +3590,9 @@ tmuxTest(
       },
     });
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() - 60_000, oauth.issuerUrl, "team_123");
+    writeSeededRetiredLogin(home, Date.now() - 60_000, oauth.issuerUrl, "team_123");
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -3600,8 +3600,8 @@ tmuxTest(
       tracePath,
       {
         Y2_API_KEY: undefined,
-        FX_E2E_GATEWAY_MODELS_URL: undefined,
-        FX_TRACE_SCOPES: "auth,prompt,catalog",
+        Y2_E2E_GATEWAY_MODELS_URL: undefined,
+        Y2_TRACE_SCOPES: "auth,prompt,catalog",
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -3617,7 +3617,7 @@ tmuxTest(
     ]);
     expect(gateway.requests).toHaveLength(1);
     expect(gateway.requests[0].headers.get("authorization")).toBe(`Bearer ${ACQUIRED_LOGIN_TOKEN}`);
-    expect(gateway.requests[0].headers.get("x-vercel-ai-gateway-team")).toBe("team_123");
+    expect(gateway.requests[0].headers.get("x-retired_credential-retired-gateway-team")).toBe("team_123");
 
     await session.sendText("/models");
     await session.waitForPane(
@@ -3628,7 +3628,7 @@ tmuxTest(
     );
     const refreshedCatalogRequest = gateway.modelRequests[1];
     expect(refreshedCatalogRequest.headers.get("authorization")).toBe(`Bearer ${ACQUIRED_LOGIN_TOKEN}`);
-    expect(refreshedCatalogRequest.headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(refreshedCatalogRequest.headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
     expect(new URL(refreshedCatalogRequest.url).searchParams.get("teamId")).toBe("team_123");
     expect(gateway.modelRequests).toHaveLength(2);
 
@@ -3637,9 +3637,9 @@ tmuxTest(
       line.includes("[catalog] event=model_catalog_load ")
     );
     expect(catalogEvents).toHaveLength(2);
-    expect(catalogEvents[0]).toContain("public_only_reason=fx_login_refresh_required");
+    expect(catalogEvents[0]).toContain("public_only_reason=retired_login_refresh_required");
     expect(catalogEvents[1]).toContain(
-      "requested_access=authenticated credential_source=fx_login effective_access=authenticated",
+      "requested_access=authenticated credential_source=retired_login effective_access=authenticated",
     );
     for (const secret of [
       LOGIN_TOKEN,
@@ -3659,14 +3659,14 @@ tmuxTest(
 tmuxTest(
   "expired saved login discovers models without refreshing prompt credentials",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-expired-models-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-expired-models-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
-    writeSeededFxLogin(home, Date.now() - 60_000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() - 60_000, oauth.issuerUrl);
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -3678,13 +3678,13 @@ tmuxTest(
     await waitForModelRequestCount(gateway, 1);
     expect(oauth.requests).toEqual([]);
     expect(gateway.modelRequests[0].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[0].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[0].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
 
     await session.sendText("/models");
     await session.waitForPane(
       (pane) =>
         pane.includes(FAKE_GATEWAY_MODEL) &&
-        pane.includes("Vercel sign-in must refresh before team-private models can load.") &&
+        pane.includes("Retired credential sign-in must refresh before team-private models can load.") &&
         pane.includes("Esc Close"),
       TIMEOUT,
     );
@@ -3698,9 +3698,9 @@ tmuxTest(
 );
 
 tmuxTest(
-  "ready team catalog downgrades after Fx login expiry and refresh failure",
+  "ready team catalog downgrades after Y2 login expiry and refresh failure",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-ready-catalog-expiry-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-ready-catalog-expiry-"));
     stderrPath = join(home, "stderr.log");
     const tracePath = join(home, "trace.log");
     writeFileSync(stderrPath, "");
@@ -3719,9 +3719,9 @@ tmuxTest(
       },
     });
     oauth = startFakeOAuth(null);
-    writeSeededFxLogin(home, Date.now() + 65_000, oauth.issuerUrl, "team_123");
+    writeSeededRetiredLogin(home, Date.now() + 65_000, oauth.issuerUrl, "team_123");
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -3729,8 +3729,8 @@ tmuxTest(
       tracePath,
       {
         Y2_API_KEY: undefined,
-        FX_E2E_GATEWAY_MODELS_URL: undefined,
-        FX_TRACE_SCOPES: "auth,prompt,catalog",
+        Y2_E2E_GATEWAY_MODELS_URL: undefined,
+        Y2_TRACE_SCOPES: "auth,prompt,catalog",
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -3744,13 +3744,13 @@ tmuxTest(
     const expiredPane = await session.waitForPane(
       (pane) =>
         pane.includes(FAKE_GATEWAY_MODEL) &&
-        pane.includes("Vercel sign-in must refresh before team-private models can load.") &&
+        pane.includes("Retired credential sign-in must refresh before team-private models can load.") &&
         !pane.includes("private/blue-hornbill"),
       TIMEOUT,
     );
     expect(expiredPane).not.toContain("private/blue-hornbill");
     expect(gateway.modelRequests[1].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[1].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[1].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
 
     await session.sendKeys("Escape");
     await session.waitForPane(
@@ -3763,7 +3763,7 @@ tmuxTest(
     await session.waitForPane(
       (pane) =>
         pane.includes(blockedPrompt) &&
-        pane.includes("fx login credential refresh failed.") &&
+        pane.includes("y2 login credential refresh failed.") &&
         pane.includes("Model provider"),
       TIMEOUT,
     );
@@ -3779,7 +3779,7 @@ tmuxTest(
     const failedPane = await session.waitForPane(
       (pane) =>
         pane.includes(FAKE_GATEWAY_MODEL) &&
-        pane.includes("Vercel sign-in refresh failed; using the public model catalog.") &&
+        pane.includes("Retired credential sign-in refresh failed; using the public model catalog.") &&
         !pane.includes("private/blue-hornbill"),
       TIMEOUT,
     );
@@ -3792,9 +3792,9 @@ tmuxTest(
     );
     expect(catalogEvents).toHaveLength(2);
     expect(catalogEvents[0]).toContain(
-      "requested_access=authenticated credential_source=fx_login effective_access=authenticated",
+      "requested_access=authenticated credential_source=retired_login effective_access=authenticated",
     );
-    expect(catalogEvents[1]).toContain("public_only_reason=fx_login_refresh_required");
+    expect(catalogEvents[1]).toContain("public_only_reason=retired_login_refresh_required");
     for (const secret of [LOGIN_TOKEN, "seeded-refresh-token", "team_123"]) {
       expect(trace).not.toContain(secret);
     }
@@ -3806,15 +3806,15 @@ tmuxTest(
 tmuxTest(
   "immediately expired refresh keeps model discovery anonymous and later prompts blocked",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-expired-refresh-models-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-expired-refresh-models-"));
     stderrPath = join(home, "stderr.log");
     const tracePath = join(home, "trace.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN, undefined, 0);
-    writeSeededFxLogin(home, Date.now() - 60_000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() - 60_000, oauth.issuerUrl);
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -3822,20 +3822,20 @@ tmuxTest(
       tracePath,
       {
         Y2_API_KEY: undefined,
-        FX_TRACE_SCOPES: "auth,prompt,catalog",
+        Y2_TRACE_SCOPES: "auth,prompt,catalog",
       },
     );
     await session.waitForComposer(TIMEOUT);
     await waitForModelRequestCount(gateway, 1);
     expect(gateway.modelRequests[0].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[0].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[0].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
 
     const firstPrompt = "prompt blocked by an immediately expired refresh";
     await session.sendText(firstPrompt);
     const firstFailure = await session.waitForPane(
       (pane) =>
         pane.includes(firstPrompt) &&
-        pane.includes("fx login credential refresh failed.") &&
+        pane.includes("y2 login credential refresh failed.") &&
         pane.includes("Model provider"),
       TIMEOUT,
     );
@@ -3856,7 +3856,7 @@ tmuxTest(
     await session.sendText("/models");
     await session.waitForPane(
       (pane) =>
-        pane.includes("Vercel sign-in refresh failed; using the public model catalog.") &&
+        pane.includes("Retired credential sign-in refresh failed; using the public model catalog.") &&
         pane.includes("Esc Close"),
       TIMEOUT,
     );
@@ -3870,7 +3870,7 @@ tmuxTest(
     await session.waitForPane(
       (pane) =>
         pane.includes(secondPrompt) &&
-        pane.includes("fx login credential refresh failed.") &&
+        pane.includes("y2 login credential refresh failed.") &&
         pane.includes("Model provider"),
       TIMEOUT,
     );
@@ -3890,7 +3890,7 @@ tmuxTest(
     );
     expect(catalogEvents).toHaveLength(1);
     expect(catalogEvents[0]).toContain(
-      "requested_access=public_only credential_source=fx_login effective_access=public_only public_only_reason=fx_login_refresh_required anonymous_fallback=false outcome=loaded failure_category=none http_status=none retryable=none",
+      "requested_access=public_only credential_source=retired_login effective_access=public_only public_only_reason=retired_login_refresh_required anonymous_fallback=false outcome=loaded failure_category=none http_status=none retryable=none",
     );
     for (const secret of [
       LOGIN_TOKEN,
@@ -3900,7 +3900,7 @@ tmuxTest(
       "acquired-refresh-token",
       oauth.providerDetail,
       "team_123",
-      "vercel-labs",
+      "example-org",
     ]) {
       expect(trace).not.toContain(secret);
     }
@@ -3912,15 +3912,15 @@ tmuxTest(
 tmuxTest(
   "expired saved login refreshes for credits without restarting model warmup",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-expired-credits-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-expired-credits-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
     creditsGateway = startFakeCreditsGateway();
-    writeSeededFxLogin(home, Date.now() - 60_000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() - 60_000, oauth.issuerUrl);
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -3928,7 +3928,7 @@ tmuxTest(
       undefined,
       {
         Y2_API_KEY: undefined,
-        FX_E2E_GATEWAY_CREDITS_URL: creditsGateway.url,
+        Y2_E2E_GATEWAY_CREDITS_URL: creditsGateway.url,
       },
     );
     await session.waitForComposer(TIMEOUT);
@@ -3959,15 +3959,15 @@ tmuxTest(
 tmuxTest(
   "expired login refresh failure keeps one anonymous catalog request and blocks credits",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-expired-startup-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-expired-startup-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(null);
     creditsGateway = startFakeCreditsGateway();
-    writeSeededFxLogin(home, Date.now() - 60_000, oauth.issuerUrl);
+    writeSeededRetiredLogin(home, Date.now() - 60_000, oauth.issuerUrl);
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -3975,20 +3975,20 @@ tmuxTest(
       undefined,
       {
         Y2_API_KEY: undefined,
-        FX_E2E_GATEWAY_CREDITS_URL: creditsGateway.url,
+        Y2_E2E_GATEWAY_CREDITS_URL: creditsGateway.url,
       },
     );
     await session.waitForComposer(TIMEOUT);
     await waitForModelRequestCount(gateway, 1);
     expect(oauth.requests).toEqual([]);
     expect(gateway.modelRequests[0].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[0].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[0].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
     expect(creditsGateway.requests).toEqual([]);
 
     await session.sendText("/credits");
     const failed = await session.waitForPane(
       (pane) =>
-        pane.includes("fx login credential refresh failed.") &&
+        pane.includes("y2 login credential refresh failed.") &&
         pane.includes("Choose another source below") &&
         pane.includes("/credits"),
       TIMEOUT,
@@ -4010,13 +4010,13 @@ tmuxTest(
 tmuxTest(
   "model discovery remains available before login",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-models-before-login-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-models-before-login-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([]);
     oauth = startFakeOAuth(ACQUIRED_LOGIN_TOKEN);
 
-    session = await startFx(
+    session = await startY2(
       home,
       stderrPath,
       gateway,
@@ -4040,7 +4040,7 @@ tmuxTest(
     expect(gateway.requests).toHaveLength(0);
     expect(gateway.modelRequests).toHaveLength(1);
     expect(gateway.modelRequests[0].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[0].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[0].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
     expect(oauth.requests).toEqual([]);
     expect(readFileSync(stderrPath, "utf8")).toBe("");
   },
@@ -4050,7 +4050,7 @@ tmuxTest(
 tmuxTest(
   "rejected catalog credential renders the degraded public fallback notice",
   async () => {
-    home = mkdtempSync(join(tmpdir(), "fx-tui-auth-populated-catalog-fallback-"));
+    home = mkdtempSync(join(tmpdir(), "y2-tui-auth-populated-catalog-fallback-"));
     stderrPath = join(home, "stderr.log");
     writeFileSync(stderrPath, "");
     gateway = startFakeGateway([], {
@@ -4062,7 +4062,7 @@ tmuxTest(
       },
     });
 
-    session = await startFx(home, stderrPath, gateway);
+    session = await startY2(home, stderrPath, gateway);
     await session.waitForComposer(TIMEOUT);
     await waitForModelRequestCount(gateway, 2);
 
@@ -4079,7 +4079,7 @@ tmuxTest(
     expect(gateway.modelRequests).toHaveLength(2);
     expect(gateway.modelRequests[0].headers.get("authorization")).toBe(`Bearer ${ENV_TOKEN}`);
     expect(gateway.modelRequests[1].headers.get("authorization")).toBeNull();
-    expect(gateway.modelRequests[1].headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    expect(gateway.modelRequests[1].headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
     expect(readFileSync(stderrPath, "utf8")).toBe("");
   },
   60_000,
@@ -4100,7 +4100,7 @@ for (const scenario of [
   tmuxTest(
     `empty model menu renders the ${scenario.name} status`,
     async () => {
-      home = mkdtempSync(join(tmpdir(), "fx-tui-auth-empty-catalog-"));
+      home = mkdtempSync(join(tmpdir(), "y2-tui-auth-empty-catalog-"));
       stderrPath = join(home, "stderr.log");
       writeFileSync(stderrPath, "");
       gateway = startFakeGateway([], {
@@ -4112,7 +4112,7 @@ for (const scenario of [
         },
       });
 
-      session = await startFx(
+      session = await startY2(
         home,
         stderrPath,
         gateway,
@@ -4137,7 +4137,7 @@ for (const scenario of [
       }
       const publicRequest = gateway.modelRequests.at(-1)!;
       expect(publicRequest.headers.get("authorization")).toBeNull();
-      expect(publicRequest.headers.get("x-vercel-ai-gateway-team")).toBeNull();
+      expect(publicRequest.headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
       expect(readFileSync(stderrPath, "utf8")).toBe("");
     },
     60_000,

@@ -76,7 +76,7 @@ fn tmuxAbnormalExitHandler(sig: std.posix.SIG) callconv(.c) void {
 }
 
 /// Install handlers for SIGTERM and SIGHUP so an externally-terminated
-/// fx restores terminal state before dying. SIGINT is not included
+/// y2 restores terminal state before dying. SIGINT is not included
 /// because raw mode disables terminal-generated SIGINT.
 pub fn installAbnormalExitHandlers(tmux: ?[]const u8) void {
     if (!shell_runtime.supports_resize_signal) return;
@@ -250,7 +250,7 @@ pub const BootstrapConfig = struct {
     default_agent_step_limit: usize,
     secret_store: host.SecretStore,
     resize_handler: ResizeHandler,
-    fx_version: []const u8 = "",
+    y2_version: []const u8 = "",
     record_requested: bool = false,
 };
 
@@ -480,7 +480,7 @@ pub fn bootstrapInteractiveApp(cfg: BootstrapConfig) !StartupState {
         state.workspace_root,
         cfg.shell.layout.cols,
         cfg.shell.layout.rows,
-        cfg.fx_version,
+        cfg.y2_version,
         cfg.record_requested,
     ) catch |err| {
         debug_trace.logf("record", "startup recording failed err={s}", .{@errorName(err)});
@@ -1092,7 +1092,7 @@ fn shutdownCleanupRow(shell: *const TranscriptRuntime) u16 {
 
 fn loadPermissionMode(configured: ?PermissionMode) PermissionMode {
     const fallback = configured orelse default_permission_mode;
-    const mode = io_mod.getenv("FX_PERMISSION_MODE") orelse return fallback;
+    const mode = io_mod.getenv("Y2_PERMISSION_MODE") orelse return fallback;
     return config_runtime.parsePermissionMode(mode) orelse fallback;
 }
 
@@ -1100,7 +1100,7 @@ fn loadAgentStepLimit(fallback: usize, configured: ?usize) usize {
     return agent_steps.resolveMaxAgentStepsWithOverride(
         configured,
         fallback,
-        io_mod.getenv("FX_MAX_AGENT_STEPS"),
+        io_mod.getenv("Y2_MAX_AGENT_STEPS"),
     );
 }
 
@@ -1118,7 +1118,7 @@ fn configuredProviderSelection(
 }
 
 fn initialModelId(default_model: []const u8, configured: ?[]const u8) []const u8 {
-    const model = io_mod.getenv("FX_MODEL") orelse return configured orelse default_model;
+    const model = io_mod.getenv("Y2_MODEL") orelse return configured orelse default_model;
     const trimmed = std.mem.trim(u8, model, " \t\r\n");
     return if (trimmed.len > 0) trimmed else configured orelse default_model;
 }
@@ -1156,7 +1156,7 @@ fn loadInitialModel(alloc: Allocator, default_model: []const u8, configured: ?[]
 }
 
 fn hasProcessModelOverride() bool {
-    const model = io_mod.getenv("FX_MODEL") orelse return false;
+    const model = io_mod.getenv("Y2_MODEL") orelse return false;
     return std.mem.trim(u8, model, " \t\r\n").len > 0;
 }
 
@@ -1166,7 +1166,7 @@ fn loadStartupStatusModel(alloc: Allocator, default_model: []const u8, configure
 }
 
 fn credentialOnboardingDisabled() bool {
-    const value = io_mod.getenv("FX_SKIP_ONBOARDING") orelse return false;
+    const value = io_mod.getenv("Y2_SKIP_ONBOARDING") orelse return false;
     const trimmed = std.mem.trim(u8, value, " \t\r\n");
     if (trimmed.len == 0) return false;
     return !std.mem.eql(u8, trimmed, "0") and !std.ascii.eqlIgnoreCase(trimmed, "false");
@@ -1175,7 +1175,7 @@ fn credentialOnboardingDisabled() bool {
 const SoundEnvLevel = enum { off, on, max };
 
 fn soundEnvOverride() ?SoundEnvLevel {
-    const value = io_mod.getenv("FX_SOUND") orelse return null;
+    const value = io_mod.getenv("Y2_SOUND") orelse return null;
     const trimmed = std.mem.trim(u8, value, " \t\r\n");
     if (trimmed.len == 0) return null;
     if (std.ascii.eqlIgnoreCase(trimmed, "max")) return .max;
@@ -1253,7 +1253,7 @@ test "permission mode loader defaults to auto" {
 
 test "permission mode environment accepts yolo without changing fallback" {
     var env = try TestEnv.install(std.testing.allocator, &.{
-        .{ .key = "FX_PERMISSION_MODE", .value = "yolo" },
+        .{ .key = "Y2_PERMISSION_MODE", .value = "yolo" },
     });
     defer env.deinit();
 
@@ -1988,10 +1988,10 @@ test "startup credential modes select a refresh policy, never a narrower source 
 
 test "loadStartupState applies core env overrides" {
     var env = try TestEnv.install(std.testing.allocator, &.{
-        .{ .key = "FX_MODEL", .value = "  env-model  " },
+        .{ .key = "Y2_MODEL", .value = "  env-model  " },
         .{ .key = "Y2_API_KEY", .value = "gateway-key" },
-        .{ .key = "FX_PERMISSION_MODE", .value = "auto" },
-        .{ .key = "FX_MAX_AGENT_STEPS", .value = "37" },
+        .{ .key = "Y2_PERMISSION_MODE", .value = "auto" },
+        .{ .key = "Y2_MAX_AGENT_STEPS", .value = "37" },
     });
     defer env.deinit();
 
@@ -2019,7 +2019,7 @@ test "loadStartupState defaults fast mode on only for the compiled Gateway defau
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "absent");
     try tmp.dir.createDirPath(io_mod.getIo(), "configured");
     try tmp.dir.createDirPath(io_mod.getIo(), "disabled");
@@ -2042,7 +2042,7 @@ test "loadStartupState defaults fast mode on only for the compiled Gateway defau
         .{ configured_root, disabled_root, codex_root },
     );
     defer std.testing.allocator.free(fixture);
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", fixture);
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", fixture);
 
     var env = try TestEnv.install(std.testing.allocator, &.{.{ .key = "HOME", .value = home_root }});
     defer env.deinit();
@@ -2074,7 +2074,7 @@ test "loadStartupState resolves startup scrollback default and explicit false" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "absent");
     try tmp.dir.createDirPath(io_mod.getIo(), "disabled");
 
@@ -2091,7 +2091,7 @@ test "loadStartupState resolves startup scrollback default and explicit false" {
         .{disabled_root},
     );
     defer std.testing.allocator.free(fixture);
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", fixture);
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", fixture);
 
     var env = try TestEnv.install(std.testing.allocator, &.{.{ .key = "HOME", .value = home_root }});
     defer env.deinit();
@@ -2109,7 +2109,7 @@ test "loadStartupState resolves slash menu categories default and explicit false
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
 
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
@@ -2124,7 +2124,7 @@ test "loadStartupState resolves slash menu categories default and explicit false
     defer initial.deinit(std.testing.allocator);
     try std.testing.expect(initial.slash_menu_categories);
 
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", "{\"slash_menu_categories\":false}\n");
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", "{\"slash_menu_categories\":false}\n");
     var hidden = try loadStartupStateForWorkspace(std.testing.allocator, workspace_root, "default-model", 25);
     defer hidden.deinit(std.testing.allocator);
     try std.testing.expect(!hidden.slash_menu_categories);
@@ -2140,8 +2140,8 @@ test "loadStartupState resolves max_agent_steps default zero and positive values
     try tmp.dir.createDirPath(io_mod.getIo(), "absent");
     try tmp.dir.createDirPath(io_mod.getIo(), "zero");
     try tmp.dir.createDirPath(io_mod.getIo(), "positive");
-    try writeFixtureFile(tmp.dir, "zero/.fx.json", "{\"max_agent_steps\":0}");
-    try writeFixtureFile(tmp.dir, "positive/.fx.json", "{\"max_agent_steps\":50}");
+    try writeFixtureFile(tmp.dir, "zero/.y2.json", "{\"max_agent_steps\":0}");
+    try writeFixtureFile(tmp.dir, "positive/.y2.json", "{\"max_agent_steps\":50}");
 
     const absent_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "absent");
     defer std.testing.allocator.free(absent_root);
@@ -2172,7 +2172,7 @@ test "loadStartupState resolves max_tool_result_bytes default and explicit value
 
     try tmp.dir.createDirPath(io_mod.getIo(), "absent");
     try tmp.dir.createDirPath(io_mod.getIo(), "explicit");
-    try writeFixtureFile(tmp.dir, "explicit/.fx.json", "{\"max_tool_result_bytes\":131072}");
+    try writeFixtureFile(tmp.dir, "explicit/.y2.json", "{\"max_tool_result_bytes\":131072}");
 
     const absent_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "absent");
     defer std.testing.allocator.free(absent_root);
@@ -2196,7 +2196,7 @@ test "loadStartupState falls back to auto for invalid first_call_tool_choice" {
     defer tmp.cleanup();
 
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
-    try writeFixtureFile(tmp.dir, "workspace/.fx.json", "{\"first_call_tool_choice\":\"required\"}");
+    try writeFixtureFile(tmp.dir, "workspace/.y2.json", "{\"first_call_tool_choice\":\"required\"}");
 
     const workspace_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "workspace");
     defer std.testing.allocator.free(workspace_root);
@@ -2210,7 +2210,7 @@ test "loadStartupState falls back to auto for invalid first_call_tool_choice" {
 test "loadStartupState diagnoses the retired fuzzy skill setting" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
 
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
@@ -2218,7 +2218,7 @@ test "loadStartupState diagnoses the retired fuzzy skill setting" {
     const workspace_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "workspace");
     defer std.testing.allocator.free(workspace_root);
 
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", "{\"skill_match_fuzzy\":true}");
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", "{\"skill_match_fuzzy\":true}");
 
     var env = try TestEnv.install(std.testing.allocator, &.{.{ .key = "HOME", .value = home_root }});
     defer env.deinit();
@@ -2231,8 +2231,8 @@ test "loadStartupState diagnoses the retired fuzzy skill setting" {
 
 test "credential onboarding can be skipped independently from Keychain" {
     var env = try TestEnv.install(std.testing.allocator, &.{
-        .{ .key = "FX_SKIP_ONBOARDING", .value = "1" },
-        .{ .key = "FX_DISABLE_KEYCHAIN", .value = "1" },
+        .{ .key = "Y2_SKIP_ONBOARDING", .value = "1" },
+        .{ .key = "Y2_DISABLE_KEYCHAIN", .value = "1" },
     });
     defer env.deinit();
 

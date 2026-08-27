@@ -344,7 +344,7 @@ test "tmux history clear failure does not escape the reset boundary" {
 }
 
 pub fn detectSyncUpdatesEnabled(_: Allocator) bool {
-    const override = io_mod.getenv("FX_SYNC_UPDATES");
+    const override = io_mod.getenv("Y2_SYNC_UPDATES");
 
     const fallback_override = if (override == null)
         io_mod.getenv("FLASH_SYNC_UPDATES")

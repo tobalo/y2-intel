@@ -23,9 +23,9 @@ const SEED = "0xf17ed1ff20260805";
 // inline transcript stream used to prepare the session.
 const HISTORY_LINES = 200;
 const DIFF_LINES = (() => {
-  const value = Number(process.env.FX_APPROVAL_PROFILE_DIFF_LINES ?? "50000");
+  const value = Number(process.env.Y2_APPROVAL_PROFILE_DIFF_LINES ?? "50000");
   if (!Number.isSafeInteger(value) || value <= 0) {
-    throw new Error(`invalid FX_APPROVAL_PROFILE_DIFF_LINES: ${JSON.stringify(value)}`);
+    throw new Error(`invalid Y2_APPROVAL_PROFILE_DIFF_LINES: ${JSON.stringify(value)}`);
   }
   return value;
 })();
@@ -333,30 +333,30 @@ async function waitForPaneDeath(session: TmuxSession, timeoutMs: number): Promis
     if (status.dead) return status.status;
     await Bun.sleep(25);
   }
-  throw new Error("timed out waiting for fx process exit");
+  throw new Error("timed out waiting for y2 process exit");
 }
 
-const binary = realpathSync(requiredEnv("FX_APPROVAL_PROFILE_BIN"));
-const outRoot = requiredEnv("FX_APPROVAL_PROFILE_OUT");
-const cycles = positiveInteger(process.env.FX_APPROVAL_PROFILE_CYCLES, DEFAULT_CYCLES);
+const binary = realpathSync(requiredEnv("Y2_APPROVAL_PROFILE_BIN"));
+const outRoot = requiredEnv("Y2_APPROVAL_PROFILE_OUT");
+const cycles = positiveInteger(process.env.Y2_APPROVAL_PROFILE_CYCLES, DEFAULT_CYCLES);
 mkdirSync(outRoot, { recursive: true });
 
 const home = join(outRoot, "home");
 const workspace = join(outRoot, "workspace");
-const tapePath = join(outRoot, "approval-review.fxtape");
+const tapePath = join(outRoot, "approval-review.y2tape");
 const tracePath = join(outRoot, "approval-review.trace.log");
 const stderrPath = join(outRoot, "approval-review.stderr.log");
 const samplesPath = join(outRoot, "timings.jsonl");
 const resourcesPath = join(outRoot, "resources.jsonl");
 const fixturePath = join(outRoot, "fixture.json");
-mkdirSync(join(home, ".fx"), { recursive: true });
+mkdirSync(join(home, ".y2"), { recursive: true });
 mkdirSync(workspace, { recursive: true });
 writeFileSync(samplesPath, "");
 writeFileSync(resourcesPath, "");
 writeFileSync(tracePath, "");
 writeFileSync(stderrPath, "");
 writeFileSync(
-  join(home, ".fx", "settings.json"),
+  join(home, ".y2", "settings.json"),
   JSON.stringify({
     sandbox: "none",
     permission_mode: "ask",
@@ -422,17 +422,17 @@ try {
     env: {
       HOME: home,
       Y2_API_KEY: "fake-approval-profile-key",
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_API_CHAT_URL: gateway.chatUrl,
-      FX_MODEL: "openai/gpt-5",
-      FX_PERMISSION_MODE: "ask",
-      FX_AUTO_UPGRADE: "0",
-      FX_RECORD: tapePath,
-      FX_RECORD_INPUT: "1",
-      FX_SYNC_UPDATES: "1",
-      FX_TRACE_LOG: tracePath,
-      FX_TRACE_SCOPES: "permission,input,frame_render,terminal_diff",
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_API_CHAT_URL: gateway.chatUrl,
+      Y2_MODEL: "openai/gpt-5",
+      Y2_PERMISSION_MODE: "ask",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_RECORD: tapePath,
+      Y2_RECORD_INPUT: "1",
+      Y2_SYNC_UPDATES: "1",
+      Y2_TRACE_LOG: tracePath,
+      Y2_TRACE_SCOPES: "permission,input,frame_render,terminal_diff",
       NO_COLOR: "1",
     },
     stderrPath,
@@ -716,7 +716,7 @@ try {
     );
     assert(decisions.length === 1, `${callId} decision count was ${decisions.length}, expected 1`);
   }
-  assert(readFileSync(stderrPath, "utf8") === "", "fx wrote to stderr");
+  assert(readFileSync(stderrPath, "utf8") === "", "y2 wrote to stderr");
   // Escape cancels without a tool-result request. Ctrl-C reports the
   // interrupted tool result once before returning to the composer.
   assert(gateway.requests.length === 1 + cycles * 2 + 3, `unexpected gateway request count ${gateway.requests.length}`);
@@ -732,7 +732,7 @@ try {
     children: 0,
     exit_status: exitStatus,
   });
-  assert(exitStatus === 0, `fx exit status was ${exitStatus}`);
+  assert(exitStatus === 0, `y2 exit status was ${exitStatus}`);
   passed = true;
   console.log(JSON.stringify({
     status: "PASS",

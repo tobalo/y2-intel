@@ -267,7 +267,7 @@ fn requestHeaderValue(headers: []const u8, name: []const u8) ?[]const u8 {
 fn callbackPage(comptime title: []const u8, comptime detail: []const u8) []const u8 {
     return "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">" ++
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1\">" ++
-        "<title>fx</title><style>" ++
+        "<title>y2</title><style>" ++
         ":root{color-scheme:light dark}" ++
         "body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;" ++
         "background:#fff;color:#111;" ++
@@ -285,14 +285,14 @@ fn writeResponse(stream: std.Io.net.Stream, outcome: Response, cors_origin: ?[]c
             .status = "200 OK",
             .body = comptime callbackPage(
                 "Authorization complete",
-                "Returning you to fx. You can close this tab.",
+                "Returning you to y2. You can close this tab.",
             ),
         },
         .failed => .{
             .status = "400 Bad Request",
             .body = comptime callbackPage(
                 "Authorization failed",
-                "Return to fx for details.",
+                "Return to y2 for details.",
             ),
         },
         .unrelated => .{

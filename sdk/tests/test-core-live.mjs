@@ -3,10 +3,10 @@ import { randomUUID } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxAgent, supportsJspi } from "../node.js";
+import { createY2Agent, supportsJspi } from "../node.js";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const defaultWasm = resolve(scriptDir, "../../zig-out/bin/fx-core.wasm");
+const defaultWasm = resolve(scriptDir, "../../zig-out/bin/y2-core.wasm");
 const wasmPath = resolve(process.argv[2] || defaultWasm);
 const apiKey = process.env.Y2_API_KEY;
 
@@ -19,7 +19,7 @@ if (!apiKey) {
   process.exit(2);
 }
 
-const nonce = `FXWASMLIVE${randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
+const nonce = `Y2WASMLIVE${randomUUID().replaceAll("-", "").slice(0, 16).toUpperCase()}`;
 const startedAt = performance.now();
 let fetchCalls = 0;
 let responseStatus = null;
@@ -69,8 +69,8 @@ const tracedFetch = async (url, init) => {
 };
 
 const agent = await Promise.race([
-  createFxAgent({ wasm: await readFile(wasmPath), fetch: tracedFetch, env: { Y2_API_KEY: apiKey } }),
-  new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for fx-core initialize")), 5000)),
+  createY2Agent({ wasm: await readFile(wasmPath), fetch: tracedFetch, env: { Y2_API_KEY: apiKey } }),
+  new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for y2-core initialize")), 5000)),
 ]);
 
 try {

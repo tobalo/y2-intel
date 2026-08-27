@@ -238,7 +238,7 @@ fn hostGeneration(
     mcp_view: ?*const mcp_access.View,
 ) u64 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.host-authority.v2\x00");
+    hash.update("y2.subagent.host-authority.v2\x00");
     hashU64(&hash, tools.len);
     for (tools) |tool| hashString(&hash, tool);
     hashU64(&hash, integrations.len);
@@ -579,7 +579,7 @@ fn authorityGeneration(
     durable_generation: u64,
 ) u64 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.live-authority.v1\x00");
+    hash.update("y2.subagent.live-authority.v1\x00");
     hashString(&hash, child_id);
     hashString(&hash, root_id);
     hashU64(&hash, host_generation);

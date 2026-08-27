@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   fakeGatewayFinalText,
   fakeGatewayPermissionDecision,
@@ -51,14 +51,14 @@ afterEach(async () => {
 
 function createIsolatedRoot(baseDir = tmpdir()): IsolatedRoot {
   const root = realpathSync(
-    mkdtempSync(join(baseDir, "fx-auto-mode-reliability-e2e-")),
+    mkdtempSync(join(baseDir, "y2-auto-mode-reliability-e2e-")),
   );
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({ sandbox: "none", permission: {} }),
   );
   roots.push(root);
@@ -72,12 +72,12 @@ function gatewayEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-auto-mode-reliability-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: MODEL,
-    FX_PERMISSION_MODE: "auto",
-    FX_AUTO_UPGRADE: "0",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: MODEL,
+    Y2_PERMISSION_MODE: "auto",
+    Y2_AUTO_UPGRADE: "0",
     NO_COLOR: "1",
   };
 }
@@ -175,7 +175,7 @@ describe("lean auto mode reliability", () => {
     async () => {
       const root = createIsolatedRoot();
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { bash: { pwd: "allow" } },
@@ -186,7 +186,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("caution", "unused_review")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Print the working directory."],
         {
           cwd: root.workspace,
@@ -219,7 +219,7 @@ describe("lean auto mode reliability", () => {
         "substitution-bypass-must-not-run",
       );
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { "*": { "printf *": "allow" } },
@@ -250,7 +250,7 @@ describe("lean auto mode reliability", () => {
         ],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Exercise configured commands safely."],
         {
           cwd: root.workspace,
@@ -285,7 +285,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("clear", "approved_git_review")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Inspect repository status."],
         {
           cwd: root.workspace,
@@ -360,7 +360,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("caution", "must_not_review_clean_reads")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Run the mixed clean command group."],
         {
           cwd: root.workspace,
@@ -432,7 +432,7 @@ describe("lean auto mode reliability", () => {
           [fakeGatewayPermissionDecision("clear", `${name}_review_clear`)],
         );
 
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--quiet", "--json", "--no-save", `Run exactly this requested ${name} command.`],
           {
             cwd: root.workspace,
@@ -473,7 +473,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("clear", "delete_review_clear")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Delete keep.txt as requested."],
         {
           cwd: root.workspace,
@@ -528,7 +528,7 @@ describe("lean auto mode reliability", () => {
           ],
           [fakeGatewayPermissionDecision("caution", `${hookMode}_checkout_review`)],
         );
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--quiet", "--json", "--no-save", "Do not run repository hooks."],
           {
             cwd: root.workspace,
@@ -603,7 +603,7 @@ describe("lean auto mode reliability", () => {
         ],
         [fakeGatewayPermissionDecision("caution", "pull_hook_review")],
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Do not run pull hooks."],
         {
           cwd: root.workspace,
@@ -638,7 +638,7 @@ describe("lean auto mode reliability", () => {
         ],
         [fakeGatewayPermissionDecision("caution", "rtk_review")],
       );
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Do not run unresolved wrappers."],
         {
           cwd: root.workspace,
@@ -704,7 +704,7 @@ describe("lean auto mode reliability", () => {
         ],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Preserve every existing target."],
         {
           cwd: root.workspace,
@@ -745,32 +745,32 @@ describe("lean auto mode reliability", () => {
       const recentPrompt = `newest-recent-required-marker ${"c".repeat(4096)}`;
       const currentPrompt = `current-required-marker ${"d".repeat(4096)}`;
 
-      const first = await runFx(["ask", "--quiet", "--json", firstPrompt], {
+      const first = await runY2(["ask", "--quiet", "--json", firstPrompt], {
         cwd: root.workspace,
         env,
         timeoutMs: TIMEOUT,
       });
       expect(first.code).toBe(0);
-      const sessionIds = readdirSync(join(root.home, ".fx", "sessions"), {
+      const sessionIds = readdirSync(join(root.home, ".y2", "sessions"), {
         withFileTypes: true,
       })
         .filter((entry) =>
           entry.isDirectory() &&
-          existsSync(join(root.home, ".fx", "sessions", entry.name, "session.json"))
+          existsSync(join(root.home, ".y2", "sessions", entry.name, "session.json"))
         )
         .map((entry) => entry.name);
       expect(sessionIds).toHaveLength(1);
       const sessionId = sessionIds[0]!;
 
       for (const prompt of [olderPrompt, recentPrompt]) {
-        const turn = await runFx(
+        const turn = await runY2(
           ["ask", "--quiet", "--json", "--resume-id", sessionId, prompt],
           { cwd: root.workspace, env, timeoutMs: TIMEOUT },
         );
         expect(turn.code).toBe(0);
       }
 
-      const current = await runFx(
+      const current = await runY2(
         ["ask", "--quiet", "--json", "--resume-id", sessionId, currentPrompt],
         { cwd: root.workspace, env, timeoutMs: TIMEOUT },
       );
@@ -805,7 +805,7 @@ describe("lean auto mode reliability", () => {
     async () => {
       const root = createIsolatedRoot();
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { bash: { pwd: "allow" } },
@@ -828,7 +828,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("caution", "reject_first_action")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Complete the task safely."],
         {
           cwd: root.workspace,
@@ -877,15 +877,15 @@ describe("lean auto mode reliability", () => {
         ffmpeg,
         "#!/bin/sh\n" +
           "case \"$*\" in\n" +
-          "  *frame-%03d.jpg*) printf 'rebuilt frame\\n' > \"$FX_MEDIA_FRAMES/frame-001.jpg\" ;;\n" +
-          "  *) printf 'rendered media\\n' > \"$FX_MEDIA_RENDER\" ;;\n" +
+          "  *frame-%03d.jpg*) printf 'rebuilt frame\\n' > \"$Y2_MEDIA_FRAMES/frame-001.jpg\" ;;\n" +
+          "  *) printf 'rendered media\\n' > \"$Y2_MEDIA_RENDER\" ;;\n" +
           "esac\n",
       );
       chmodSync(ffmpeg, 0o755);
       const python = join(bin, "python3");
       writeFileSync(
         python,
-        "#!/bin/sh\ncat >/dev/null\nprintf 'python ui data\\n' > \"$FX_MEDIA_PYTHON\"\n",
+        "#!/bin/sh\ncat >/dev/null\nprintf 'python ui data\\n' > \"$Y2_MEDIA_PYTHON\"\n",
       );
       chmodSync(python, 0o755);
 
@@ -931,11 +931,11 @@ describe("lean auto mode reliability", () => {
       const env = {
         ...gatewayEnv(root, successfulGateway),
         PATH: `${bin}:${process.env.PATH ?? "/usr/bin:/bin"}`,
-        FX_MEDIA_FRAMES: frames,
-        FX_MEDIA_RENDER: renderedVideo,
-        FX_MEDIA_PYTHON: pythonMarker,
+        Y2_MEDIA_FRAMES: frames,
+        Y2_MEDIA_RENDER: renderedVideo,
+        Y2_MEDIA_PYTHON: pythonMarker,
       };
-      const successful = await runFx(
+      const successful = await runY2(
         [
           "ask",
           "--quiet",
@@ -1012,7 +1012,7 @@ describe("lean auto mode reliability", () => {
           fakeGatewayPermissionDecision("clear", "safe_inspection_clear"),
         ],
       );
-      const injected = await runFx(
+      const injected = await runY2(
         [
           "ask",
           "--quiet",
@@ -1064,7 +1064,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("caution", "repeated_action_review")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Try the task without unsafe actions."],
         {
           cwd: root.workspace,
@@ -1106,7 +1106,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("caution", "quiet_blocked_review")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--no-save", "Try the blocked action safely."],
         {
           cwd: root.workspace,
@@ -1151,7 +1151,7 @@ describe("lean auto mode reliability", () => {
         ],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Try the action safely."],
         {
           cwd: root.workspace,
@@ -1174,7 +1174,7 @@ describe("lean auto mode reliability", () => {
     async () => {
       const root = createIsolatedRoot();
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { bash: { pwd: "allow" } },
@@ -1219,7 +1219,7 @@ describe("lean auto mode reliability", () => {
         ],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Use safe alternatives where needed."],
         {
           cwd: root.workspace,
@@ -1242,7 +1242,7 @@ describe("lean auto mode reliability", () => {
     async () => {
       const root = createIsolatedRoot();
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { bash: { pwd: "allow" } },
@@ -1264,7 +1264,7 @@ describe("lean auto mode reliability", () => {
       );
 
       activeSession = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: root.workspace,
         env: gatewayEnv(root, gateway),
         stderrPath,
@@ -1301,7 +1301,7 @@ describe("lean auto mode reliability", () => {
       const allowedMarker = join(root.workspace, "saved-allow-ran");
       const allowedCommand = `touch ${JSON.stringify(allowedMarker)}`;
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { bash: { [allowedCommand]: "ask" } },
@@ -1315,7 +1315,7 @@ describe("lean auto mode reliability", () => {
       const stderrPath = join(root.root, "saved-allow-stderr.log");
       writeFileSync(stderrPath, "");
       activeSession = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: root.workspace,
         env: gatewayEnv(root, gateway),
         stderrPath,
@@ -1336,18 +1336,18 @@ describe("lean auto mode reliability", () => {
       await activeSession.kill();
       activeSession = null;
 
-      const sessionIds = readdirSync(join(root.home, ".fx", "sessions"), {
+      const sessionIds = readdirSync(join(root.home, ".y2", "sessions"), {
         withFileTypes: true,
       })
         .filter((entry) =>
           entry.isDirectory() &&
           existsSync(
-            join(root.home, ".fx", "sessions", entry.name, "session.json"),
+            join(root.home, ".y2", "sessions", entry.name, "session.json"),
           )
         )
         .map((entry) => entry.name);
       expect(sessionIds).toHaveLength(1);
-      const result = await runFx(
+      const result = await runY2(
         [
           "ask",
           "--json",
@@ -1390,7 +1390,7 @@ describe("lean auto mode reliability", () => {
         [fakeGatewayPermissionDecision("caution", "headless_review")],
       );
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--quiet", "--json", "--no-save", "Try the action, then ask if needed."],
         {
           cwd: root.workspace,
@@ -1419,7 +1419,7 @@ describe("lean auto mode reliability", () => {
       const blockedMarker = join(root.workspace, "saved-deny-must-not-run");
       const blockedCommand = `touch ${JSON.stringify(blockedMarker)}`;
       writeFileSync(
-        join(root.home, ".fx", "settings.json"),
+        join(root.home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission: { bash: { [blockedCommand]: "allow", pwd: "allow" } },
@@ -1437,7 +1437,7 @@ describe("lean auto mode reliability", () => {
       const stderrPath = join(root.root, "saved-deny-stderr.log");
       writeFileSync(stderrPath, "");
       activeSession = await TmuxSession.create({
-        cmd: FX_BIN,
+        cmd: Y2_BIN,
         cwd: root.workspace,
         env: gatewayEnv(root, gateway),
         stderrPath,

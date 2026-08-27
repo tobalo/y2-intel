@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const require = createRequire(import.meta.url);
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const addonPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/libfx.node"));
+const addonPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/liby2.node"));
 const addon = require(addonPath);
 const core = addon.createCore({
   apiKey: "cancel-before-fetch-key",

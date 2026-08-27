@@ -1,6 +1,6 @@
 //! Opt-in terminal UI frame observer for deterministic local diagnosis.
 //!
-//! This module never writes terminal bytes. When `FX_UI_OBSERVE_DIR` is set
+//! This module never writes terminal bytes. When `Y2_UI_OBSERVE_DIR` is set
 //! to an absolute local directory, it writes committed frame sidecars and
 //! honors a one-shot file latch used by the tmux scenario runner.
 
@@ -126,7 +126,7 @@ pub const UiObserver = struct {
     fn ensureConfigured(self: *UiObserver, alloc: Allocator) void {
         if (self.state != .unknown) return;
 
-        const raw_root = io_mod.getenv("FX_UI_OBSERVE_DIR") orelse {
+        const raw_root = io_mod.getenv("Y2_UI_OBSERVE_DIR") orelse {
             self.state = .disabled;
             return;
         };

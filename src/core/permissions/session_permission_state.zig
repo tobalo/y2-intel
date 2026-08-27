@@ -143,7 +143,7 @@ fn readIdentityField(canonical: []const u8, offset: *usize) ![]const u8 {
 
 fn parseV1CommandIdentity(canonical: []const u8) !V1CommandIdentity {
     var offset: usize = 0;
-    if (!std.mem.eql(u8, try readIdentityField(canonical, &offset), "fx-permission-state-v1")) {
+    if (!std.mem.eql(u8, try readIdentityField(canonical, &offset), "y2-permission-state-v1")) {
         return error.InvalidPermissionIdentity;
     }
     const command = try readIdentityField(canonical, &offset);
@@ -187,7 +187,7 @@ pub fn commandKeyV2(
 ) !RuleKey {
     var out: std.Io.Writer.Allocating = .init(alloc);
     errdefer out.deinit();
-    try writeIdentityField(&out.writer, "fx-permission-state-v2");
+    try writeIdentityField(&out.writer, "y2-permission-state-v2");
     try writeIdentityField(&out.writer, command);
     try writeIdentityField(&out.writer, cwd);
     try writeIdentityField(&out.writer, background);
@@ -881,7 +881,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
         1,
         1,
         .command,
-        try fixtureIdentity(alloc, &.{ "fx-permission-state-v1", command, cwd, foreground, none, target_os, restricted }),
+        try fixtureIdentity(alloc, &.{ "y2-permission-state-v1", command, cwd, foreground, none, target_os, restricted }),
         "none allow",
         .allow,
     );
@@ -891,7 +891,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
         2,
         2,
         .command,
-        try fixtureIdentity(alloc, &.{ "fx-permission-state-v1", command, cwd, foreground, macos, target_os, restricted }),
+        try fixtureIdentity(alloc, &.{ "y2-permission-state-v1", command, cwd, foreground, macos, target_os, restricted }),
         "macos deny",
         .deny,
     );
@@ -901,7 +901,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
         4,
         4,
         .command,
-        try fixtureIdentity(alloc, &.{ "fx-permission-state-v1", "git diff", cwd, foreground, macos, target_os, restricted }),
+        try fixtureIdentity(alloc, &.{ "y2-permission-state-v1", "git diff", cwd, foreground, macos, target_os, restricted }),
         "older deny",
         .deny,
     );
@@ -911,7 +911,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
         3,
         5,
         .command,
-        try fixtureIdentity(alloc, &.{ "fx-permission-state-v1", "git diff", cwd, foreground, none, target_os, restricted }),
+        try fixtureIdentity(alloc, &.{ "y2-permission-state-v1", "git diff", cwd, foreground, none, target_os, restricted }),
         "newer deny",
         .deny,
     );
@@ -921,7 +921,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
         6,
         6,
         .command,
-        try fixtureIdentity(alloc, &.{ "fx-permission-state-v1", "pwd", cwd, foreground, none, target_os, restricted }),
+        try fixtureIdentity(alloc, &.{ "y2-permission-state-v1", "pwd", cwd, foreground, none, target_os, restricted }),
         "eligible allow",
         .allow,
     );
@@ -931,7 +931,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
         7,
         7,
         .command,
-        try fixtureIdentity(alloc, &.{ "fx-permission-state-v1", "ps", cwd, foreground, macos, target_os, restricted }),
+        try fixtureIdentity(alloc, &.{ "y2-permission-state-v1", "ps", cwd, foreground, macos, target_os, restricted }),
         "ineligible allow",
         .allow,
     );
@@ -960,14 +960,14 @@ test "v1 command migration is deny dominant stable and idempotent" {
         migrated.rules.items[3].id.value,
     });
 
-    const status_key_bytes = try fixtureIdentity(alloc, &.{ "fx-permission-state-v2", command, cwd, foreground, target_os });
+    const status_key_bytes = try fixtureIdentity(alloc, &.{ "y2-permission-state-v2", command, cwd, foreground, target_os });
     defer alloc.free(status_key_bytes);
     const status_key = try RuleKey.init(.command, status_key_bytes);
     const status_rule = ruleForKey(migrated, status_key) orelse return error.TestExpectedEqual;
     try std.testing.expectEqual(Decision.deny, status_rule.decision);
     try std.testing.expectEqualStrings("macos deny", status_rule.display_identity);
 
-    const diff_key_bytes = try fixtureIdentity(alloc, &.{ "fx-permission-state-v2", "git diff", cwd, foreground, target_os });
+    const diff_key_bytes = try fixtureIdentity(alloc, &.{ "y2-permission-state-v2", "git diff", cwd, foreground, target_os });
     defer alloc.free(diff_key_bytes);
     const diff_key = try RuleKey.init(.command, diff_key_bytes);
     const diff_rule = ruleForKey(migrated, diff_key) orelse return error.TestExpectedEqual;
@@ -976,7 +976,7 @@ test "v1 command migration is deny dominant stable and idempotent" {
     try std.testing.expectEqual(@as(u64, 5), diff_rule.generation);
     try std.testing.expectEqualStrings("newer deny", diff_rule.display_identity);
 
-    const pwd_key_bytes = try fixtureIdentity(alloc, &.{ "fx-permission-state-v2", "pwd", cwd, foreground, target_os });
+    const pwd_key_bytes = try fixtureIdentity(alloc, &.{ "y2-permission-state-v2", "pwd", cwd, foreground, target_os });
     defer alloc.free(pwd_key_bytes);
     const pwd_key = try RuleKey.init(.command, pwd_key_bytes);
     try std.testing.expectEqual(StateDecision.allow, decide(migrated, pwd_key));

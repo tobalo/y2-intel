@@ -21,7 +21,7 @@ def stat_fingerprint(path: Path, expected_size: int) -> str:
     encoded.extend(info.st_size.to_bytes(8, "big"))
     encoded.extend(info.st_mtime_ns.to_bytes(16, "big", signed=True))
     encoded.extend(info.st_ctime_ns.to_bytes(16, "big", signed=True))
-    return hashlib.sha256(b"fx:event-file-stat:v1\0" + encoded).hexdigest()
+    return hashlib.sha256(b"y2:event-file-stat:v1\0" + encoded).hexdigest()
 
 
 def write_private_json(path: Path, value: object) -> None:
@@ -30,9 +30,9 @@ def write_private_json(path: Path, value: object) -> None:
 
 
 def generate(home: Path, workspace: Path, count: int, log_size: int, deny_event_read: bool) -> None:
-    sessions_root = home / ".fx" / "sessions"
+    sessions_root = home / ".y2" / "sessions"
     sessions_root.mkdir(parents=True, mode=0o700, exist_ok=True)
-    (home / ".fx").chmod(0o700)
+    (home / ".y2").chmod(0o700)
     sessions_root.chmod(0o700)
 
     for index in range(count):

@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import xtermHeadless from "@xterm/headless";
-import { createFxTerminal, supportsJspi, xtermAdapter } from "../node.js";
+import { createY2Terminal, supportsJspi, xtermAdapter } from "../node.js";
 
 const { Terminal } = xtermHeadless;
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const wasmPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/bin/fx-term.wasm"));
+const wasmPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/bin/y2-term.wasm"));
 if (!supportsJspi()) process.exit(2);
 
 const terminal = new Terminal({ cols: 100, rows: 34, allowProposedApi: true, scrollback: 2000 });
@@ -41,15 +41,15 @@ const fetch = async (url, init = {}) => {
 };
 const stderrDecoder = new TextDecoder();
 let stderrText = "";
-const runtime = await createFxTerminal({
+const runtime = await createY2Terminal({
   backend: "wasm",
   wasm: await readFile(wasmPath),
   terminal: xtermAdapter(terminal),
   env: {
     OPENAI_BASE_URL: "https://models.example/v1",
     OPENAI_API_KEY: "feature-key",
-    FX_TRACE_STDERR: "1",
-    FX_TRACE_SCOPES: "full_transcript,full_transcript_cache,frame_schedule",
+    Y2_TRACE_STDERR: "1",
+    Y2_TRACE_SCOPES: "full_transcript,full_transcript_cache,frame_schedule",
   },
   fetch,
   configStore: { get(id) { return config.get(id) ?? null; }, set(id, value) { config.set(id, value); } },
@@ -93,7 +93,7 @@ await waitFor(() => grid().includes("Full detail"), "full transcript detail");
 runtime.write("\x0f");
 await waitFor(() => terminal.buffer.active.type === "normal", "full transcript close");
 
-await command("/login", "Vercel sign-in failed. The current credential is unchanged.");
+await command("/login", "Retired credential sign-in failed. The current credential is unchanged.");
 await command("/resume", "Session resume is owned by the embedding SDK");
 await command("/mcp list", "No MCP servers configured");
 await command("/skills list", "Skills are unavailable in this host");
@@ -105,5 +105,5 @@ await waitFor(() => terminal.buffer.active.type === "normal", "model catalog clo
 
 runtime.write("/exit\r");
 const code = await Promise.race([runtime.exited, new Promise((_, reject) => setTimeout(() => reject(new Error("exit timeout")), 5000))]);
-if (code !== 0) throw new Error(`fx-term exited with ${code}`);
+if (code !== 0) throw new Error(`y2-term exited with ${code}`);
 console.log("headless features passed: history, transcript, catalog, and host degradation");

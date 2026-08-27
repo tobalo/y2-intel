@@ -35,7 +35,7 @@ pub const dispatchAttentionRequiredCheckpoint = runtime_lifecycle.dispatchAttent
 pub const TurnFinalizationGuard = runtime_finalization.TurnFinalizationGuard;
 pub const Config = runtime_config.Config;
 pub const processQueuedPrompt = runtime_orchestrator.processQueuedPrompt;
-pub const persistedStatusForCurrentFxLocalResult = runtime_execution_memory.persistedStatusForCurrentFxLocalResult;
+pub const persistedStatusForCurrentY2LocalResult = runtime_execution_memory.persistedStatusForCurrentY2LocalResult;
 pub const classifyProviderExecutedResultStatus = runtime_execution_memory.classifyProviderExecutedResultStatus;
 pub const normalizeAssistantTextForDisplay = runtime_assistant_stream.normalizeAssistantTextForDisplay;
 

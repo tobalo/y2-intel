@@ -211,7 +211,7 @@ jobs:
         run: npm test
         working-directory: tests/e2e/conformance
         env:
-          FX_SOUND: "0"
+          Y2_SOUND: "0"
 
       - name: Run persistence tests
         run: bun test config-persistence.test.ts session-recovery.test.ts prompt-history.test.ts
@@ -225,17 +225,15 @@ jobs:
         run: bun test auto-mode-reliability.test.ts
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ""
           VERCEL_OIDC_TOKEN: ""
-          FX_REQUIRE_TMUX: "1"
+          Y2_REQUIRE_TMUX: "1"
 
       - name: Run Vision route and headless SIGINT regressions
         run: |
           bun test vision-route-fake-gateway.test.ts
-          bun test ./tui-command-permissions.test.ts --test-name-pattern "fx ask SIGINT during classifier wait terminates before decision or execution"
+          bun test ./tui-command-permissions.test.ts --test-name-pattern "y2 ask SIGINT during classifier wait terminates before decision or execution"
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ""
           VERCEL_OIDC_TOKEN: ""
 
       - name: Run TUI input line deletion regression
@@ -244,9 +242,8 @@ jobs:
           bun test tui-input-line-delete.test.ts
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ""
           VERCEL_OIDC_TOKEN: ""
-          FX_REQUIRE_TMUX: "1"
+          Y2_REQUIRE_TMUX: "1"
 
       - name: Run multiline input navigation TUI tests
         run: |
@@ -254,9 +251,8 @@ jobs:
           bun test tui-input-navigation.test.ts
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ""
           VERCEL_OIDC_TOKEN: ""
-          FX_REQUIRE_TMUX: "1"
+          Y2_REQUIRE_TMUX: "1"
 
       - name: Run valid question recovery TUI regression
         run: |
@@ -264,9 +260,8 @@ jobs:
           bun test ./tui-decision-prompts.test.ts --test-name-pattern "valid serialized ask control with matching identity opens the question and continues"
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ""
           VERCEL_OIDC_TOKEN: ""
-          FX_REQUIRE_TMUX: "1"
+          Y2_REQUIRE_TMUX: "1"
 
       - name: Run streamed lifecycle, direct-write, and command scrollback regressions
         run: |
@@ -275,9 +270,8 @@ jobs:
           bun test ./tui-command-permissions.test.ts --test-name-pattern "TUI preserves completed transcript when a later auto-approved command starts|TUI isolates approved foreground commands from terminal ownership"
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ""
           VERCEL_OIDC_TOKEN: ""
-          FX_REQUIRE_TMUX: "1"
+          Y2_REQUIRE_TMUX: "1"
 
   e2e:
     name: E2E (deterministic)
@@ -319,7 +313,7 @@ jobs:
 
       - name: Report binary size
         run: |
-          bytes=$(stat -c%s zig-out/bin/fx)
+          bytes=$(stat -c%s zig-out/bin/y2)
           mib=$(awk -v b="$bytes" 'BEGIN { printf "%.2f", b / 1048576 }')
           echo "${{ matrix.name }}: $bytes bytes ($mib MiB)"
           echo "${{ matrix.name }}: $bytes bytes ($mib MiB)" >> "$GITHUB_STEP_SUMMARY"
@@ -330,7 +324,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Shellcheck Fx scripts
+      - name: Shellcheck Y2 scripts
         run: |
           scripts=(
             benchmarks/startup.sh

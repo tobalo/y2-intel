@@ -134,7 +134,7 @@ pub const MonitorOperationInput = struct {
 };
 
 /// Public semantic terminal input. Authority and persistence fields are
-/// intentionally absent; Core derives them from the current fx session.
+/// intentionally absent; Core derives them from the current y2 session.
 pub const Input = struct {
     action: Action,
     session_id: ?[]const u8 = null,
@@ -1253,7 +1253,7 @@ pub fn mapAuthorizedResult(
         .path_outside_workspace => try alloc.dupe(u8, "path is outside the workspace"),
         .authority_retired => try alloc.dupe(
             u8,
-            "saved terminal authority is from an older fx version; start a new terminal",
+            "saved terminal authority is from an older y2 version; start a new terminal",
         ),
         else => return result,
     };
@@ -1446,7 +1446,7 @@ test "terminal decoder keeps complex decode within allocation budget" {
     var counted = std.testing.FailingAllocator.init(std.testing.allocator, .{});
     const alloc = counted.allocator();
     const args =
-        "{\"action\":\"start\",\"cwd\":\"/workspace\",\"backend\":\"native\",\"command\":\"printf SHOULD_NOT_RUN\",\"return_when\":\"{\\\"kind\\\":\\\"started\\\"}\",\"initial_monitors\":\"[{\\\"condition\\\":{\\\"kind\\\":\\\"path_exists\\\",\\\"path\\\":\\\"/private/tmp/fx-monitor-outside-ready\\\",\\\"check_interval_ms\\\":1000},\\\"notify\\\":{\\\"kind\\\":\\\"on_match\\\"},\\\"lifetime\\\":{\\\"kind\\\":\\\"until_match\\\"}}]\"}";
+        "{\"action\":\"start\",\"cwd\":\"/workspace\",\"backend\":\"native\",\"command\":\"printf SHOULD_NOT_RUN\",\"return_when\":\"{\\\"kind\\\":\\\"started\\\"}\",\"initial_monitors\":\"[{\\\"condition\\\":{\\\"kind\\\":\\\"path_exists\\\",\\\"path\\\":\\\"/private/tmp/y2-monitor-outside-ready\\\",\\\"check_interval_ms\\\":1000},\\\"notify\\\":{\\\"kind\\\":\\\"on_match\\\"},\\\"lifetime\\\":{\\\"kind\\\":\\\"until_match\\\"}}]\"}";
     const decoded = try decode(.{ .allocator = alloc }, args);
     switch (decoded) {
         .failure => |message| {
@@ -1985,7 +1985,7 @@ test "terminal start accepts native and tmux backend contracts" {
 test "terminal decoder normalizes gateway stringified start composites" {
     const alloc = std.testing.allocator;
     const args =
-        "{\"action\":\"start\",\"cwd\":\"/workspace\",\"backend\":\"native\",\"command\":\"printf SHOULD_NOT_RUN\",\"return_when\":\"{\\\"kind\\\":\\\"started\\\"}\",\"initial_monitors\":\"[{\\\"condition\\\":{\\\"kind\\\":\\\"path_exists\\\",\\\"path\\\":\\\"/private/tmp/fx-monitor-outside-ready\\\",\\\"check_interval_ms\\\":1000},\\\"notify\\\":{\\\"kind\\\":\\\"on_match\\\"},\\\"lifetime\\\":{\\\"kind\\\":\\\"until_match\\\"}}]\"}";
+        "{\"action\":\"start\",\"cwd\":\"/workspace\",\"backend\":\"native\",\"command\":\"printf SHOULD_NOT_RUN\",\"return_when\":\"{\\\"kind\\\":\\\"started\\\"}\",\"initial_monitors\":\"[{\\\"condition\\\":{\\\"kind\\\":\\\"path_exists\\\",\\\"path\\\":\\\"/private/tmp/y2-monitor-outside-ready\\\",\\\"check_interval_ms\\\":1000},\\\"notify\\\":{\\\"kind\\\":\\\"on_match\\\"},\\\"lifetime\\\":{\\\"kind\\\":\\\"until_match\\\"}}]\"}";
     const decoded = try decode(.{ .allocator = alloc }, args);
     switch (decoded) {
         .failure => |message| {
@@ -2000,7 +2000,7 @@ test "terminal decoder normalizes gateway stringified start composites" {
             const monitor = parsed.initial_monitors[0];
             try std.testing.expectEqual(MonitorConditionKind.path_exists, monitor.condition.kind);
             try std.testing.expectEqualStrings(
-                "/private/tmp/fx-monitor-outside-ready",
+                "/private/tmp/y2-monitor-outside-ready",
                 monitor.condition.path.?,
             );
             try std.testing.expectEqual(@as(?u64, 1000), monitor.check_interval_ms);
@@ -2252,7 +2252,7 @@ test "terminal result mapper adds detail for actionable failures" {
         .{
             .status = .failure,
             .body = "{\"failure\":{\"action\":\"read\",\"code\":\"authority_retired\",\"session_id\":\"terminal-old\",\"retryable\":false}}",
-            .expected_detail = "saved terminal authority is from an older fx version; start a new terminal",
+            .expected_detail = "saved terminal authority is from an older y2 version; start a new terminal",
         },
         .{ .status = .failure, .body = "not json", .expected_detail = null },
         .{

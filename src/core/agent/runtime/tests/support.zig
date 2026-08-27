@@ -171,7 +171,7 @@ const test_tools = [_]tool_dispatch.Tool{
     builtin_tools.semantic_search,
     builtin_tools.open_file,
     builtin_tools.web_fetch,
-    builtin_tools.web_search,
+    builtin_tools.test_web_search,
     builtin_tools.terminal,
     builtin_tools.skill,
     builtin_tools.install_skill,

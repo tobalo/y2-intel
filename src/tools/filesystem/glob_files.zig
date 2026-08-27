@@ -745,7 +745,7 @@ test "glob_files resolver error for missing path returns failure result" {
 test "glob_files permission denied directory returns structured recovery" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
     const alloc = std.testing.allocator;
-    const root = try std.fmt.allocPrint(alloc, "/tmp/fx-glob-files-access-{d}", .{io_mod.nanoTimestamp()});
+    const root = try std.fmt.allocPrint(alloc, "/tmp/y2-glob-files-access-{d}", .{io_mod.nanoTimestamp()});
     defer alloc.free(root);
     defer std.Io.Dir.cwd().deleteTree(io_mod.getIo(), root) catch {};
     try std.Io.Dir.cwd().createDirPath(io_mod.getIo(), root);
@@ -986,7 +986,7 @@ test "glob_files allows external absolute path search roots" {
     const alloc = std.testing.allocator;
     // Keep the external root out of std.testing.tmpDir(), whose generated path
     // may contain ignored component names and invalidate this absolute-path case.
-    const root = try std.fmt.allocPrint(alloc, "/tmp/fx-glob-external-{d}", .{io_mod.nanoTimestamp()});
+    const root = try std.fmt.allocPrint(alloc, "/tmp/y2-glob-external-{d}", .{io_mod.nanoTimestamp()});
     defer alloc.free(root);
     defer std.Io.Dir.cwd().deleteTree(io_mod.getIo(), root) catch {};
     const workspace_dir = try std.fs.path.join(alloc, &.{ root, "workspace" });

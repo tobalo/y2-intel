@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText as finalText,
@@ -64,16 +64,16 @@ afterEach(async () => {
 function createIsolatedRoot(): IsolatedRoot {
   const tempRoot = existsSync("/private/tmp") ? "/private/tmp" : tmpdir();
   const root = realpathSync(
-    mkdtempSync(join(tempRoot, "fx-file-approval-e2e-")),
+    mkdtempSync(join(tempRoot, "y2-file-approval-e2e-")),
   );
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   const external = join(root, "external");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   mkdirSync(external, { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({
       sandbox: "none",
       permission_mode: "ask",
@@ -97,12 +97,12 @@ function gatewayEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-file-approval-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: FAKE_GATEWAY_MODEL,
-    FX_PERMISSION_MODE: "ask",
-    FX_AUTO_UPGRADE: "0",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_PERMISSION_MODE: "ask",
+    Y2_AUTO_UPGRADE: "0",
     NO_COLOR: "1",
     ...overrides,
   };
@@ -117,7 +117,7 @@ async function launch(
   const stderrPath = join(root.root, "stderr.log");
   writeFileSync(stderrPath, "");
   activeSession = await TmuxSession.create({
-    cmd: FX_BIN,
+    cmd: Y2_BIN,
     cwd: root.workspace,
     env: gatewayEnv(root, gateway, envOverrides),
     stderrPath,
@@ -186,7 +186,7 @@ function expectAtomicApprovalExit(tapePath: string, frameStart: number) {
 }
 
 function sessionIdFromHome(root: IsolatedRoot): string {
-  const sessionsRoot = join(root.home, ".fx", "sessions");
+  const sessionsRoot = join(root.home, ".y2", "sessions");
   const sessionIds = readdirSync(sessionsRoot, { withFileTypes: true })
     .filter((entry) => entry.isDirectory() && entry.name !== "latest")
     .map((entry) => entry.name);
@@ -260,7 +260,7 @@ function expectApprovalControls(
   for (const oldCopy of [
     "1. Yes, proceed",
     "2. Yes, and don't ask again",
-    "3. No, and tell fx",
+    "3. No, and tell y2",
     "This action changes files in your workspace.",
   ]) {
     expect(block).not.toContain(oldCopy);
@@ -407,7 +407,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       const root = createIsolatedRoot();
       const target = join(root.workspace, "pacer-gate.txt");
       const marker = "PENDING-FILE-APPROVAL-PACER-SENTINEL";
-      const tapePath = join(root.root, "pacer-gate.fxtape");
+      const tapePath = join(root.root, "pacer-gate.y2tape");
       const gateway = startFakeGateway([
         fakeGatewaySse([
           {
@@ -435,7 +435,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         root,
         gateway,
         {},
-        { FX_RECORD: tapePath, FX_SYNC_UPDATES: "1" },
+        { Y2_RECORD: tapePath, Y2_SYNC_UPDATES: "1" },
       );
 
       await session.sendText("Run the file approval pacing fixture.");
@@ -470,7 +470,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
     "file approval keeps fragmented mouse scrolling inside the review",
     async () => {
       const root = createIsolatedRoot();
-      const tapePath = join(root.root, "full-review.fxtape");
+      const tapePath = join(root.root, "full-review.y2tape");
       const tracePath = join(root.root, "full-review.trace.log");
       const injectionLogPath = join(root.root, "full-review.injected-input.log");
       const lines = Array.from(
@@ -498,10 +498,10 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         gateway,
         { width: 80, height: 14 },
         {
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: "input,permission",
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: "input,permission",
         },
       );
 
@@ -612,7 +612,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       const scrollback = await session.captureFullScrollback();
       expect(scrollback).not.toContain("Apply this change?");
       expect(scrollback).not.toContain("+ review-line-15");
-      const replay = await runFx(["replay", tapePath, "--frames"], {
+      const replay = await runY2(["replay", tapePath, "--frames"], {
         cwd: root.workspace,
         env: { HOME: root.home },
       });
@@ -702,7 +702,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
     "short file approval captures wheel input without moving the selected choice",
     async () => {
       const root = createIsolatedRoot();
-      const tapePath = join(root.root, "short-review.fxtape");
+      const tapePath = join(root.root, "short-review.y2tape");
       const gateway = startFakeGateway([
         toolCall("short_review", "write_file", {
           path: "short-review.txt",
@@ -714,7 +714,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         root,
         gateway,
         { width: 80, height: 30 },
-        { FX_RECORD: tapePath, FX_SYNC_UPDATES: "1" },
+        { Y2_RECORD: tapePath, Y2_SYNC_UPDATES: "1" },
       );
 
       await session.sendText("Create the short review fixture.");
@@ -796,7 +796,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         required: ["amended-review.txt", "+ amended review content"],
       });
       await session.sendKeys("Tab");
-      await session.waitForText("Apply once, and tell fx what to do next", TIMEOUT);
+      await session.waitForText("Apply once, and tell y2 what to do next", TIMEOUT);
       await session.sendLiteralText(feedback);
       await session.waitForText(`Apply once, ${feedback}`, TIMEOUT);
 
@@ -828,14 +828,14 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
 
       const sessionId = sessionIdFromHome(root);
       const events = readFileSync(
-        join(root.home, ".fx", "sessions", sessionId, "events.jsonl"),
+        join(root.home, ".y2", "sessions", sessionId, "events.jsonl"),
         "utf8",
       );
       expect(events).toContain('"permission_feedback"');
       expect(events).toContain(feedback);
 
       const resumedGateway = startFakeGateway([finalText("amended review resume complete")]);
-      const resumed = await runFx(
+      const resumed = await runY2(
         [
           "ask",
           "--auto",
@@ -993,7 +993,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
     async () => {
       const root = createIsolatedRoot();
       const target = join(root.workspace, "cancelled.txt");
-      const tapePath = join(root.root, "cancelled.fxtape");
+      const tapePath = join(root.root, "cancelled.y2tape");
       const gateway = startFakeGateway([
         toolCall("cancel_write", "write_file", {
           path: "cancelled.txt",
@@ -1005,7 +1005,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         root,
         gateway,
         {},
-        { FX_RECORD: tapePath, FX_SYNC_UPDATES: "1" },
+        { Y2_RECORD: tapePath, Y2_SYNC_UPDATES: "1" },
       );
 
       await launched.session.sendText("Create the cancellation fixture.");
@@ -1082,7 +1082,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
           root,
           gateway,
           { width: 120, height: 40 },
-          { FX_THEME: "dark", NO_COLOR: undefined },
+          { Y2_THEME: "dark", NO_COLOR: undefined },
         );
 
         await launched.session.sendText(`Create the ${testCase.name} marker fixture.`);
@@ -1124,7 +1124,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         const content = "private-value\n";
         writeFileSync(target, content);
         writeFileSync(
-          join(root.home, ".fx", "settings.json"),
+          join(root.home, ".y2", "settings.json"),
           JSON.stringify({
             sandbox: "none",
             permission: {
@@ -1229,7 +1229,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
           root,
           gateway,
           { width: 120, height: 40 },
-          { FX_THEME: theme, NO_COLOR: undefined },
+          { Y2_THEME: theme, NO_COLOR: undefined },
         );
 
         await launched.session.sendText(
@@ -1336,7 +1336,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       const stderrPath = join(root.root, "stderr.log");
       writeFileSync(stderrPath, "");
       activeSession = await TmuxSession.create({
-        cmd: `${FX_BIN} --record`,
+        cmd: `${Y2_BIN} --record`,
         cwd: root.workspace,
         env: gatewayEnv(root, gateway),
         stderrPath,
@@ -1348,7 +1348,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       await session.waitForText("visual terminal capture:", TIMEOUT);
       const recording = (await session.capturePaneGrid()).join("\n");
       const tapePath = recording.match(
-        /visual terminal capture:\s*(\S+\.fxtape)/,
+        /visual terminal capture:\s*(\S+\.y2tape)/,
       )?.[1];
       if (!tapePath) {
         throw new Error(`recording path was not printed:\n${recording}`);
@@ -1411,7 +1411,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       );
       expectCleanStderr(stderrPath);
 
-      const replay = await runFx(["replay", tapePath, "--frames"], {
+      const replay = await runY2(["replay", tapePath, "--frames"], {
         cwd: root.workspace,
         env: { HOME: root.home },
       });
@@ -1439,12 +1439,12 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
         }),
         finalText("WRAP_DIFF_COMPLETE"),
       ]);
-      const tapePath = join(root.root, "diff-wrap.fxtape");
+      const tapePath = join(root.root, "diff-wrap.y2tape");
       const { session, stderrPath } = await launch(
         root,
         gateway,
         { width: 72, height: 40 },
-        { FX_RECORD: tapePath },
+        { Y2_RECORD: tapePath },
       );
 
       await session.sendText("Replace the wrapped fixture value.");
@@ -1483,7 +1483,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
 
       expect(session.isAlive()).toBe(true);
       expectCleanStderr(stderrPath);
-      const replay = await runFx(["replay", tapePath, "--frames"], {
+      const replay = await runY2(["replay", tapePath, "--frames"], {
         cwd: root.workspace,
         env: { HOME: root.home },
       });
@@ -1735,8 +1735,8 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
     "hostile path stays encoded through approval transcript changes and undo",
     async () => {
       const root = createIsolatedRoot();
-      const hostileName = "name\x1b]2;FX_PWN\x07\nfile.txt";
-      const encodedName = "name\\x1b]2;FX_PWN\\x07\\x0afile.txt";
+      const hostileName = "name\x1b]2;Y2_PWN\x07\nfile.txt";
+      const encodedName = "name\\x1b]2;Y2_PWN\\x07\\x0afile.txt";
       const target = join(root.workspace, hostileName);
       const gateway = startFakeGateway([
         toolCall("hostile_write", "write_file", {
@@ -1762,12 +1762,12 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
 
       expect(readFileSync(target, "utf8")).toBe("hostile\n");
       expect(settled).toContain(encodedName);
-      expect(settled).not.toContain("\x1b]2;FX_PWN\x07");
+      expect(settled).not.toContain("\x1b]2;Y2_PWN\x07");
 
       await session.sendText("/undo");
       settled = await session.waitForText("Deleted", TIMEOUT);
       expect(settled).toContain(encodedName);
-      expect(settled).not.toContain("\x1b]2;FX_PWN\x07");
+      expect(settled).not.toContain("\x1b]2;Y2_PWN\x07");
       expect(existsSync(target)).toBe(false);
       expectCleanStderr(stderrPath);
     },

@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import xtermHeadless from "@xterm/headless";
-import { createFxTerminal, supportsJspi, xtermAdapter } from "../node.js";
+import { createY2Terminal, supportsJspi, xtermAdapter } from "../node.js";
 
 const { Terminal } = xtermHeadless;
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const wasmPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/bin/fx-term.wasm"));
+const wasmPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/bin/y2-term.wasm"));
 if (!supportsJspi()) process.exit(2);
 const wasm = await readFile(wasmPath);
 const histories = new Map();
@@ -55,7 +55,7 @@ async function waitForExit(runtime, label) {
 async function start() {
   const terminal = new Terminal({ cols: 80, rows: 24, allowProposedApi: true, scrollback: 1000 });
   const events = [];
-  const runtime = await createFxTerminal({
+  const runtime = await createY2Terminal({
   backend: "wasm",
     wasm,
     terminal: xtermAdapter(terminal),

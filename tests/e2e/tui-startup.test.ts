@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, HAS_API_KEY } from "../evals/eval-helpers";
+import { Y2_BIN, HAS_API_KEY } from "../evals/eval-helpers";
 import { hasEmptyComposer, TmuxSession, tmuxAvailable } from "./tmux-helpers";
 
 const SKIP = !tmuxAvailable() || !HAS_API_KEY;
@@ -25,7 +25,7 @@ afterEach(async () => {
 
 describe.skipIf(SKIP)("tui: startup and exit", () => {
   test(
-    "fx launches and shows prompt",
+    "y2 launches and shows prompt",
     async () => {
       session = await TmuxSession.create();
       const pane = await session.waitForComposer(10_000);
@@ -65,7 +65,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
   test(
     "statusline hides the workspace identity by default",
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-statusline-default-")));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-statusline-default-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace-default-hidden");
       const stderrPath = join(root, "stderr.log");
@@ -80,10 +80,10 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
           env: {
             HOME: home,
             Y2_API_KEY: undefined,
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_AUTO_UPGRADE: "0",
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_SKIP_ONBOARDING: "1",
+            OPENAI_API_KEY: undefined,
+            Y2_AUTO_UPGRADE: "0",
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_SKIP_ONBOARDING: "1",
           },
           stderrPath,
           width: 100,
@@ -108,7 +108,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
   test(
     "/help keeps command descriptions close after a wide-to-narrow resize",
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-help-columns-")));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-help-columns-")));
       const home = join(root, "home");
       const stderrPath = join(root, "stderr.log");
       mkdirSync(home, { recursive: true });
@@ -119,7 +119,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
           cwd: root,
           env: {
             HOME: home,
-            FX_AUTO_UPGRADE: "0",
+            Y2_AUTO_UPGRADE: "0",
           },
           stderrPath,
           width: 160,
@@ -165,18 +165,18 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
   test(
     "statusline refreshes the working directory and Git branch",
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-statusline-")));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-statusline-")));
       const home = join(root, "home");
       const repository = join(root, "repository");
       const workspace = join(repository, "packages", "status-root");
       const headPath = join(repository, ".git", "HEAD");
       const stderrPath = join(root, "stderr.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(join(repository, ".git"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       writeFileSync(headPath, "ref: refs/heads/initial-branch\n");
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         `${JSON.stringify({ statusLine: { workspace: true }, fast_mode: false })}\n`,
       );
       writeFileSync(stderrPath, "");
@@ -187,10 +187,10 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
           env: {
             HOME: home,
             Y2_API_KEY: undefined,
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_AUTO_UPGRADE: "0",
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_SKIP_ONBOARDING: "1",
+            OPENAI_API_KEY: undefined,
+            Y2_AUTO_UPGRADE: "0",
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_SKIP_ONBOARDING: "1",
           },
           stderrPath,
           width: 100,
@@ -215,7 +215,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
 
         await session.resizeWindow(50, 30);
         const narrow = await session.waitForPane(
-          (pane) => pane.includes("s-root") && pane.includes("detached:"),
+          (pane) => pane.includes("s-root") && pane.includes("detached"),
           5_000,
         );
         expect(narrow).not.toContain("initial-branch");
@@ -238,13 +238,13 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
   test(
     "restore the launch header without retaining prior output",
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-fresh-session-")));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-fresh-session-")));
       const home = join(root, "home");
       const stderrPath = join(root, "stderr.log");
       mkdirSync(home, { recursive: true });
       writeFileSync(stderrPath, "");
 
-      const version = execFileSync(FX_BIN, ["--version"], { encoding: "utf8" }).trim();
+      const version = execFileSync(Y2_BIN, ["--version"], { encoding: "utf8" }).trim();
       const banner = `Y2 INFORMATION DOMINANCE · v${version} · Run /help for commands`;
 
       try {
@@ -252,7 +252,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
           cwd: root,
           env: {
             HOME: home,
-            FX_AUTO_UPGRADE: "0",
+            Y2_AUTO_UPGRADE: "0",
           },
           stderrPath,
           width: 120,
@@ -300,9 +300,9 @@ describe.skipIf(SKIP_TMUX)("tui: MCP startup", () => {
   test(
     "unresponsive MCP discovery does not block startup or shutdown",
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-mcp-startup-")));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-mcp-startup-")));
       const home = join(root, "home");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
 
       let discoveryRequests = 0;
       const server = Bun.serve({
@@ -315,7 +315,7 @@ describe.skipIf(SKIP_TMUX)("tui: MCP startup", () => {
         },
       });
       writeFileSync(
-        join(home, ".fx", "mcp.json"),
+        join(home, ".y2", "mcp.json"),
         JSON.stringify({
           mcp: {
             pending: {
@@ -332,7 +332,7 @@ describe.skipIf(SKIP_TMUX)("tui: MCP startup", () => {
           cwd: root,
           env: {
             HOME: home,
-            FX_AUTO_UPGRADE: "0",
+            Y2_AUTO_UPGRADE: "0",
           },
         });
         const pane = await session.waitForComposer(5_000);
@@ -369,15 +369,15 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
   test(
     "/setup opens an inline status-first hub",
     async () => {
-      const home = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-direct-setup-")));
+      const home = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-direct-setup-")));
       session = await TmuxSession.create({
         env: {
           Y2_API_KEY: undefined,
-          VERCEL_OIDC_TOKEN: undefined,
+          OPENAI_API_KEY: undefined,
           HOME: home,
-          FX_AUTO_UPGRADE: "0",
-          FX_DISABLE_KEYCHAIN: "1",
-          FX_SKIP_ONBOARDING: "0",
+          Y2_AUTO_UPGRADE: "0",
+          Y2_DISABLE_KEYCHAIN: "1",
+          Y2_SKIP_ONBOARDING: "1",
         },
       });
 
@@ -388,16 +388,15 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
           pane.includes("Setup") &&
           pane.includes("Connections") &&
           pane.includes("Model provider") &&
-          pane.includes("Vercel team") &&
           pane.includes("Credential source") &&
           pane.includes("Enter Open") &&
           pane.includes("Esc Close"),
         TIMEOUT,
       );
       expect(setup).not.toContain("Y2_API_KEY");
-      expect(setup).not.toContain("fx login");
-      expect(setup).not.toContain("Vercel account");
-      expect(setup).not.toContain("run /login");
+      expect(setup).not.toContain("y2 login");
+      expect(setup).not.toContain("team");
+      expect(setup).not.toContain("retired");
 
       for (let index = 0; index < 2; index += 1) {
         await session.sendKeys("Down");
@@ -418,22 +417,23 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
   test(
     "startup shows credential onboarding on the first frame and Escape remains session-only",
     async () => {
-      const home = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-login-onboarding-")));
+      const home = realpathSync(mkdtempSync(join(tmpdir(), "y2-e2e-login-onboarding-")));
       const env = {
         Y2_API_KEY: undefined,
-        VERCEL_OIDC_TOKEN: undefined,
+        OPENAI_API_KEY: undefined,
         HOME: home,
-        USER: "fx-e2e-login-onboarding",
-        FX_AUTO_UPGRADE: "0",
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_NO_OPEN_BROWSER: "1",
-        FX_SKIP_ONBOARDING: "0",
+        USER: "y2-e2e-login-onboarding",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_NO_OPEN_BROWSER: "1",
+        Y2_SKIP_ONBOARDING: "0",
       };
 
       session = await TmuxSession.create({ env });
 
-      const initial = await session.waitForText("Welcome to fx", TIMEOUT);
-      expect(initial).toContain("Sign in with Vercel");
+      const initial = await session.waitForText("Welcome to Y2 Information Dominance", TIMEOUT);
+      expect(initial).toContain("Sign in with Codex");
+      expect(initial).toContain("Sign in with Grok");
       expect(initial).toContain("Add an API key");
       expect(initial).toContain("Esc to set up later");
       expect(initial).not.toContain("Change team");
@@ -442,15 +442,16 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
 
       await session.sendKeys("Escape");
       const skipped = await session.waitForPane(
-        (pane) => !pane.includes("Welcome to fx") && !pane.includes("Sign in with Vercel"),
+        (pane) => !pane.includes("Welcome to Y2 Information Dominance") && !pane.includes("Sign in with Codex"),
         TIMEOUT,
       );
       expect(skipped).not.toContain("Add an API key");
 
       await session.kill();
       session = await TmuxSession.create({ env });
-      const restarted = await session.waitForText("Welcome to fx", TIMEOUT);
-      expect(restarted).toContain("Sign in with Vercel");
+      const restarted = await session.waitForText("Welcome to Y2 Information Dominance", TIMEOUT);
+      expect(restarted).toContain("Sign in with Codex");
+      expect(restarted).toContain("Sign in with Grok");
       expect(restarted).toContain("Add an API key");
     },
     60_000,

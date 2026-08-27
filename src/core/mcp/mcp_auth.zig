@@ -1335,7 +1335,7 @@ fn requestInteractiveAuthorization(
             "Content-Type: text/plain; charset=utf-8\r\n" ++
             "Content-Length: 49\r\n" ++
             "Connection: close\r\n\r\n" ++
-            "Authorization received. You can return to fx now.",
+            "Authorization received. You can return to y2 now.",
     );
     try writer.interface.flush();
     return parseAuthorizationRedirect(alloc, target);
@@ -1467,7 +1467,7 @@ fn resolveClientRegistration(
     var payload: std.Io.Writer.Allocating = .init(alloc);
     defer payload.deinit();
     try payload.writer.writeAll(
-        "{\"client_name\":\"fx\",\"application_type\":\"native\",\"redirect_uris\":[",
+        "{\"client_name\":\"y2\",\"application_type\":\"native\",\"redirect_uris\":[",
     );
     try std.json.Stringify.value(redirect_uri, .{}, &payload.writer);
     try payload.writer.writeAll("],\"response_types\":[\"code\"],\"grant_types\":[\"authorization_code\"");

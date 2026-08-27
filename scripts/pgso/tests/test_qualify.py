@@ -36,7 +36,7 @@ from scripts.pgso.runner import CommandResult
 class PgsoQualificationTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="fx-pgso-qualify-"
+            prefix="y2-pgso-qualify-"
         )
         self.root = pathlib.Path(self.temporary_directory.name)
 
@@ -212,10 +212,10 @@ class PgsoQualificationTests(unittest.TestCase):
         self.assertEqual(49, len(result.candidate_samples))
 
     def test_startup_measurement_executes_immutable_artifacts_directly(self) -> None:
-        control = self.root / "control" / "fx"
-        candidate = self.root / "candidate" / "fx"
+        control = self.root / "control" / "y2"
+        candidate = self.root / "candidate" / "y2"
         hyperfine = self.root / "tools" / "hyperfine"
-        canonical = self.root / "zig-out" / "bin" / "fx"
+        canonical = self.root / "zig-out" / "bin" / "y2"
         for path, contents in (
             (control, b"control"),
             (candidate, b"candidate"),
@@ -254,8 +254,8 @@ class PgsoQualificationTests(unittest.TestCase):
         self.assertNotIn(str(canonical), {command[0] for command in calls})
 
     def test_startup_measurement_runs_only_the_assigned_command(self) -> None:
-        control = self.root / "control" / "fx"
-        candidate = self.root / "candidate" / "fx"
+        control = self.root / "control" / "y2"
+        candidate = self.root / "candidate" / "y2"
         hyperfine = self.root / "tools" / "hyperfine"
         for path in (control, candidate, hyperfine):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -282,8 +282,8 @@ class PgsoQualificationTests(unittest.TestCase):
         self.assertEqual(100, sum(command[0] == str(hyperfine) for command in calls))
 
     def test_startup_measurement_uses_one_thousand_samples_in_balanced_blocks(self) -> None:
-        control = self.root / "control" / "fx"
-        candidate = self.root / "candidate" / "fx"
+        control = self.root / "control" / "y2"
+        candidate = self.root / "candidate" / "y2"
         hyperfine = self.root / "tools" / "hyperfine"
         for path in (control, candidate, hyperfine):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -333,8 +333,8 @@ class PgsoQualificationTests(unittest.TestCase):
         self.assertTrue(all(len(result.candidate_samples) == 1_000 for result in results))
 
     def test_startup_measurement_caps_large_campaign_blocks_at_ten_runs(self) -> None:
-        control = self.root / "control" / "fx"
-        candidate = self.root / "candidate" / "fx"
+        control = self.root / "control" / "y2"
+        candidate = self.root / "candidate" / "y2"
         hyperfine = self.root / "tools" / "hyperfine"
         for path in (control, candidate, hyperfine):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -383,8 +383,8 @@ class PgsoQualificationTests(unittest.TestCase):
         self.assertEqual((1_000,), tuple(len(result.candidate_samples) for result in results))
 
     def test_startup_measurement_disables_external_keychain_reads(self) -> None:
-        control = self.root / "control" / "fx"
-        candidate = self.root / "candidate" / "fx"
+        control = self.root / "control" / "y2"
+        candidate = self.root / "candidate" / "y2"
         hyperfine = self.root / "tools" / "hyperfine"
         for path in (control, candidate, hyperfine):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -405,13 +405,13 @@ class PgsoQualificationTests(unittest.TestCase):
             mock.patch.dict(
                 os.environ,
                 {
-                    "FX_DISABLE_KEYCHAIN": "0",
+                    "Y2_DISABLE_KEYCHAIN": "0",
                     "Y2_API_KEY": "must-not-leak",
                     "OPENAI_API_KEY": "must-not-leak",
                     "OPENAI_BASE_URL": "https://must-not-leak.invalid/v1",
-                    "FX_API_CHAT_URL": "https://must-not-leak.invalid/chat/completions",
-                    "FX_MODEL": "must-not-leak",
-                    "FX_E2E_REAL_API": "1",
+                    "Y2_API_CHAT_URL": "https://must-not-leak.invalid/chat/completions",
+                    "Y2_MODEL": "must-not-leak",
+                    "Y2_E2E_REAL_API": "1",
                 },
             ),
             mock.patch("scripts.pgso.qualify.run_checked", side_effect=fake_run),
@@ -428,15 +428,15 @@ class PgsoQualificationTests(unittest.TestCase):
 
         self.assertTrue(environments)
         self.assertTrue(
-            all(environment["FX_DISABLE_KEYCHAIN"] == "1" for environment in environments)
+            all(environment["Y2_DISABLE_KEYCHAIN"] == "1" for environment in environments)
         )
         self.assertTrue(
             all("Y2_API_KEY" not in environment for environment in environments)
         )
-        for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "FX_API_CHAT_URL", "FX_MODEL"):
+        for key in ("OPENAI_API_KEY", "OPENAI_BASE_URL", "Y2_API_CHAT_URL", "Y2_MODEL"):
             self.assertTrue(all(key not in environment for environment in environments))
         self.assertTrue(
-            all("FX_E2E_REAL_API" not in environment for environment in environments)
+            all("Y2_E2E_REAL_API" not in environment for environment in environments)
         )
 
     def test_startup_measurement_rejects_a_truncated_hyperfine_round(self) -> None:
@@ -482,8 +482,8 @@ class PgsoQualificationTests(unittest.TestCase):
             _read_hyperfine_samples(path, expected_samples=50)
 
     def test_startup_measurement_preserves_hyperfine_diagnostics(self) -> None:
-        control = self.root / "control" / "fx"
-        candidate = self.root / "candidate" / "fx"
+        control = self.root / "control" / "y2"
+        candidate = self.root / "candidate" / "y2"
         hyperfine = self.root / "tools" / "hyperfine"
         for path in (control, candidate, hyperfine):
             path.parent.mkdir(parents=True, exist_ok=True)
@@ -626,7 +626,7 @@ class PgsoQualificationTests(unittest.TestCase):
             output_text.write_text("supplement\n")
             return ProfileSupplement(
                 text="supplement\n",
-                function_names=("fx;core.output.diff.compute",),
+                function_names=("y2;core.output.diff.compute",),
                 total_counter_value=8,
             )
 

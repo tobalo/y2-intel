@@ -2,10 +2,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxAgent, supportsJspi } from "../node.js";
+import { createY2Agent, supportsJspi } from "../node.js";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const defaultWasm = resolve(scriptDir, "../../zig-out/bin/fx-core.wasm");
+const defaultWasm = resolve(scriptDir, "../../zig-out/bin/y2-core.wasm");
 const wasmPath = resolve(process.argv[2] || defaultWasm);
 
 if (!supportsJspi()) {
@@ -13,7 +13,7 @@ if (!supportsJspi()) {
   process.exit(2);
 }
 
-const trace = process.env.FX_WASM_TRACE === "1";
+const trace = process.env.Y2_WASM_TRACE === "1";
 const checkpoint = (message) => { if (trace) console.error(`[core-smoke] ${message}`); };
 
 const encoded = new TextEncoder();
@@ -78,7 +78,7 @@ const sessionStore = {
     const current = sessionRecords.get(id);
     if (current?.revision !== expectedRevision) {
       const error = new Error("session revision conflict");
-      error.code = "FX_SESSION_REVISION_CONFLICT";
+      error.code = "Y2_SESSION_REVISION_CONFLICT";
       throw error;
     }
     const revision = String(sessionRevision++);
@@ -99,9 +99,9 @@ const sessionStore = {
 const events = [];
 let initializeTimeout;
 const agent = await Promise.race([
-  createFxAgent({ backend: "wasm", wasm: await readFile(wasmPath), fetch: mockFetch, env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "sdk-test-key" }, configStore, sessionStore, onEvent(event) { events.push(event); }, traceWasi: trace }),
+  createY2Agent({ backend: "wasm", wasm: await readFile(wasmPath), fetch: mockFetch, env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "sdk-test-key" }, configStore, sessionStore, onEvent(event) { events.push(event); }, traceWasi: trace }),
   new Promise((_, reject) => {
-    initializeTimeout = setTimeout(() => reject(new Error("timed out waiting for fx-core initialize")), 5000);
+    initializeTimeout = setTimeout(() => reject(new Error("timed out waiting for y2-core initialize")), 5000);
   }),
 ]).finally(() => clearTimeout(initializeTimeout));
 

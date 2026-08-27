@@ -64,14 +64,14 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
   test(
     "submitted status text queues behind an active response",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-text-queues-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-text-queues-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
       const tracePath = join(root, "trace.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      writeFileSync(join(home, ".fx", "settings.json"), "{}");
+      writeFileSync(join(home, ".y2", "settings.json"), "{}");
 
       const held: HoldState = {
         started: false,
@@ -92,14 +92,14 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-text-queues-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-          FX_MODEL: FAKE_GATEWAY_MODEL,
-          FX_TRACE_SCOPES: TRACE_SCOPES,
-          FX_TRACE_LOG: tracePath,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_MODEL: FAKE_GATEWAY_MODEL,
+          Y2_TRACE_SCOPES: TRACE_SCOPES,
+          Y2_TRACE_LOG: tracePath,
         },
       });
       await session.waitForComposer(TIMEOUT);
@@ -141,7 +141,7 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
       expect(session.isAlive()).toBe(true);
       expect(session.isPaneAlive()).toBe(true);
 
-      const sessionRoot = join(home, ".fx", "sessions");
+      const sessionRoot = join(home, ".y2", "sessions");
       const eventsPath = readdirSync(sessionRoot, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => join(sessionRoot, entry.name, "events.jsonl"))
@@ -157,14 +157,14 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
   test(
     "partial output survives cancellation and the next prompt completes",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-interrupt-recovery-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-interrupt-recovery-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
       const tracePath = join(root, "trace.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
-      const settingsPath = join(home, ".fx", "settings.json");
+      const settingsPath = join(home, ".y2", "settings.json");
       writeFileSync(
         settingsPath,
         JSON.stringify({ model: FAKE_GATEWAY_MODEL }) + "\n",
@@ -193,14 +193,14 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "fake-interrupt-recovery-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-          FX_TRACE_SCOPES: TRACE_SCOPES,
-          FX_TRACE_LOG: tracePath,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_TRACE_SCOPES: TRACE_SCOPES,
+          Y2_TRACE_LOG: tracePath,
         },
       });
       await session.waitForComposer(TIMEOUT);
@@ -275,7 +275,7 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
       expect(readFileSync(stderrPath, "utf8")).toBe("");
       expect(finalScrollback).not.toContain("HTTP 400");
 
-      const sessionRoot = join(home, ".fx", "sessions");
+      const sessionRoot = join(home, ".y2", "sessions");
       const sessionIds = readdirSync(sessionRoot, { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => entry.name)
@@ -302,14 +302,14 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
   test(
     "workspace mutation waits for cancelled worker unwind",
     async () => {
-      root = realpathSync(mkdtempSync(join(tmpdir(), "fx-workspace-cancel-unwind-")));
+      root = realpathSync(mkdtempSync(join(tmpdir(), "y2-workspace-cancel-unwind-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const observed = join(root, "observed");
       const shared = join(root, "shared");
       const stderrPath = join(root, "stderr.log");
       const tracePath = join(root, "trace.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(workspace, { recursive: true });
       mkdirSync(observed, { recursive: true });
       mkdirSync(shared, { recursive: true });
@@ -317,7 +317,7 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
       const observedRoot = realpathSync(observed);
       const sharedRoot = realpathSync(shared);
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           sandbox: "none",
           permission_mode: "auto",
@@ -354,14 +354,14 @@ while :; do sleep 1; done
         env: {
           HOME: home,
           Y2_API_KEY: "fake-workspace-cancel-unwind-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-          FX_MODEL: FAKE_GATEWAY_MODEL,
-          FX_TRACE_SCOPES: `${TRACE_SCOPES},core`,
-          FX_TRACE_LOG: tracePath,
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_MODEL: FAKE_GATEWAY_MODEL,
+          Y2_TRACE_SCOPES: `${TRACE_SCOPES},core`,
+          Y2_TRACE_LOG: tracePath,
         },
       });
       await session.waitForComposer(TIMEOUT);
@@ -398,7 +398,7 @@ while :; do sleep 1; done
         TIMEOUT,
       );
       const beforeRetry = JSON.parse(
-        readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+        readFileSync(join(home, ".y2", "settings.json"), "utf8"),
       );
       expect(beforeRetry.workspaces[workspaceRoot].additional_directories).toEqual([
         observedRoot,
@@ -406,7 +406,7 @@ while :; do sleep 1; done
 
       await waitForTrace(tracePath, "finish processing queued=0", TIMEOUT);
       await session.waitForText(
-        "Cancelled ./hold-workspace-cancel.sh · What can fx do differently?",
+        "Cancelled ./hold-workspace-cancel.sh · What can y2 do differently?",
         TIMEOUT,
       );
       await session.sendText("/workspace list");
@@ -417,7 +417,7 @@ while :; do sleep 1; done
       await session.sendText(command);
       await session.waitForText("runtime_changed=true", TIMEOUT);
 
-      const stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+      const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
       expect(stored.workspaces[workspaceRoot].additional_directories).toEqual([
         observedRoot,
         sharedRoot,

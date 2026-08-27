@@ -1994,9 +1994,9 @@ test "session_commands handleSettings shows startup scrollback status" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", "{\"startup_scrollback\":false}");
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", "{\"startup_scrollback\":false}");
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
     defer std.testing.allocator.free(home_root);
     const workspace_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "workspace");
@@ -2067,7 +2067,7 @@ test "session_commands startup scrollback ignores project profile-only shadowing
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     try writeFixtureFile(
         tmp.dir,
-        "workspace/.fx.json",
+        "workspace/.y2.json",
         "{\"startup_scrollback\":true}\n",
     );
     const home_root = try io_mod.dirRealpathAlloc(
@@ -2470,7 +2470,7 @@ test "session_commands allowlist view reports unsafe settings without returning 
     try tmp.dir.createDirPath(io_mod.getIo(), "home");
     try tmp.dir.createDirPath(io_mod.getIo(), "outside");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
-    tmp.dir.symLink(io_mod.getIo(), "../outside", "home/.fx", .{
+    tmp.dir.symLink(io_mod.getIo(), "../outside", "home/.y2", .{
         .is_directory = true,
     }) catch |err| switch (err) {
         error.AccessDenied => return error.SkipZigTest,
@@ -2601,7 +2601,7 @@ test "session_commands handleAllowlist reports usage for invalid input" {
 
 test "session_commands allowlist recognizes whole-tool web_search grant" {
     const builtin_tools = @import("../../builtins/tools.zig");
-    const tool_registry = tool_dispatch.Registry{ .tools = &.{builtin_tools.web_search} };
+    const tool_registry = tool_dispatch.Registry{ .tools = &.{builtin_tools.test_web_search} };
     const target = parseAllowlistTarget(tool_registry, "tool web_search") orelse return error.TestExpectedEqual;
 
     try std.testing.expectEqual(AllowlistKind.tool, target.kind);
@@ -2862,7 +2862,7 @@ test "session_commands user save notice uses one post-commit load after legacy c
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
     defer std.testing.allocator.free(home_root);
@@ -2874,8 +2874,8 @@ test "session_commands user save notice uses one post-commit load after legacy c
         .{workspace_root},
     );
     defer std.testing.allocator.free(fixture);
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", fixture);
-    try writeFixtureFile(tmp.dir, "workspace/.fx.json", "{\"model\":\"project/model\"}\n");
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", fixture);
+    try writeFixtureFile(tmp.dir, "workspace/.y2.json", "{\"model\":\"project/model\"}\n");
 
     const home = try SessionCommandTestHome.install(std.testing.allocator, home_root);
     defer home.deinit();
@@ -2896,7 +2896,7 @@ test "session_commands durable user save survives post-commit resolver failure" 
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
     defer std.testing.allocator.free(home_root);
@@ -2908,7 +2908,7 @@ test "session_commands durable user save survives post-commit resolver failure" 
         .{workspace_root},
     );
     defer std.testing.allocator.free(fixture);
-    try writeFixtureFile(tmp.dir, "home/.fx/settings.json", fixture);
+    try writeFixtureFile(tmp.dir, "home/.y2/settings.json", fixture);
 
     const home = try SessionCommandTestHome.install(std.testing.allocator, home_root);
     defer home.deinit();
@@ -2937,7 +2937,7 @@ test "session_commands durable user save survives post-commit resolver diagnosti
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
     defer std.testing.allocator.free(home_root);
@@ -2980,7 +2980,7 @@ test "session_commands allowlist durable save survives post-commit resolver diag
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     const home_root = try io_mod.dirRealpathAlloc(std.testing.allocator, tmp.dir, "home");
     defer std.testing.allocator.free(home_root);

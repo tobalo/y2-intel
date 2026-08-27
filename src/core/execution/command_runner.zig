@@ -46,8 +46,8 @@ pub const CallbackProjection = enum {
     raw,
 };
 
-const command_artifact_file_prefix = "fx-command-";
-const command_artifact_fallback_dir_name = "fx-command-output";
+const command_artifact_file_prefix = "y2-command-";
+const command_artifact_fallback_dir_name = "y2-command-output";
 const command_artifact_log_suffix = ".log";
 const command_artifact_stdout_suffix = ".stdout.log";
 const command_artifact_stderr_suffix = ".stderr.log";
@@ -57,7 +57,7 @@ const supports_foreground_session = builtin.link_libc and
     std.process.can_replace and
     builtin.os.tag != .windows and
     builtin.os.tag != .wasi;
-const foreground_session_token = "__fx_foreground_session__";
+const foreground_session_token = "__y2_foreground_session__";
 const foreground_session_ready_byte: u8 = 0x1e;
 const foreground_session_release_byte: u8 = 0x06;
 const foreground_session_setup_timeout_ms: i64 = 5000;
@@ -66,7 +66,7 @@ const foreground_target_cleanup_wait_ms: i64 = 250;
 const foreground_session_replace_failure_exit_code: u8 = 125;
 const foreground_session_failure_nonce_bytes: usize = 16;
 const foreground_session_failure_nonce_hex_bytes: usize = foreground_session_failure_nonce_bytes * 2;
-const foreground_session_replace_failure_prefix = "\x00FX_FOREGROUND_EXEC_FAILED:";
+const foreground_session_replace_failure_prefix = "\x00Y2_FOREGROUND_EXEC_FAILED:";
 const foreground_session_replace_failure_marker_bytes =
     foreground_session_replace_failure_prefix.len +
     foreground_session_failure_nonce_hex_bytes + 1;
@@ -1010,7 +1010,7 @@ fn executeProcessWithDetachedSession(
 
 fn foregroundSessionExecutable(scratch: Allocator) ![]const u8 {
     if (comptime builtin.is_test) {
-        const path_z = std.c.getenv("FX_TEST_PRODUCT_EXE") orelse
+        const path_z = std.c.getenv("Y2_TEST_PRODUCT_EXE") orelse
             return error.TestProductExecutableMissing;
         return std.mem.sliceTo(path_z, 0);
     }
@@ -2360,7 +2360,7 @@ test "target replacement marker prefix remains ordinary stderr" {
     const stderr_text = foreground_session_replace_failure_prefix ++ "target-data\n";
     const result = try executeCommand(.{
         .max_command_output_bytes = 4096,
-    }, std.testing.allocator, "printf '\\000FX_FOREGROUND_EXEC_FAILED:target-data\\n' >&2; exit 125", "/tmp");
+    }, std.testing.allocator, "printf '\\000Y2_FOREGROUND_EXEC_FAILED:target-data\\n' >&2; exit 125", "/tmp");
     defer std.testing.allocator.free(result.output);
 
     const foreground = result.command_result.?.foreground;
@@ -2490,7 +2490,7 @@ test "detached session preserves replacement failure with a zero output budget" 
 
     var scratch_state = std.heap.ArenaAllocator.init(std.testing.allocator);
     defer scratch_state.deinit();
-    const argv = [_][]const u8{"/definitely/missing/fx-command-target"};
+    const argv = [_][]const u8{"/definitely/missing/y2-command-target"};
 
     try std.testing.expectError(
         error.FileNotFound,

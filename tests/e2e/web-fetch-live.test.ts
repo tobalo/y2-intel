@@ -12,13 +12,13 @@ import {
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFx } from "../evals/eval-helpers";
+import { runY2 } from "../evals/eval-helpers";
 
 const TIMEOUT = 60_000;
 const OUTER_MODEL = "anthropic/claude-sonnet-4.6";
 const LIVE_URL = "https://example.com/";
-const LIVE_ROBOTS_URL = "https://vercel.com/robots.txt";
-const LIVE_MODELS_URL = "https://ai-gateway.vercel.sh/coding-agent/v1/models";
+const LIVE_ROBOTS_URL = "https://identity.example/robots.txt";
+const LIVE_MODELS_URL = "https://retired-gateway.invalid/coding-agent/v1/models";
 const LIVE_BINARY_URL =
   "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
 
@@ -113,13 +113,13 @@ async function startFakeGateway(responses: Response[]) {
 }
 
 function createIsolatedRoot(domains = ["example.com"]) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-web-fetch-live-")));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-web-fetch-live-")));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({
       model: OUTER_MODEL,
       permission: {
@@ -137,20 +137,20 @@ function fakeGatewayEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-live-web-fetch-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_AUTO_UPGRADE: "0",
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: OUTER_MODEL,
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_AUTO_UPGRADE: "0",
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: OUTER_MODEL,
   };
 }
 
-describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public URL", () => {
+describe.skipIf(process.env.Y2_WEB_FETCH_LIVE !== "1")("live web_fetch public URL", () => {
   // These mutable endpoints are operational probes, not deterministic HTTP
   // framing proof. The transport/framing contract is covered by Zig fixtures.
   for (const probe of [
-    { url: LIVE_ROBOTS_URL, domain: "vercel.com", label: "robots" },
-    { url: LIVE_MODELS_URL, domain: "ai-gateway.vercel.sh", label: "models" },
+    { url: LIVE_ROBOTS_URL, domain: "identity.example", label: "robots" },
+    { url: LIVE_MODELS_URL, domain: "retired-gateway.invalid", label: "models" },
   ] as const) {
     test(
       `${probe.label} endpoint returns non-empty content through the fresh binary`,
@@ -162,14 +162,14 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
           outerText(`Final: ${probe.label} endpoint fetched successfully.`),
         ]);
         try {
-          const result = await runFx(
+          const result = await runY2(
             ["ask", "--auto", "--json", "--no-save", `Fetch ${probe.url} exactly once.`],
             {
               cwd: root.workspace,
               env: {
                 ...fakeGatewayEnv(root, gateway),
-                FX_TRACE_LOG: traceLog,
-                FX_TRACE_SCOPES: "tool",
+                Y2_TRACE_LOG: traceLog,
+                Y2_TRACE_SCOPES: "tool",
               },
               timeoutMs: TIMEOUT,
             },
@@ -177,7 +177,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
 
           if (result.code !== 0) {
             throw new Error(
-              `fx exited ${result.code}\nstdout: ${result.stdout.slice(-4000)}\nstderr: ${result.stderr.slice(-4000)}`,
+              `y2 exited ${result.code}\nstdout: ${result.stdout.slice(-4000)}\nstderr: ${result.stderr.slice(-4000)}`,
             );
           }
           const json = JSON.parse(result.stdout.trim()) as {
@@ -237,7 +237,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
         outerText("Final: Example Domain was fetched and cached."),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "--json", "--no-save", "Fetch and then refetch https://example.com/."],
           {
             cwd: root.workspace,
@@ -248,7 +248,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
 
         if (result.code !== 0) {
           throw new Error(
-            `fx exited ${result.code}\nstdout: ${result.stdout.slice(-4000)}\nstderr: ${result.stderr.slice(-4000)}`,
+            `y2 exited ${result.code}\nstdout: ${result.stdout.slice(-4000)}\nstderr: ${result.stderr.slice(-4000)}`,
           );
         }
         const json = JSON.parse(result.stdout.trim()) as {
@@ -303,7 +303,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
         outerText("Final: PDF artifact metadata was recorded."),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "--json", "Fetch the public PDF artifact."],
           {
             cwd: root.workspace,
@@ -314,7 +314,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
 
         if (result.code !== 0) {
           throw new Error(
-            `fx exited ${result.code}\nstdout: ${result.stdout.slice(-4000)}\nstderr: ${result.stderr.slice(-4000)}`,
+            `y2 exited ${result.code}\nstdout: ${result.stdout.slice(-4000)}\nstderr: ${result.stderr.slice(-4000)}`,
           );
         }
         const json = JSON.parse(result.stdout.trim()) as {
@@ -340,7 +340,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
         expect(fetch?.web_fetch?.cache_hit).toBe(false);
         expect(fetch?.web_fetch?.artifact).toBe("stored");
 
-        const sessionDir = join(root.home, ".fx", "sessions", json.session_id);
+        const sessionDir = join(root.home, ".y2", "sessions", json.session_id);
         const artifactDir = join(sessionDir, "artifacts", "web-fetch");
         expect(existsSync(artifactDir)).toBe(true);
         const files = readdirSync(artifactDir).filter((name) => name.startsWith("artifact-"));
@@ -359,7 +359,7 @@ describe.skipIf(process.env.FX_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
         expect(sessionEvents).not.toContain("%PDF-");
         expect(sessionEvents).not.toContain(artifactBase64Prefix);
         expect(sessionEvents).not.toContain("Store the file and summarize safe metadata only.");
-        const detail = await runFx(["session", "--id", json.session_id, "--json"], {
+        const detail = await runY2(["session", "--id", json.session_id, "--json"], {
           cwd: root.workspace,
           env: fakeGatewayEnv(root, gateway),
           timeoutMs: TIMEOUT,

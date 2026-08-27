@@ -1117,7 +1117,7 @@ fn commandArtifactHandle(
         else => return null,
     };
     const handle = std.fs.path.basename(output_file);
-    if (!std.mem.startsWith(u8, handle, "fx-command-") or
+    if (!std.mem.startsWith(u8, handle, "y2-command-") or
         !std.mem.endsWith(u8, handle, ".log") or
         std.mem.endsWith(u8, handle, ".stdout.log") or
         std.mem.endsWith(u8, handle, ".stderr.log")) return null;
@@ -1376,7 +1376,7 @@ test "provisional lifecycle preflight distinguishes unknown eligible and ineligi
 
 test "stream start execution certainty follows provider ownership" {
     const provider_registry = tool_dispatch.Registry{
-        .tools = &.{test_builtin_tools.web_search},
+        .tools = &.{test_builtin_tools.test_web_search},
     };
 
     try std.testing.expect(!streamStartMayHaveExecutedAtProvider(
@@ -2092,7 +2092,7 @@ test "command completion publishes its combined artifact handle" {
         .{
             .model_output = "truncated command preview",
             .command_result_json =
-            \\{"kind":"foreground","output_file":"/tmp/fx-command-combined.log"}
+            \\{"kind":"foreground","output_file":"/tmp/y2-command-combined.log"}
             ,
         },
         "truncated command preview",
@@ -2101,7 +2101,7 @@ test "command completion publishes its combined artifact handle" {
             .stored_output_bytes = 128_000,
             .truncated = true,
             .command_output_replay = .{ .available = .{
-                .handle = "fx-command-replay-terminal.bin",
+                .handle = "y2-command-replay-terminal.bin",
                 .framed_bytes = 123,
             } },
         },
@@ -2117,7 +2117,7 @@ test "command completion publishes its combined artifact handle" {
                 terminal.result.?,
             );
             try std.testing.expectEqualStrings(
-                "fx-command-combined.log",
+                "y2-command-combined.log",
                 terminal.command_artifact_handle.?,
             );
             const replay = terminal.result_memory.?.command_output_replay.?;
@@ -2126,7 +2126,7 @@ test "command completion publishes its combined artifact handle" {
                 .unavailable => return error.TestExpectedReplay,
             };
             try std.testing.expectEqualStrings(
-                "fx-command-replay-terminal.bin",
+                "y2-command-replay-terminal.bin",
                 descriptor.handle,
             );
             try std.testing.expectEqual(@as(usize, 123), descriptor.framed_bytes);

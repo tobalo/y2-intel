@@ -9,7 +9,7 @@ const max_response_bytes: usize = 64 * 1024;
 pub const max_session_bytes: usize = 64 * 1024;
 pub const max_revision_bytes: usize = 1024;
 
-extern "fx" fn fx_http_request(
+extern "y2" fn y2_http_request(
     method_ptr: [*]const u8,
     method_len: usize,
     url_ptr: [*]const u8,
@@ -23,7 +23,7 @@ extern "fx" fn fx_http_request(
     response_cap: usize,
 ) i32;
 
-extern "fx" fn fx_oauth_session_load(
+extern "y2" fn y2_oauth_session_load(
     bytes_ptr: [*]u8,
     bytes_cap: usize,
     revision_ptr: [*]u8,
@@ -31,7 +31,7 @@ extern "fx" fn fx_oauth_session_load(
     revision_len_out: *usize,
 ) i32;
 
-extern "fx" fn fx_oauth_session_commit(
+extern "y2" fn y2_oauth_session_commit(
     bytes_ptr: [*]const u8,
     bytes_len: usize,
     expected_revision_ptr: [*]const u8,
@@ -41,7 +41,7 @@ extern "fx" fn fx_oauth_session_commit(
     revision_len_out: *usize,
 ) i32;
 
-extern "fx" fn fx_oauth_session_remove(
+extern "y2" fn y2_oauth_session_remove(
     expected_revision_ptr: [*]const u8,
     expected_revision_len: usize,
 ) i32;
@@ -117,7 +117,7 @@ fn executeRequest(
     const response_buffer = try alloc.alloc(u8, max_response_bytes);
     defer secret.zeroAndFree(alloc, response_buffer);
     var status: u16 = 0;
-    const response_len = fx_http_request(
+    const response_len = y2_http_request(
         method.ptr,
         method.len,
         url.ptr,
@@ -218,7 +218,7 @@ fn loadSession(_: ?*anyopaque, alloc: Allocator) !?StoredSession {
     const revision_buffer = try alloc.alloc(u8, max_revision_bytes);
     defer alloc.free(revision_buffer);
     var revision_len: usize = 0;
-    const session_len = fx_oauth_session_load(
+    const session_len = y2_oauth_session_load(
         session_buffer.ptr,
         session_buffer.len,
         revision_buffer.ptr,
@@ -252,7 +252,7 @@ fn commitSession(
     defer alloc.free(revision_buffer);
     var revision_len: usize = 0;
     const expected = expected_revision orelse "";
-    const status = fx_oauth_session_commit(
+    const status = y2_oauth_session_commit(
         bytes.ptr,
         bytes.len,
         expected.ptr,
@@ -270,7 +270,7 @@ fn commitSession(
 
 fn removeSession(_: ?*anyopaque, expected_revision: ?[]const u8) !RemoveOutcome {
     const expected = expected_revision orelse "";
-    return switch (fx_oauth_session_remove(expected.ptr, expected.len)) {
+    return switch (y2_oauth_session_remove(expected.ptr, expected.len)) {
         0 => .deleted,
         1 => .missing,
         -2 => error.OAuthSessionRevisionConflict,
@@ -282,7 +282,7 @@ test "request bounds reject cancellation before touching the JS host" {
     var cancelled = std.atomic.Value(bool).init(true);
     try std.testing.expectError(error.Cancelled, checkRequestBounds(.{
         .method = .get,
-        .url = "https://vercel.test",
+        .url = "https://identity.example",
         .cancel_flag = &cancelled,
     }));
 }

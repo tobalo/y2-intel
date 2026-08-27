@@ -3,7 +3,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN } from "../evals/eval-helpers";
+import { Y2_BIN } from "../evals/eval-helpers";
 import { readTapeFrames, stdoutFrames } from "./render-lab/tape";
 import {
   assertPaneContains,
@@ -15,12 +15,12 @@ const SKIP = !tmuxAvailable();
 const TIMEOUT = 45_000;
 const TRACE_SCOPES =
   "paint,render,scroll,footer.clean,input,resize,frame_layout,frame_plan,frame_diff,frame_commit,frame_owner_violation";
-const TRANSIENT_ACTIVITY_CAPTURE_TARBALL = "/private/tmp/fx-render-bug-20260510-073148.tar.gz";
-const TRANSIENT_ACTIVITY_CAPTURE_DIR = "/private/tmp/fx-render-bug-20260510-073148";
+const TRANSIENT_ACTIVITY_CAPTURE_TARBALL = "/private/tmp/y2-render-bug-20260510-073148.tar.gz";
+const TRANSIENT_ACTIVITY_CAPTURE_DIR = "/private/tmp/y2-render-bug-20260510-073148";
 const READ_ONLY_TOOLS_CAPTURE_TARBALL = join(
   import.meta.dirname,
   "fixtures",
-  "fx-render-bug-20260510-075848.tar.gz",
+  "y2-render-bug-20260510-075848.tar.gz",
 );
 
 let session: TmuxSession | null = null;
@@ -45,30 +45,30 @@ async function launch(options: {
   goldenPath: string;
   tracePath: string;
 }> {
-  const workDir = mkdtempSync(join(tmpdir(), "fx-render-replay-"));
+  const workDir = mkdtempSync(join(tmpdir(), "y2-render-replay-"));
   workDirs.push(workDir);
 
-  const tapePath = join(workDir, "render.fxtape");
+  const tapePath = join(workDir, "render.y2tape");
   const goldenPath = join(workDir, "grid.txt");
   const tracePath = join(workDir, "trace.log");
-  mkdirSync(join(workDir, ".fx"), { recursive: true });
+  mkdirSync(join(workDir, ".y2"), { recursive: true });
   writeFileSync(
-    join(workDir, ".fx", "settings.json"),
+    join(workDir, ".y2", "settings.json"),
     JSON.stringify({}),
   );
 
   const s = await TmuxSession.create({
-    cmd: `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN}`,
+    cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
     cwd: workDir,
     width: 88,
     height: 30,
     env: {
       HOME: workDir,
-      FX_RECORD: tapePath,
-      ...(options.recordInput ? { FX_RECORD_INPUT: "1" } : {}),
-      ...(options.syncUpdates ? { FX_SYNC_UPDATES: options.syncUpdates } : {}),
-      FX_TRACE_LOG: tracePath,
-      FX_TRACE_SCOPES: TRACE_SCOPES,
+      Y2_RECORD: tapePath,
+      ...(options.recordInput ? { Y2_RECORD_INPUT: "1" } : {}),
+      ...(options.syncUpdates ? { Y2_SYNC_UPDATES: options.syncUpdates } : {}),
+      Y2_TRACE_LOG: tracePath,
+      Y2_TRACE_SCOPES: TRACE_SCOPES,
     },
   });
   session = s;
@@ -91,32 +91,32 @@ async function launchAutomaticRecording(): Promise<{
   tracePath: string;
   home: string;
 }> {
-  const workDir = mkdtempSync("/tmp/fx-render-auto-replay-");
+  const workDir = mkdtempSync("/tmp/y2-render-auto-replay-");
   workDirs.push(workDir);
   const home = join(workDir, "home");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({}),
   );
 
   const goldenPath = join(workDir, "grid.txt");
   const tracePath = join(workDir, "trace.log");
   const s = await TmuxSession.create({
-    cmd: `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN} --record`,
+    cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN} --record`,
     cwd: workDir,
     width: 180,
     height: 36,
     env: {
       HOME: home,
-      FX_TRACE_LOG: tracePath,
-      FX_TRACE_SCOPES: TRACE_SCOPES,
+      Y2_TRACE_LOG: tracePath,
+      Y2_TRACE_SCOPES: TRACE_SCOPES,
     },
   });
   session = s;
   await s.waitForText("visual terminal capture:", 10_000);
   const grid = (await s.capturePaneGrid()).join("\n");
-  const tapePath = grid.match(/visual terminal capture:\s*(\S+\.fxtape)/)?.[1];
+  const tapePath = grid.match(/visual terminal capture:\s*(\S+\.y2tape)/)?.[1];
   if (!tapePath) {
     throw new Error(`recording path was not printed:\n${grid}`);
   }
@@ -124,25 +124,25 @@ async function launchAutomaticRecording(): Promise<{
 }
 
 describe("tui: render record/replay", () => {
-  test.skipIf(!existsSync(TRANSIENT_ACTIVITY_CAPTURE_TARBALL) && !existsSync(join(TRANSIENT_ACTIVITY_CAPTURE_DIR, "bug.fxtape")))(
+  test.skipIf(!existsSync(TRANSIENT_ACTIVITY_CAPTURE_TARBALL) && !existsSync(join(TRANSIENT_ACTIVITY_CAPTURE_DIR, "bug.y2tape")))(
     "replays transient activity capture without layout validation failures",
     () => {
       const failures: string[] = [];
       let captureDir = TRANSIENT_ACTIVITY_CAPTURE_DIR;
-      if (!existsSync(join(captureDir, "bug.fxtape"))) {
-        const workDir = mkdtempSync(join(tmpdir(), "fx-render-capture-"));
+      if (!existsSync(join(captureDir, "bug.y2tape"))) {
+        const workDir = mkdtempSync(join(tmpdir(), "y2-render-capture-"));
         workDirs.push(workDir);
         execFileSync("tar", ["-xzf", TRANSIENT_ACTIVITY_CAPTURE_TARBALL, "-C", workDir]);
-        captureDir = join(workDir, "fx-render-bug-20260510-073148");
+        captureDir = join(workDir, "y2-render-bug-20260510-073148");
       }
 
-      const tapePath = join(captureDir, "bug.fxtape");
-      const workDir = mkdtempSync(join(tmpdir(), "fx-render-capture-replay-"));
+      const tapePath = join(captureDir, "bug.y2tape");
+      const workDir = mkdtempSync(join(tmpdir(), "y2-render-capture-replay-"));
       workDirs.push(workDir);
       const goldenPath = join(workDir, "grid.txt");
       const tracePath = join(workDir, "trace.log");
 
-      const replayJsonOutput = execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+      const replayJsonOutput = execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
         encoding: "utf8",
       });
       const replay = parseReplayJson(replayJsonOutput);
@@ -150,11 +150,11 @@ describe("tui: render record/replay", () => {
       expect(replay.resize_count).toBe(0);
       expect(replay.stdout_bytes).toBeGreaterThan(0);
 
-      execFileSync(FX_BIN, ["replay", tapePath, "--golden", goldenPath], {
+      execFileSync(Y2_BIN, ["replay", tapePath, "--golden", goldenPath], {
         env: {
           ...process.env,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: TRACE_SCOPES,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: TRACE_SCOPES,
         },
       });
       const trace = readTrace(tracePath);
@@ -214,7 +214,7 @@ describe("tui: render record/replay", () => {
 
       const scrollback = await session.captureFullScrollback();
       expect(scrollback).toContain("why");
-      execFileSync(FX_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
+      execFileSync(Y2_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
       const grid = readFileSync(launched.goldenPath, "utf8");
       expect(grid).toContain("why");
 
@@ -245,7 +245,7 @@ describe("tui: render record/replay", () => {
 
       const scrollback = await session.captureFullScrollback();
       expect(scrollback).toContain("x");
-      execFileSync(FX_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
+      execFileSync(Y2_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
       expect(readFileSync(launched.goldenPath, "utf8")).toContain("x");
 
       await session.sendKeys("C-u");
@@ -260,17 +260,17 @@ describe("tui: render record/replay", () => {
     "replays read-only tools capture without layout validation failures",
     () => {
       const failures: string[] = [];
-      const extractDir = mkdtempSync(join(tmpdir(), "fx-render-read-only-tools-"));
+      const extractDir = mkdtempSync(join(tmpdir(), "y2-render-read-only-tools-"));
       workDirs.push(extractDir);
       execFileSync("tar", ["-xzf", READ_ONLY_TOOLS_CAPTURE_TARBALL, "-C", extractDir]);
-      const captureDir = join(extractDir, "fx-render-bug-20260510-075848");
-      const tapePath = join(captureDir, "bug.fxtape");
-      const workDir = mkdtempSync(join(tmpdir(), "fx-render-read-only-tools-replay-"));
+      const captureDir = join(extractDir, "y2-render-bug-20260510-075848");
+      const tapePath = join(captureDir, "bug.y2tape");
+      const workDir = mkdtempSync(join(tmpdir(), "y2-render-read-only-tools-replay-"));
       workDirs.push(workDir);
       const goldenPath = join(workDir, "grid.txt");
       const tracePath = join(workDir, "trace.log");
 
-      const replayJsonOutput = execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+      const replayJsonOutput = execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
         encoding: "utf8",
       });
       const replay = parseReplayJson(replayJsonOutput);
@@ -278,11 +278,11 @@ describe("tui: render record/replay", () => {
       expect(replay.resize_count).toBe(0);
       expect(replay.stdout_bytes).toBeGreaterThan(0);
 
-      execFileSync(FX_BIN, ["replay", tapePath, "--golden", goldenPath], {
+      execFileSync(Y2_BIN, ["replay", tapePath, "--golden", goldenPath], {
         env: {
           ...process.env,
-          FX_TRACE_LOG: tracePath,
-          FX_TRACE_SCOPES: TRACE_SCOPES,
+          Y2_TRACE_LOG: tracePath,
+          Y2_TRACE_SCOPES: TRACE_SCOPES,
         },
       });
       const trace = readTrace(tracePath);
@@ -308,14 +308,14 @@ describe("tui: render record/replay", () => {
         { length: 33 },
         (_, index) => `captured input line ${index + 1}: ${"x".repeat(32)}`,
       ).join("\n");
-      const authNotice = "● Auth: Fx needs access to Vercel AI Gateway. Run /login to sign in, /setup to use an API key, or set Y2_API_KEY.";
+      const authNotice = "● Auth: Y2 needs access to Retired credential retired gateway. Run /login to sign in, /setup to use an API key, or set Y2_API_KEY.";
       const launched = await launch({ recordInput: true });
       session = launched.session;
 
       await session.pasteText(pasted);
       await session.waitForText("[Pasted text #1, 33 lines]", 5_000);
       await session.sendKeys("Enter");
-      await session.waitForText("● Auth: Fx needs access", 5_000);
+      await session.waitForText("● Auth: Y2 needs access", 5_000);
       expect((await session.captureFullScrollback()).replace(/\s+/g, " ")).toContain(authNotice);
 
       const stdin = readTapeFrames(launched.tapePath)
@@ -327,7 +327,7 @@ describe("tui: render record/replay", () => {
       expect(pasteEnd).toBeGreaterThanOrEqual(recordedPaste.length);
       expect(stdin.slice(pasteEnd)).toMatch(/^(?:\x1b\[\?[\d;]*c)*\r/);
 
-      execFileSync(FX_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
+      execFileSync(Y2_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
       expect(
         readFileSync(launched.goldenPath, "utf8").replaceAll("|", " ").replace(/\s+/g, " "),
       ).toContain(authNotice);
@@ -350,7 +350,7 @@ describe("tui: render record/replay", () => {
       session = launched.session;
 
       await session.sendText(marker);
-      await session.waitForText("Fx needs access to Vercel AI Gateway", 5_000);
+      await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
       await session.sendKeys("C-u");
       await session.sendText("/status");
       await session.waitForText("permission_mode", 5_000);
@@ -361,7 +361,7 @@ describe("tui: render record/replay", () => {
       await session.resizeWindow(88, 30);
 
       const replayJsonOutput = execFileSync(
-        FX_BIN,
+        Y2_BIN,
         ["replay", launched.tapePath, "--json"],
         { encoding: "utf8" },
       );
@@ -370,7 +370,7 @@ describe("tui: render record/replay", () => {
       if (replay.stdout_bytes <= 0) failures.push("replay reported no stdout bytes");
       if (replay.resize_count < 3) failures.push("replay reported too few resize frames");
 
-      execFileSync(FX_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
+      execFileSync(Y2_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
       const gridText = readFileSync(launched.goldenPath, "utf8");
       const grid = gridText.replace(/\n$/, "").split("\n");
       assertPaneContains(gridText, inputTail, failures, "replay grid");
@@ -401,22 +401,22 @@ describe("tui: render record/replay", () => {
       const launched = await launchAutomaticRecording();
       session = launched.session;
 
-      expect(launched.tapePath.startsWith(join(launched.home, ".fx", "recordings"))).toBe(true);
+      expect(launched.tapePath.startsWith(join(launched.home, ".y2", "recordings"))).toBe(true);
       await session.sendText(marker);
-      await session.waitForText("Fx needs access to Vercel AI Gateway", 5_000);
+      await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
       await session.sendKeys(`-l '${inputTail}'`);
       await session.waitForText(inputTail, 5_000);
       await session.resizeWindow(120, 28);
 
       const replayJsonOutput = execFileSync(
-        FX_BIN,
+        Y2_BIN,
         ["replay", launched.tapePath, "--json"],
         { encoding: "utf8" },
       );
       const replay = parseReplayJson(replayJsonOutput);
       if (replay.resize_count < 1) failures.push("replay reported no resize frame");
 
-      execFileSync(FX_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
+      execFileSync(Y2_BIN, ["replay", launched.tapePath, "--golden", launched.goldenPath]);
       const gridText = readFileSync(launched.goldenPath, "utf8");
       assertPaneContains(gridText, inputTail, failures, "automatic recording replay grid");
 
@@ -437,7 +437,7 @@ describe("tui: render record/replay", () => {
       const forbiddenPrompt = "trace_secret_prompt_token_6179";
       const forbiddenTokens = [
         forbiddenPrompt,
-        "Fx needs access to Vercel AI Gateway",
+        "Y2 needs access to Retired credential retired gateway",
         "footer row preview secret",
         "shimmer label secret",
         "command output secret",
@@ -448,7 +448,7 @@ describe("tui: render record/replay", () => {
       session = launched.session;
 
       await session.sendText(forbiddenPrompt);
-      await session.waitForText("Fx needs access to Vercel AI Gateway", 5_000);
+      await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
       await session.resizeWindow(72, 24);
       await session.sendKeys("C-u");
       await session.sendText("/status");

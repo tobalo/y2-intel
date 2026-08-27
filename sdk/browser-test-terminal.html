@@ -1,8 +1,8 @@
 <!doctype html>
 <meta charset="utf-8">
-<title>libfx browser terminal test</title>
+<title>liby2 browser terminal test</title>
 <script type="module">
-  import { createFxTerminal, supportsJspi } from "./browser.js";
+  import { createY2Terminal, supportsJspi } from "./browser.js";
 
   const decoder = new TextDecoder();
   const liveDraft = "INPUT_DURING_STREAM";
@@ -29,7 +29,7 @@
     },
   };
 
-  const testState = window.__fxBrowserTerminalTest = { state: "starting", stage: "boot" };
+  const testState = window.__y2BrowserTerminalTest = { state: "starting", stage: "boot" };
   try {
     if (!supportsJspi()) throw new Error("JSPI unavailable");
     const encoded = new TextEncoder();
@@ -100,8 +100,8 @@
       }), { status: 200, headers: { "content-type": "text/event-stream" } });
     };
     testState.stage = "creating-runtime";
-    runtime = await createFxTerminal({
-      wasm: "../zig-out/bin/fx-term.wasm",
+    runtime = await createY2Terminal({
+      wasm: "../zig-out/bin/y2-term.wasm",
       terminal,
       env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "browser-terminal-test-key" },
       fetch: mockFetch,
@@ -166,7 +166,7 @@
     }
     runtime.write("/exit\r");
     const code = await runtime.exited;
-    window.__fxBrowserTerminalTest = {
+    window.__y2BrowserTerminalTest = {
       state: "completed",
       code,
       output,
@@ -179,6 +179,6 @@
       resizeListeners: resizeListeners.size,
     };
   } catch (error) {
-    window.__fxBrowserTerminalTest = { state: "failed", error: error?.stack || String(error), output };
+    window.__y2BrowserTerminalTest = { state: "failed", error: error?.stack || String(error), output };
   }
 </script>

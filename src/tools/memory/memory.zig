@@ -79,19 +79,19 @@ pub fn call(ctx: tool_dispatch.DispatchContext, erased: tool_dispatch.ToolInput)
         error.OutOfMemory => return error.OutOfMemory,
         error.MemoryStoreMalformed => return .{ .failure = try ctx.allocator.dupe(
             u8,
-            "memory store is malformed; ~/.fx/memories.json was not modified. Repair or remove the file, then retry",
+            "memory store is malformed; ~/.y2/memories.json was not modified. Repair or remove the file, then retry",
         ) },
         error.MemoryStoreTooLarge => return .{ .failure = try ctx.allocator.dupe(
             u8,
-            "memory store exceeds the 1 MiB limit; ~/.fx/memories.json was not modified. Reduce or remove the file, then retry",
+            "memory store exceeds the 1 MiB limit; ~/.y2/memories.json was not modified. Reduce or remove the file, then retry",
         ) },
         error.MemoryStoreUnreadable => return .{ .failure = try ctx.allocator.dupe(
             u8,
-            "memory store could not be read; ~/.fx/memories.json was not modified. Check the file type and permissions, then retry",
+            "memory store could not be read; ~/.y2/memories.json was not modified. Check the file type and permissions, then retry",
         ) },
         error.MemoryClearFailed => return .{ .failure = try ctx.allocator.dupe(
             u8,
-            "memory clear failed: saved memories were not removed; ensure ~/.fx/memories.json is a removable file and retry",
+            "memory clear failed: saved memories were not removed; ensure ~/.y2/memories.json is a removable file and retry",
         ) },
         else => return .{ .failure = try std.fmt.allocPrint(ctx.allocator, "memory failed: {s}", .{@errorName(err)}) },
     };
@@ -315,11 +315,11 @@ test "memory clear fails closed when state cannot be deleted" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/memories.json");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/memories.json");
     {
         var survivor = try tmp.dir.createFile(
             io_mod.getIo(),
-            "home/.fx/memories.json/must-survive.txt",
+            "home/.y2/memories.json/must-survive.txt",
             .{},
         );
         survivor.close(io_mod.getIo());
@@ -339,7 +339,7 @@ test "memory clear fails closed when state cannot be deleted" {
 
     var survivor = try tmp.dir.openFile(
         io_mod.getIo(),
-        "home/.fx/memories.json/must-survive.txt",
+        "home/.y2/memories.json/must-survive.txt",
         .{},
     );
     survivor.close(io_mod.getIo());
@@ -349,10 +349,10 @@ test "memory corrupt store fails closed and preserves original bytes" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     const corrupt_store = "[\"recoverable prior memory\",\n";
     try tmp.dir.writeFile(io_mod.getIo(), .{
-        .sub_path = "home/.fx/memories.json",
+        .sub_path = "home/.y2/memories.json",
         .data = corrupt_store,
     });
 
@@ -375,7 +375,7 @@ test "memory corrupt store fails closed and preserves original bytes" {
         execute(save_arena_state.allocator(), "{\"action\":\"save\",\"fact\":\"replacement\"}"),
     );
 
-    var file = try tmp.dir.openFile(io_mod.getIo(), "home/.fx/memories.json", .{});
+    var file = try tmp.dir.openFile(io_mod.getIo(), "home/.y2/memories.json", .{});
     defer file.close(io_mod.getIo());
     const after = try io_mod.readFileToEnd(alloc, &file, 4096);
     defer alloc.free(after);
@@ -386,7 +386,7 @@ test "memory loader distinguishes missing oversized and unreadable stores" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
 
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home);

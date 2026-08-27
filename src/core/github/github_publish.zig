@@ -247,7 +247,7 @@ test "publish returns success fallback for empty stdout" {
 }
 
 test "publish trims padded stdout" {
-    const stdout = try std.testing.allocator.dupe(u8, " \nhttps://github.com/vercel-labs/fx/pull/1\n ");
+    const stdout = try std.testing.allocator.dupe(u8, " \nhttps://github.com/tobalo/y2-intel/pull/1\n ");
     const stderr = try std.testing.allocator.dupe(u8, "");
 
     const result = try publishResultFromProcess(std.testing.allocator, .{
@@ -258,11 +258,11 @@ test "publish trims padded stdout" {
     defer result.deinit(std.testing.allocator);
 
     try std.testing.expect(result.ok);
-    try std.testing.expectEqualStrings("https://github.com/vercel-labs/fx/pull/1", result.text);
+    try std.testing.expectEqualStrings("https://github.com/tobalo/y2-intel/pull/1", result.text);
 }
 
 test "publish transfers already-trimmed stdout ownership" {
-    const stdout = try std.testing.allocator.dupe(u8, "https://github.com/vercel-labs/fx/issues/2");
+    const stdout = try std.testing.allocator.dupe(u8, "https://github.com/tobalo/y2-intel/issues/2");
     const stderr = try std.testing.allocator.dupe(u8, "");
 
     const result = try publishResultFromProcess(std.testing.allocator, .{
@@ -274,5 +274,5 @@ test "publish transfers already-trimmed stdout ownership" {
 
     try std.testing.expect(result.ok);
     try std.testing.expect(result.text.ptr == stdout.ptr);
-    try std.testing.expectEqualStrings("https://github.com/vercel-labs/fx/issues/2", result.text);
+    try std.testing.expectEqualStrings("https://github.com/tobalo/y2-intel/issues/2", result.text);
 }

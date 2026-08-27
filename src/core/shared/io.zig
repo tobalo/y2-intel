@@ -388,7 +388,7 @@ pub fn getenv(key: []const u8) ?[]const u8 {
 }
 
 pub fn e2eFailIfDurableMutationAttempted() void {
-    const enabled = getenv("FX_E2E_FAIL_ON_DURABLE_MUTATION") orelse return;
+    const enabled = getenv("Y2_E2E_FAIL_ON_DURABLE_MUTATION") orelse return;
     if (!std.mem.eql(u8, enabled, "1")) return;
     std.process.exit(86);
 }
@@ -990,7 +990,7 @@ test "getenv returns null before setEnvironMap" {
     global_environ = null;
     defer global_environ = previous;
 
-    try std.testing.expect(getenv("FX_IO_TEST") == null);
+    try std.testing.expect(getenv("Y2_IO_TEST") == null);
 }
 
 test "getenv returns set value after setEnvironMap" {
@@ -1000,10 +1000,10 @@ test "getenv returns set value after setEnvironMap" {
 
     var environ = std.process.Environ.Map.init(std.testing.allocator);
     defer environ.deinit();
-    try environ.put("FX_IO_TEST", "present");
+    try environ.put("Y2_IO_TEST", "present");
 
     setEnvironMap(&environ);
-    try std.testing.expectEqualStrings("present", getenv("FX_IO_TEST").?);
+    try std.testing.expectEqualStrings("present", getenv("Y2_IO_TEST").?);
     global_environ = null;
 }
 
@@ -1014,11 +1014,11 @@ test "environMap returns borrowed process environment map" {
 
     var environ = std.process.Environ.Map.init(std.testing.allocator);
     defer environ.deinit();
-    try environ.put("FX_CORE2_IO_TEST", "present");
+    try environ.put("Y2_CORE2_IO_TEST", "present");
 
     setEnvironMap(&environ);
     const borrowed = environMap().?;
-    try std.testing.expectEqualStrings("present", borrowed.get("FX_CORE2_IO_TEST").?);
+    try std.testing.expectEqualStrings("present", borrowed.get("Y2_CORE2_IO_TEST").?);
     global_environ = null;
 }
 

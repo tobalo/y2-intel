@@ -11,10 +11,10 @@ const background_process_provider = @import(
 
 const Allocator = std.mem.Allocator;
 
-pub const launcher_mode = "--fx-internal-terminal-tmux-launcher";
-pub const capture_mode = "--fx-internal-terminal-tmux-capture";
+pub const launcher_mode = "--y2-internal-terminal-tmux-launcher";
+pub const capture_mode = "--y2-internal-terminal-tmux-capture";
 
-const namespace_option = "@fx_terminal_namespace";
+const namespace_option = "@y2_terminal_namespace";
 const namespace_value = "1";
 const minimum_tmux_major: u16 = 3;
 const minimum_tmux_minor: u16 = 2;
@@ -46,7 +46,7 @@ const PeerDeadline = struct {
 
     fn init(default_ms: i64) PeerDeadline {
         const duration_ms = if (io_mod.getenv(
-            "FX_TERMINAL_TEST_TMUX_DEADLINE_MS",
+            "Y2_TERMINAL_TEST_TMUX_DEADLINE_MS",
         )) |text|
             @min(
                 std.fmt.parseInt(i64, text, 10) catch default_ms,
@@ -161,7 +161,7 @@ pub const Paths = struct {
         }
         const session_name = try std.fmt.allocPrint(
             alloc,
-            "fx-{s}",
+            "y2-{s}",
             .{backend_identity},
         );
         errdefer alloc.free(session_name);
@@ -203,13 +203,13 @@ pub const Paths = struct {
         errdefer alloc.free(command);
         const marker_socket = try std.fmt.allocPrint(
             alloc,
-            "/tmp/fx-tmux-marker-{s}.sock",
+            "/tmp/y2-tmux-marker-{s}.sock",
             .{backend_identity},
         );
         errdefer alloc.free(marker_socket);
         const capture_socket = try std.fmt.allocPrint(
             alloc,
-            "/tmp/fx-tmux-capture-{s}.sock",
+            "/tmp/y2-tmux-capture-{s}.sock",
             .{backend_identity},
         );
         errdefer alloc.free(capture_socket);
@@ -668,7 +668,7 @@ pub const Backend = struct {
     pub fn write(self: *Backend, bytes: []const u8, paste: bool) !void {
         const buffer_name = try std.fmt.allocPrint(
             self.alloc,
-            "fx-{s}",
+            "y2-{s}",
             .{self.backend_identity},
         );
         defer self.alloc.free(buffer_name);
@@ -888,7 +888,7 @@ fn cleanupOwnedNamespaceWithEvidence(
             logCleanupFailure(backend_identity, "pane", err);
             return err;
         };
-        if (io_mod.getenv("FX_TERMINAL_TEST_FAIL_TMUX_CLOSE_CLEANUP") != null) {
+        if (io_mod.getenv("Y2_TERMINAL_TEST_FAIL_TMUX_CLOSE_CLEANUP") != null) {
             return error.InjectedTmuxCloseCleanupFailure;
         }
         runTmuxNoOutput(alloc, paths.socket, &.{
@@ -1147,7 +1147,7 @@ pub fn runCapture(raw_args: []const [*:0]const u8) !void {
     {
         return error.InvalidTmuxCapture;
     }
-    const test_failure = io_mod.getenv("FX_TERMINAL_TEST_TMUX_CAPTURE_FAILURE");
+    const test_failure = io_mod.getenv("Y2_TERMINAL_TEST_TMUX_CAPTURE_FAILURE");
     if (test_failure) |failure| {
         if (std.mem.eql(u8, failure, "child-exit")) return;
         if (std.mem.eql(u8, failure, "no-peer")) {
@@ -2255,7 +2255,7 @@ fn receiveBeforeDeadline(
 }
 
 fn assignForegroundProcessGroup(fd: c_int, pgrp: std.posix.pid_t) bool {
-    if (io_mod.getenv("FX_TERMINAL_TEST_TMUX_TCSETPGRP_FAILURE") != null) {
+    if (io_mod.getenv("Y2_TERMINAL_TEST_TMUX_TCSETPGRP_FAILURE") != null) {
         return false;
     }
     return tcsetpgrp(fd, pgrp) == 0;
@@ -2323,7 +2323,7 @@ fn waitLauncherChild(child: *std.process.Child) !std.process.Child.Term {
 
 fn requestChildTermination(child_pid: std.posix.pid_t) void {
     const group_kill_succeeded =
-        io_mod.getenv("FX_TERMINAL_TEST_TMUX_GROUP_KILL_FAILURE") == null and
+        io_mod.getenv("Y2_TERMINAL_TEST_TMUX_GROUP_KILL_FAILURE") == null and
         std.c.kill(-child_pid, std.c.SIG.KILL) == 0;
     if (group_kill_succeeded) return;
 
@@ -2429,7 +2429,7 @@ test "tmux peer deadline bounds accept receive partial frames and cancellation" 
     const alloc = std.testing.allocator;
     const socket_path = try std.fmt.allocPrint(
         alloc,
-        "/tmp/fx-peer-deadline-{d}.sock",
+        "/tmp/y2-peer-deadline-{d}.sock",
         .{std.c.getpid()},
     );
     defer alloc.free(socket_path);
@@ -2690,8 +2690,8 @@ test "tmux backend identity and shell quoting remain deterministic" {
 
 test "tmux paths keep artifacts durable and place only the server socket in transport" {
     const alloc = std.testing.allocator;
-    const durable_root = "/profiles/example/.fx/terminal-host";
-    const transport_root = "/tmp/fx-terminal-501-profile";
+    const durable_root = "/profiles/example/.y2/terminal-host";
+    const transport_root = "/tmp/y2-terminal-501-profile";
     const identity = "0123456789abcdef0123456789abcdef";
     var paths = try Paths.init(
         alloc,
@@ -2702,7 +2702,7 @@ test "tmux paths keep artifacts durable and place only the server socket in tran
     defer paths.deinit(alloc);
 
     try std.testing.expectEqualStrings(
-        "/tmp/fx-terminal-501-profile/tmux.sock",
+        "/tmp/y2-terminal-501-profile/tmux.sock",
         paths.socket,
     );
     for ([_][]const u8{

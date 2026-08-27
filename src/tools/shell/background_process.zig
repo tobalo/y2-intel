@@ -64,7 +64,7 @@ fn spawnPrepared(
         "sh",
         "-lc",
         blocked_background_wrapper_command,
-        "fx-background",
+        "y2-background",
     };
     const argv: []const []const u8 = &direct_argv;
     var child = try std.process.spawn(io_mod.getIo(), .{
@@ -838,7 +838,7 @@ fn expectBlockedWrapperDoesNotExecute(
         "sh",
         "-lc",
         blocked_background_wrapper_command,
-        "fx-background",
+        "y2-background",
     };
     var child = try std.process.spawn(io_mod.getIo(), .{
         .argv = &argv,
@@ -943,7 +943,7 @@ test "blocked background wrapper executes only after valid release" {
         "sh",
         "-lc",
         blocked_background_wrapper_command,
-        "fx-background",
+        "y2-background",
     };
     var child = try std.process.spawn(io_mod.getIo(), .{
         .argv = &argv,
@@ -1121,7 +1121,7 @@ test "released background command does not inherit release pipe as stdin" {
         "sh",
         "-lc",
         blocked_background_wrapper_command,
-        "fx-background",
+        "y2-background",
     };
     var child = try std.process.spawn(io_mod.getIo(), .{
         .argv = &argv,

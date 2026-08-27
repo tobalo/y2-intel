@@ -51,7 +51,7 @@ describe.skipIf(!tmuxAvailable())("tui: skills command recovery", () => {
   test(
     "invalid /skills create name reports an inline error and preserves the session",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-invalid-skill-name-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-invalid-skill-name-"));
       const home = join(root, "home");
       const stderrPath = join(root, "stderr.log");
       mkdirSync(home);
@@ -73,10 +73,10 @@ describe.skipIf(!tmuxAvailable())("tui: skills command recovery", () => {
         );
         expect(session.isAlive()).toBe(true);
         expect(hasEmptyComposer(rejected)).toBe(true);
-        expect(existsSync(join(home, ".fx", "escape-attempt"))).toBe(false);
+        expect(existsSync(join(home, ".y2", "escape-attempt"))).toBe(false);
 
         await session.sendText("/skills path");
-        const recovered = await session.waitForText("fx managed install root:", 5_000);
+        const recovered = await session.waitForText("y2 managed install root:", 5_000);
         expect(hasEmptyComposer(recovered)).toBe(true);
         expect(readFileSync(stderrPath, "utf8")).toBe("");
       } finally {
@@ -109,7 +109,7 @@ function startFakeCreditsGateway() {
           "Bearer credits-fake-key",
       });
       return Response.json(
-        { error: { code: "credit_card_required", message: "Buy credits to use AI Gateway." } },
+        { error: { code: "credit_card_required", message: "Buy credits to use retired gateway." } },
         { status: 403 },
       );
     },
@@ -134,8 +134,8 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
           env: {
             HOME: home,
             Y2_API_KEY: "credits-fake-key",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_E2E_GATEWAY_CREDITS_URL: gateway.url,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_E2E_GATEWAY_CREDITS_URL: gateway.url,
           },
           width: 120,
           height: 40,
@@ -143,7 +143,7 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
         await session.waitForComposer(10_000);
 
         await session.sendText("/credits");
-        await session.waitForText("Buy credits to use AI Gateway.", 10_000);
+        await session.waitForText("Buy credits to use retired gateway.", 10_000);
         await session.waitForComposer(10_000);
 
         const scrollback = await session.captureFullScrollback();
@@ -154,7 +154,7 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
         }]);
         expect(scrollback).toContain("API access denied");
         expect(scrollback).toContain("HTTP 403");
-        expect(scrollback).toContain("Buy credits to use AI Gateway.");
+        expect(scrollback).toContain("Buy credits to use retired gateway.");
         expect(hasEmptyComposer(scrollback)).toBe(true);
       } finally {
         gateway.stop();
@@ -178,7 +178,7 @@ describe.skipIf(!tmuxAvailable() || CLIPBOARD_PROGRAM === null)("tui: clipboard 
     async () => {
       if (CLIPBOARD_PROGRAM === null) throw new Error("unsupported clipboard platform");
 
-      const workDir = mkdtempSync(join(tmpdir(), "fx-clipboard-host-"));
+      const workDir = mkdtempSync(join(tmpdir(), "y2-clipboard-host-"));
       const homeDir = join(workDir, "home");
       const binDir = join(workDir, "bin");
       const capturePath = join(workDir, "clipboard.txt");
@@ -186,7 +186,7 @@ describe.skipIf(!tmuxAvailable() || CLIPBOARD_PROGRAM === null)("tui: clipboard 
       const clipboardPath = join(binDir, CLIPBOARD_PROGRAM);
       mkdirSync(homeDir);
       mkdirSync(binDir);
-      writeFileSync(clipboardPath, "#!/bin/sh\ncat > \"$FX_TEST_CLIPBOARD_CAPTURE\"\n");
+      writeFileSync(clipboardPath, "#!/bin/sh\ncat > \"$Y2_TEST_CLIPBOARD_CAPTURE\"\n");
       chmodSync(clipboardPath, 0o755);
 
       const reply = "clipboard host sentinel\nsecond line";
@@ -198,12 +198,12 @@ describe.skipIf(!tmuxAvailable() || CLIPBOARD_PROGRAM === null)("tui: clipboard 
           env: {
             HOME: homeDir,
             Y2_API_KEY: "clipboard-fake-key",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_API_CHAT_URL: gateway.chatUrl,
-            FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-            FX_MODEL: FAKE_GATEWAY_MODEL,
-            FX_TEST_CLIPBOARD_CAPTURE: capturePath,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_MODEL: FAKE_GATEWAY_MODEL,
+            Y2_TEST_CLIPBOARD_CAPTURE: capturePath,
             PATH: `${binDir}:${process.env.PATH ?? ""}`,
           },
         });
@@ -238,8 +238,8 @@ describe.skipIf(!tmuxAvailable())("tui: active session transitions", () => {
   test(
     "active /clear cancels a fake Gateway turn and accepts a follow-up prompt",
     async () => {
-      const workDir = mkdtempSync(join(tmpdir(), "fx-active-clear-"));
-      const homeDir = mkdtempSync(join(tmpdir(), "fx-active-clear-home-"));
+      const workDir = mkdtempSync(join(tmpdir(), "y2-active-clear-"));
+      const homeDir = mkdtempSync(join(tmpdir(), "y2-active-clear-home-"));
       const stderrPath = join(workDir, "stderr.log");
       let requestCount = 0;
       const gateway = startDynamicFakeGateway(() => {
@@ -255,11 +255,11 @@ describe.skipIf(!tmuxAvailable())("tui: active session transitions", () => {
           env: {
             HOME: homeDir,
             Y2_API_KEY: "active-clear-fake-key",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_API_CHAT_URL: gateway.chatUrl,
-            FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-            FX_MODEL: FAKE_GATEWAY_MODEL,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_MODEL: FAKE_GATEWAY_MODEL,
           },
           width: 120,
           height: 40,
@@ -309,12 +309,12 @@ describe.skipIf(SKIP)("tui: extra slash commands", () => {
   test(
     "/clear resets projected history before the next prompt",
     async () => {
-      const workDir = mkdtempSync(join(tmpdir(), "fx-row03-clear-"));
-      const homeDir = mkdtempSync(join(tmpdir(), "fx-row03-clear-home-"));
+      const workDir = mkdtempSync(join(tmpdir(), "y2-row03-clear-"));
+      const homeDir = mkdtempSync(join(tmpdir(), "y2-row03-clear-home-"));
       const tracePath = join(workDir, "trace.log");
-      mkdirSync(join(homeDir, ".fx"), { recursive: true });
+      mkdirSync(join(homeDir, ".y2"), { recursive: true });
       writeFileSync(
-        join(homeDir, ".fx", "settings.json"),
+        join(homeDir, ".y2", "settings.json"),
         JSON.stringify({ permission: { ask_user_question: "deny" } }),
       );
       const gateway = startDynamicFakeGateway(() =>
@@ -327,13 +327,13 @@ describe.skipIf(SKIP)("tui: extra slash commands", () => {
           env: {
             HOME: homeDir,
             Y2_API_KEY: "clear-fake-key",
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_API_CHAT_URL: gateway.chatUrl,
-            FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-            FX_MODEL: FAKE_GATEWAY_MODEL,
-            FX_TRACE_SCOPES: TRACE_SCOPES,
-            FX_TRACE_LOG: tracePath,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_MODEL: FAKE_GATEWAY_MODEL,
+            Y2_TRACE_SCOPES: TRACE_SCOPES,
+            Y2_TRACE_LOG: tracePath,
           },
           width: 120,
           height: 40,
@@ -404,7 +404,7 @@ describe.skipIf(SKIP)("tui: extra slash commands", () => {
   test(
     "/usage and /cost open the same compact local usage dashboard",
     async () => {
-      const home = mkdtempSync(join(tmpdir(), "fx-usage-empty-home-"));
+      const home = mkdtempSync(join(tmpdir(), "y2-usage-empty-home-"));
       session = await TmuxSession.create({ env: { HOME: home } });
       await session.waitForComposer(10_000);
       await session.sendText("/cost");

@@ -1,6 +1,6 @@
 # N-API core implementation
 
-This document describes the internal design of the native Node-API backend used by `libfx`, including its trust boundaries, lifecycle, resource limits, and security invariants. It is maintainer documentation, not part of the supported user-facing API.
+This document describes the internal design of the native Node-API backend used by `liby2`, including its trust boundaries, lifecycle, resource limits, and security invariants. It is maintainer documentation, not part of the supported user-facing API.
 
 ## Scope
 
@@ -13,9 +13,9 @@ The relevant ownership boundaries are:
 | Native addon entry point and ACP transport | `src/napi_core_main.zig` |
 | Shared ACP server and agent behavior | `src/acp/` |
 | Node backend discovery and adaptation | `sdk/node.js` |
-| Public JavaScript agent implementation | `sdk/fx-sdk.js` |
+| Public JavaScript agent implementation | `sdk/y2-sdk.js` |
 | Native build configuration | `build.zig` |
-| npm artifact assembly | `sdk/scripts/package-libfx.mjs` |
+| npm artifact assembly | `sdk/scripts/package-liby2.mjs` |
 | Native regression and security tests | `sdk/tests/test-native-core-*.mjs` |
 
 The architecture deliberately reuses the same ACP client and event translation used by the WebAssembly backend. The addon is a native byte transport around the existing ACP server, not an independently maintained agent implementation.
@@ -25,13 +25,13 @@ The architecture deliberately reuses the same ACP client and event translation u
 The data path is:
 
 ```text
-JavaScript createFxAgent()
+JavaScript createY2Agent()
         |
         v
 sdk/node.js selects native backend
         |
         v
-createCore(options) in libfx.node
+createCore(options) in liby2.node
         |
         v
 Zig Runtime thread runs acp_server.runWithTransport()
@@ -46,7 +46,7 @@ Zig Runtime thread runs acp_server.runWithTransport()
 newline-delimited ACP JSON-RPC
         |
         v
-shared createFxAgent() logic in sdk/fx-sdk.js
+shared createY2Agent() logic in sdk/y2-sdk.js
 ```
 
 `sdk/node.js` supplies a `runtimeFactory` to the shared JavaScript agent implementation. The factory exposes the same small runtime contract expected from the WebAssembly host:
@@ -65,7 +65,7 @@ The adapter checks fetch control and drains ACP output on its existing timer. Wh
 
 | Export | Purpose |
 | --- | --- |
-| `libfxApiVersion` | Checks compatibility with the JavaScript loader. Currently `2`. Low-level `createCore` backends must declare this exact version. |
+| `liby2ApiVersion` | Checks compatibility with the JavaScript loader. Currently `2`. Low-level `createCore` backends must declare this exact version. |
 | `createCore(options)` | Allocates a runtime and starts its ACP thread. |
 | `writeCore(handle, buffer)` | Appends bytes to the bounded input queue. |
 | `closeCore(handle)` | Closes input and wakes a blocked ACP reader. |
@@ -80,13 +80,13 @@ The adapter checks fetch control and drains ACP output on its existing timer. Wh
 | `coreExitCode(handle)` | Returns the ACP thread's numeric exit status. |
 | `destroyCore(handle)` | Closes input, joins the thread, and releases native memory. |
 
-This ABI is internal. Consumers should use `createFxAgent()` from `sdk/node.js`; exposing the primitive functions keeps the native boundary small and testable.
+This ABI is internal. Consumers should use `createY2Agent()` from `sdk/node.js`; exposing the primitive functions keeps the native boundary small and testable.
 
 Response operations return numeric outcomes: `0` means the operation was stale and ignored, `1` means it was applied, and `2` means a response push encountered bounded backpressure. Stale callbacks never mutate a newer fetch. They emit one payload-free `napi` trace containing only the operation, numeric fetch handle, and drop reason.
 
 Each handle is a JavaScript object wrapped around a `RuntimeHandle`. It is branded with `napi_type_tag` and checked before every operation. A structurally similar object cannot be substituted for a real handle. The wrapper owns a finalizer, so garbage collection invokes the same destruction path as explicit `destroyCore()`.
 
-`RuntimeHandle.runtime` becomes null during destruction. Later operations fail with `LIBFX_NATIVE_CLOSED`, and repeated destruction is harmless.
+`RuntimeHandle.runtime` becomes null during destruction. Later operations fail with `LIBY2_NATIVE_CLOSED`, and repeated destruction is harmless.
 
 ## Runtime lifecycle and concurrency
 
@@ -118,7 +118,7 @@ These cases have dedicated tests. Any lifecycle change must preserve all four.
 
 ## Capability profile
 
-The native core is intentionally more restricted than the native `fx` CLI. Its ACP server configuration sets:
+The native core is intentionally more restricted than the native `y2` CLI. Its ACP server configuration sets:
 
 - `allow_native_tools = false`;
 - `allow_acp_mcp = false`;
@@ -127,13 +127,13 @@ The native core is intentionally more restricted than the native `fx` CLI. Its A
 - file listing and reading limits to zero;
 - command output limits to zero.
 
-As a result, the model receives no native tool advertisement, cannot launch commands, cannot read workspace files through fx tools, cannot start ACP-provided MCP servers, and cannot access the native secret store. `home` and `workspaceRoot` still provide identity and session context to shared ACP code, but they do not grant a tool capability by themselves.
+As a result, the model receives no native tool advertisement, cannot launch commands, cannot read workspace files through y2 tools, cannot start ACP-provided MCP servers, and cannot access the native secret store. `home` and `workspaceRoot` still provide identity and session context to shared ACP code, but they do not grant a tool capability by themselves.
 
 This restriction is a security boundary. New tools or host effects must not be enabled merely because the code is running natively. Every new capability needs a typed boundary, permission analysis, explicit configuration, and native security coverage.
 
 ## Model API endpoint policy
 
-The model API URL is validated independently in JavaScript and Zig. This duplication is intentional defense in depth because callers can load and call `libfx.node` directly, bypassing `sdk/node.js`.
+The model API URL is validated independently in JavaScript and Zig. This duplication is intentional defense in depth because callers can load and call `liby2.node` directly, bypassing `sdk/node.js`.
 
 Accepted endpoints are:
 
@@ -166,7 +166,7 @@ All untrusted values crossing the native boundary are bounded before allocation 
 | ACP history | 100 turns |
 | Agent steps | 64 |
 
-Input overflow fails synchronously with `LIBFX_NATIVE_BACKPRESSURE`. Output overflow causes the ACP runtime to exit with a failure status rather than allowing unbounded native memory growth. Limits must remain checked with overflow-safe subtraction before append operations.
+Input overflow fails synchronously with `LIBY2_NATIVE_BACKPRESSURE`. Output overflow causes the ACP runtime to exit with a failure status rather than allowing unbounded native memory growth. Limits must remain checked with overflow-safe subtraction before append operations.
 
 The JavaScript adapter continuously drains output while a runtime is active. Changes that reduce polling or pause consumption must account for the fixed output bound.
 
@@ -193,7 +193,7 @@ The copied key remains resident for the runtime lifetime and is freed during des
 
 ## Native code trust boundary
 
-A `.node` addon is executable native code loaded into the Node process. N-API provides ABI stability, not sandboxing. A compromised or substituted addon has the full authority of the host process regardless of the fx capability restrictions described above.
+A `.node` addon is executable native code loaded into the Node process. N-API provides ABI stability, not sandboxing. A compromised or substituted addon has the full authority of the host process regardless of the y2 capability restrictions described above.
 
 Consequently:
 
@@ -203,7 +203,7 @@ Consequently:
 - publishing must preserve provenance and use the exact tested artifacts;
 - addon load failures must not be mistaken for a safe sandbox boundary.
 
-The JavaScript loader searches for `libfx.node` first for local development, then `libfx.<platform>-<arch>.node` for packaged builds. It validates `libfxApiVersion` and the expected export shape before use. `backend: "native"` fails closed if a compatible addon is unavailable. `backend: "auto"` may fall back to WebAssembly when JSPI is available.
+The JavaScript loader searches for `liby2.node` first for local development, then `liby2.<platform>-<arch>.node` for packaged builds. It validates `liby2ApiVersion` and the expected export shape before use. `backend: "native"` fails closed if a compatible addon is unavailable. `backend: "auto"` may fall back to WebAssembly when JSPI is available.
 
 ## Build and packaging
 
@@ -213,7 +213,7 @@ The build is enabled with:
 zig build -Dnapi-surface=core -Doptimize=ReleaseSafe
 ```
 
-`addNapiArtifact()` builds `src/napi_core_main.zig` as a stripped dynamic library, links libc, includes `node_api.h`, allows unresolved shared-library symbols for Node to resolve, and installs the artifact as `zig-out/lib/libfx.node`.
+`addNapiArtifact()` builds `src/napi_core_main.zig` as a stripped dynamic library, links libc, includes `node_api.h`, allows unresolved shared-library symbols for Node to resolve, and installs the artifact as `zig-out/lib/liby2.node`.
 
 The N-API artifact currently forces `ReleaseSafe` in `build.zig`; the command-line optimization value does not change that module's mode. Retaining safety checks is intentional for code processing untrusted JavaScript and protocol input.
 
@@ -224,7 +224,7 @@ Published packages contain one addon for each supported tuple:
 - `darwin-x64`;
 - `darwin-arm64`.
 
-`package-libfx.mjs` requires exactly those four names when assembling a publishable multi-platform package. It rejects missing, duplicate, or unexpected addon names. The publish workflow builds and tests each addon on its native runner before combining the artifacts with both WebAssembly surfaces, the README, and the Apache-2.0 license.
+`package-liby2.mjs` requires exactly those four names when assembling a publishable multi-platform package. It rejects missing, duplicate, or unexpected addon names. The publish workflow builds and tests each addon on its native runner before combining the artifacts with both WebAssembly surfaces, the README, and the Apache-2.0 license.
 
 ## Error model
 
@@ -232,16 +232,16 @@ Native errors use stable codes where JavaScript needs to distinguish failure cla
 
 | Code | Meaning |
 | --- | --- |
-| `LIBFX_INVALID_ARGUMENT` | Missing, mistyped, oversized, invalid, or forged input. |
-| `LIBFX_NATIVE_LIMIT` | The process-wide runtime limit was reached. |
-| `LIBFX_NATIVE_BACKPRESSURE` | The bounded input queue cannot accept more bytes. |
-| `LIBFX_NATIVE_CLOSED` | An operation targeted a closed runtime. |
-| `LIBFX_NATIVE_OOM` | Native allocation failed. |
-| `LIBFX_NATIVE_THREAD` | Runtime thread creation failed. |
-| `LIBFX_NATIVE_IO` | Native queue or Buffer transfer failed. |
-| `LIBFX_NAPI` | A Node-API operation failed unexpectedly. |
+| `LIBY2_INVALID_ARGUMENT` | Missing, mistyped, oversized, invalid, or forged input. |
+| `LIBY2_NATIVE_LIMIT` | The process-wide runtime limit was reached. |
+| `LIBY2_NATIVE_BACKPRESSURE` | The bounded input queue cannot accept more bytes. |
+| `LIBY2_NATIVE_CLOSED` | An operation targeted a closed runtime. |
+| `LIBY2_NATIVE_OOM` | Native allocation failed. |
+| `LIBY2_NATIVE_THREAD` | Runtime thread creation failed. |
+| `LIBY2_NATIVE_IO` | Native queue or Buffer transfer failed. |
+| `LIBY2_NAPI` | A Node-API operation failed unexpectedly. |
 
-The JavaScript loader adds `LIBFX_NATIVE_UNAVAILABLE` for forced-native selection failures and `LIBFX_JSPI_REQUIRED` when neither native execution nor JSPI-backed WebAssembly is available.
+The JavaScript loader adds `LIBY2_NATIVE_UNAVAILABLE` for forced-native selection failures and `LIBY2_JSPI_REQUIRED` when neither native execution nor JSPI-backed WebAssembly is available.
 
 ## Verification
 

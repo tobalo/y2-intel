@@ -1368,7 +1368,7 @@ fn streamReplaySafe(
 const read_failure_tool_recovery_instruction =
     \\<network_recovery>
     \\The previous response stream ended because the network connection was interrupted.
-    \\Fx did not execute the incomplete tool call from that stream. Recreate the tool call if it is still needed.
+    \\Y2 did not execute the incomplete tool call from that stream. Recreate the tool call if it is still needed.
     \\</network_recovery>
 ;
 
@@ -2499,7 +2499,7 @@ fn appendAuthorizedVisionAttemptIds(
 ) !bool {
     if (!std.mem.eql(u8, call.name, "vision") or
         call.argument_integrity != .valid or
-        call.provenance != .fx_local)
+        call.provenance != .y2_local)
     {
         return false;
     }
@@ -4303,7 +4303,7 @@ fn processQueuedPromptLoop(
                 },
                 .reject_malformed_identity => |failure| {
                     try stream_ctx.provisional_statuses.finishRejectedCompletions(deps, arena, turn_id, completion.tool_calls, advertised_dynamic_tool_names);
-                    debug_trace.eventf("agent", "authoritative_tool_admission_rejected", step_ctx, "failure={s} provenance=fx_local", .{@tagName(failure)});
+                    debug_trace.eventf("agent", "authoritative_tool_admission_rejected", step_ctx, "failure={s} provenance=y2_local", .{@tagName(failure)});
                     finish_trace.finish("malformed_tool_identity");
                     return error.MalformedAuthoritativeToolIdentity;
                 },
@@ -5356,7 +5356,7 @@ fn processQueuedPromptLoop(
                             "tool",
                             "argument_integrity_rejected",
                             step_ctx,
-                            "call_id={s} name={s} failure=malformed_json provenance=fx_local",
+                            "call_id={s} name={s} failure=malformed_json provenance=y2_local",
                             .{ tool_call.id, tool_call.name },
                         );
                     } else if (blocked.kind == .route_unavailable) {
@@ -5717,7 +5717,7 @@ fn processQueuedPromptLoop(
                                     .{
                                         .increment_error = true,
                                         .record_completion = true,
-                                        .status = runtime_execution_memory.persistedStatusForCurrentFxLocalResult(
+                                        .status = runtime_execution_memory.persistedStatusForCurrentY2LocalResult(
                                             .failure,
                                             safe_output,
                                         ),
@@ -6859,7 +6859,7 @@ fn processQueuedPromptLoop(
                         .increment_error = execution.status == .failure or
                             tool_result_errors.isToolOutputError(safe_tool_output),
                         .record_completion = execution.status == .success,
-                        .status = runtime_execution_memory.persistedStatusForCurrentFxLocalResult(
+                        .status = runtime_execution_memory.persistedStatusForCurrentY2LocalResult(
                             execution.status,
                             safe_tool_output,
                         ),
@@ -7350,7 +7350,7 @@ test "malformed duplicate unauthorized and path Vision calls settle no image ids
         .name = "vision",
         .arguments_json = "{\"image_ids\":[1]",
         .argument_integrity = .malformed_json,
-        .provenance = .fx_local,
+        .provenance = .y2_local,
     };
     try std.testing.expect(!try appendAuthorizedVisionAttemptIds(
         std.testing.allocator,
@@ -7363,7 +7363,7 @@ test "malformed duplicate unauthorized and path Vision calls settle no image ids
         .id = "vision-duplicate",
         .name = "vision",
         .arguments_json = "{\"image_ids\":[1,1],\"focus\":\"inspect\"}",
-        .provenance = .fx_local,
+        .provenance = .y2_local,
     };
     try std.testing.expect(!try appendAuthorizedVisionAttemptIds(
         std.testing.allocator,
@@ -7376,7 +7376,7 @@ test "malformed duplicate unauthorized and path Vision calls settle no image ids
         .id = "vision-unauthorized",
         .name = "vision",
         .arguments_json = "{\"image_ids\":[2],\"focus\":\"inspect\"}",
-        .provenance = .fx_local,
+        .provenance = .y2_local,
     };
     try std.testing.expect(!try appendAuthorizedVisionAttemptIds(
         std.testing.allocator,
@@ -7389,7 +7389,7 @@ test "malformed duplicate unauthorized and path Vision calls settle no image ids
         .id = "vision-path",
         .name = "vision",
         .arguments_json = "{\"paths\":[\"photo.png\"],\"focus\":\"inspect\"}",
-        .provenance = .fx_local,
+        .provenance = .y2_local,
     };
     try std.testing.expect(!try appendAuthorizedVisionAttemptIds(
         std.testing.allocator,

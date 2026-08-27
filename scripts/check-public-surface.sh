@@ -21,7 +21,7 @@ if [[ -n "$real_team_ids" ]]; then
   exit 1
 fi
 
-internal_slugs="$(git grep -n -E 'vercel-internal-[a-z0-9-]+' -- . ':(exclude)scripts/check-public-surface.sh' || true)"
+internal_slugs="$(git grep -n -E 'retired_credential-internal-[a-z0-9-]+' -- . ':(exclude)scripts/check-public-surface.sh' || true)"
 if [[ -n "$internal_slugs" ]]; then
   printf 'Tracked internal team slugs found:\n%s\n' "$internal_slugs" >&2
   exit 1
@@ -33,7 +33,7 @@ if [[ -n "$personal_project_slugs" ]]; then
   exit 1
 fi
 
-capture='tests/e2e/fixtures/fx-render-bug-20260510-075848.tar.gz'
+capture='tests/e2e/fixtures/y2-render-bug-20260510-075848.tar.gz'
 archive_listing="$(tar -tzvf "$capture")"
 unexpected_owners="$(grep -Ev '[[:space:]]root([/]|[[:space:]]+)root[[:space:]]' <<<"$archive_listing" || true)"
 if [[ -n "$unexpected_owners" ]]; then

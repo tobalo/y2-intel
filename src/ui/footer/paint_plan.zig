@@ -2100,7 +2100,7 @@ test "approval footer composition hides cursor while rendering command prompt" {
     var controls_count: u8 = 0;
     for (frame.rows.items, 0..) |row, row_index| {
         saw_prompt = saw_prompt or std.mem.find(u8, row.text.items, "Would you like to run the following command?") != null;
-        saw_default_reason = saw_default_reason or std.mem.find(u8, row.text.items, "fx needs your approval before running this shell command") != null;
+        saw_default_reason = saw_default_reason or std.mem.find(u8, row.text.items, "y2 needs your approval before running this shell command") != null;
         saw_selected_choice = saw_selected_choice or std.mem.find(u8, row.text.items, "1. Yes") != null;
         if (std.mem.find(u8, row.text.items, "Would you like to run the following command?") != null) {
             prompt_row = row_index;

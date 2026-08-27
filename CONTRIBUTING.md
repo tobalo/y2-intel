@@ -2,7 +2,7 @@
 
 ## Scope
 
-`fx` is a CLI-first coding agent written in Zig.
+`y2` is a CLI-first coding agent written in Zig.
 
 Contributions should preserve that direction:
 
@@ -24,7 +24,7 @@ Requirements:
 
 * interactive terminal for manual shell testing
 
-* `Y2_API_KEY` for Agent Y2, or `OPENAI_API_KEY` with `OPENAI_BASE_URL` for a direct OpenAI-compatible endpoint. macOS Keychain API keys configured through `fx setup` are also supported
+* `Y2_API_KEY` for Agent Y2, or `OPENAI_API_KEY` with `OPENAI_BASE_URL` for a direct OpenAI-compatible endpoint. macOS Keychain API keys configured through `y2 setup` are also supported
 
 Common commands:
 
@@ -37,7 +37,7 @@ zig build run
 
 ## Verification Workflow
 
-Keep the local development loop focused: run the narrowest test that covers the changed path, build fx, and exercise the change using `./zig-out/bin/fx`. The installed `fx` on `PATH` is not valid development evidence.
+Keep the local development loop focused: run the narrowest test that covers the changed path, build y2, and exercise the change using `./zig-out/bin/y2`. The installed `y2` on `PATH` is not valid development evidence.
 
 Once the focused checks pass, create a clean checkpoint commit, push the non-`main` feature branch, and open a draft PR immediately. The **Full CI** workflow runs the complete deterministic suite on native Linux x86_64, Linux aarch64, macOS x86_64, and macOS aarch64 runners. The native matrix builds, tests, and smoke-tests ReleaseSafe on every platform; formatting and the public-surface audit run in those ReleaseSafe jobs. Four duration-balanced, isolated ReleaseSafe E2E shards per platform use checked-in weights to assign every Bun test file once; files inside each shard run sequentially in separate Bun processes so terminal fixtures and process state cannot leak between files. A failed file receives one bounded retry after tmux is reset.
 
@@ -85,7 +85,7 @@ If you cannot manage labels, a maintainer or repository agent will apply the lab
 
 * `src/gateway/`: Y2 and direct provider transports
 
-* `.fx/skills/`: optional fx-native workspace-level skill root
+* `.y2/skills/`: optional y2-native workspace-level skill root
 
 * `skills/`: optional shared workspace-level skill root
 
@@ -119,60 +119,60 @@ duplicate, stale, and unclassified files without running the full PGSO gate.
 
 Config precedence (highest wins):
 
-1. Environment variables such as `FX_MODEL`, `FX_PERMISSION_MODE`, and `FX_MAX_AGENT_STEPS`
-2. `~/.fx/settings.json` → `workspaces["<workspace_path>"]` (profile workspace overrides)
-3. `~/.fx/settings.json` top-level (profile global settings)
-4. `<workspace>/.fx.json` (committed project defaults)
+1. Environment variables such as `Y2_MODEL`, `Y2_PERMISSION_MODE`, and `Y2_MAX_AGENT_STEPS`
+2. `~/.y2/settings.json` → `workspaces["<workspace_path>"]` (profile workspace overrides)
+3. `~/.y2/settings.json` top-level (profile global settings)
+4. `<workspace>/.y2.json` (committed project defaults)
 5. Built-in defaults
 
-Project `.fx.json` accepts only repo-safe defaults: `sandbox`, `max_agent_steps`, `max_tool_result_bytes`, and `context`. Profile-owned keys such as `model`, `effort`, `fast_mode`, `slash_menu_categories`, `startup_scrollback`, `prompt_history`, `statusLine`, `skill_match_fuzzy`, `first_call_tool_choice`, `auto_upgrade`, `update_channel`, `permission_mode`, and `permission` are ignored from project config before their values are parsed.
+Project `.y2.json` accepts only repo-safe defaults: `sandbox`, `max_agent_steps`, `max_tool_result_bytes`, and `context`. Profile-owned keys such as `model`, `effort`, `fast_mode`, `slash_menu_categories`, `startup_scrollback`, `prompt_history`, `statusLine`, `skill_match_fuzzy`, `first_call_tool_choice`, `auto_upgrade`, `update_channel`, `permission_mode`, and `permission` are ignored from project config before their values are parsed.
 
-Runtime state lives under `~/.fx/`:
+Runtime state lives under `~/.y2/`:
 
-* `~/.fx/sessions/<session-id>/session.json`
+* `~/.y2/sessions/<session-id>/session.json`
 
-* `~/.fx/sessions/<session-id>/background/`
+* `~/.y2/sessions/<session-id>/background/`
 
-* `~/.fx/sessions/<session-id>/subagent/`
+* `~/.y2/sessions/<session-id>/subagent/`
 
-* `~/.fx/sessions/<session-id>/logs/`
+* `~/.y2/sessions/<session-id>/logs/`
 
 Sessions are global and portable across workspaces. Each session tracks a `workspace_root` that updates when resumed from a different directory.
 
-Subagent children are ordinary sessions with their own `~/.fx/sessions/<child-id>/` directory and their own history. The `subagent/` directory is per session on both sides of the relationship: a parent records create-operation identities there, and a child records its own control state there.
+Subagent children are ordinary sessions with their own `~/.y2/sessions/<child-id>/` directory and their own history. The `subagent/` directory is per session on both sides of the relationship: a parent records create-operation identities there, and a child records its own control state there.
 
 ## Skills
 
-There are two distinct skill categories in `fx`:
+There are two distinct skill categories in `y2`:
 
-* `fx` roots that belong to the product itself: `.fx/skills`, `skills/`, `~/.fx/skills`
+* `y2` roots that belong to the product itself: `.y2/skills`, `skills/`, `~/.y2/skills`
 
 * compatibility roots discovered for other agent installs: `.opencode/skills`, `.codex/skills`, `.claude/skills`, `.agents/skills`, `.claw/skills`, plus their global equivalents
 
 `/skills list` should make that distinction visible to the user.
 
-`/skills add` and `/skills install` install full skill directories into the profile-owned `~/.fx/skills` managed root, not just `SKILL.md`. Workspace `.fx/skills` and `skills/` remain discoverable project-local instructions, not managed install targets.
+`/skills add` and `/skills install` install full skill directories into the profile-owned `~/.y2/skills` managed root, not just `SKILL.md`. Workspace `.y2/skills` and `skills/` remain discoverable project-local instructions, not managed install targets.
 
 The interactive agent can also install skills via the `install_skill` tool when the user asks to install one in conversation, including pasted `npx skills add ...` syntax.
 
 ## MCP
 
-fx negotiates MCP `2026-07-28` over local stdio and stateless Streamable HTTP.
+y2 negotiates MCP `2026-07-28` over local stdio and stateless Streamable HTTP.
 Version-scoped adapters retain legacy stdio,
 `2025-11-25`/`2025-06-18`/`2025-03-26` Streamable HTTP, and deprecated
 `2024-11-05` HTTP+SSE. Native sessions load runnable MCP configuration only
 from the trusted profile:
 
-* `~/.fx/mcp.json`
+* `~/.y2/mcp.json`
 
-Project `.fx.json` does not define runnable MCP commands, URLs, env, or secrets.
+Project `.y2.json` does not define runnable MCP commands, URLs, env, or secrets.
 
 The core feature surface is Tools, Resources and Resource Templates, Prompts,
 Completion, pagination, cache-aware discovery, subscriptions, progress,
 cancellation, and form or URL elicitation. Keep modern and legacy protocol
 behavior in their existing version-scoped modules.
 
-Tool schemas without `$schema` use JSON Schema 2020-12. fx also accepts the
+Tool schemas without `$schema` use JSON Schema 2020-12. y2 also accepts the
 canonical 2020-12 declaration and the canonical Draft 7 declaration used by
 legacy SDKs, evaluates each with dialect-specific semantics, and rejects other
 dialects or references that would require network fetching before publication.
@@ -210,7 +210,7 @@ The interactive surface supports:
 * `/mcp path`
 
 The local form saves a stdio command. The HTTP form saves a remote Streamable
-HTTP endpoint. Both update `~/.fx/mcp.json` and evaluate the replacement MCP
+HTTP endpoint. Both update `~/.y2/mcp.json` and evaluate the replacement MCP
 runtime immediately.
 
 Remote authentication supports configured bearer tokens and OAuth credential
@@ -218,12 +218,12 @@ discovery, persistence, refresh, scope challenges, and logout. Credential and
 private-cache identity changes invalidate prior private state. macOS persists
 OAuth credentials in Keychain and migrates the private profile credential file
 only after verified publication. Other platforms use the `0600` credential file
-under the `0700` profile directory. `FX_DISABLE_KEYCHAIN=1` selects that portable
+under the `0700` profile directory. `Y2_DISABLE_KEYCHAIN=1` selects that portable
 backend explicitly for deterministic tests and local troubleshooting.
 
 Servers are optional by default. Required startup failures block the first TUI
-or `fx ask` model request; optional failures publish a reduced, degraded
-capability set. One-shot `fx ask` starts required servers before its first model
+or `y2 ask` model request; optional failures publish a reduced, degraded
+capability set. One-shot `y2 ask` starts required servers before its first model
 request and defers optional servers until the turn first performs an MCP
 operation or delegates MCP capability to a child. `/mcp list` renders a bounded,
 secret-free health snapshot.
@@ -305,13 +305,13 @@ test("my scenario", async () => {
 
 ### Tape-based test (replay a real capture)
 
-For bugs reported by a user, have them run fx with `FX_RECORD=<path>`. Drop the tape in `tests/e2e/tapes/<name>.fxtape` and assert against `fx replay --golden`:
+For bugs reported by a user, have them run y2 with `Y2_RECORD=<path>`. Drop the tape in `tests/e2e/tapes/<name>.y2tape` and assert against `y2 replay --golden`:
 
 ```bash
-fx replay tests/e2e/tapes/my-bug.fxtape --golden tests/e2e/tapes/my-bug.txt
+y2 replay tests/e2e/tapes/my-bug.y2tape --golden tests/e2e/tapes/my-bug.txt
 ```
 
-Check in the golden file and wire a regression test that re-runs `fx replay` in CI and diffs.
+Check in the golden file and wire a regression test that re-runs `y2 replay` in CI and diffs.
 
 ## What Not To Do
 
@@ -323,9 +323,9 @@ Check in the golden file and wire a regression test that re-runs `fx replay` in 
 
 * Do not document intended behavior as if it already exists
 
-* Do not commit generated state from `.fx/`, `.zig-cache/`, or `zig-out/`
+* Do not commit generated state from `.y2/`, `.zig-cache/`, or `zig-out/`
 
-* Do not add a general alternate-screen (`\x1b[?1049h/l`) render path. fx is inline by design except for the five exclusive owner classes represented by `AlternateScreenOwner`: interactive tool-approval review, the full-transcript screen, catalog menus, the ctrl+x subagent manager, and the hosted child-terminal takeover. The terminal-session owner is entered only from the manager after `TerminalHost` grants the human write lease, has no permanent fx chrome, and must release the lease on detach. Every owner must leave or explicitly hand off the alternate buffer and restore the main grid, composer, cursor, paste, mouse, focus, and keyboard modes before resolving, cancelling, or shutting down
+* Do not add a general alternate-screen (`\x1b[?1049h/l`) render path. y2 is inline by design except for the five exclusive owner classes represented by `AlternateScreenOwner`: interactive tool-approval review, the full-transcript screen, catalog menus, the ctrl+x subagent manager, and the hosted child-terminal takeover. The terminal-session owner is entered only from the manager after `TerminalHost` grants the human write lease, has no permanent y2 chrome, and must release the lease on detach. Every owner must leave or explicitly hand off the alternate buffer and restore the main grid, composer, cursor, paste, mouse, focus, and keyboard modes before resolving, cancelling, or shutting down
 
 ## Releases
 
@@ -336,8 +336,8 @@ Releases are triggered automatically when the version in `src/main.zig` changes 
 3. The release workflow checks if `vX.Y.Z` tag exists; if not, it builds four platform binaries, creates the git tag, and publishes a GitHub Release with the binaries attached
 
 The hosted installer and Y2 release origin are not published yet. The future
-installer route is `https://y2.dev/harness/install.sh`, and `fx upgrade` is
-already isolated from the upstream fx release origin by targeting
+installer route is `https://y2.dev/harness/install.sh`, and `y2 upgrade` is
+already isolated from the upstream y2 release origin by targeting
 `https://y2.dev/harness/releases`. Until those routes and signed artifacts are
 live, build this fork from source or download a verified GitHub Actions
 artifact for the exact commit under test.
@@ -349,7 +349,7 @@ GitHub Release. The `stable` and `dev` upgrade-channel settings remain dormant
 until the Y2 release origin is published.
 
 Release notes are public product copy. Describe user-visible behavior, spell
-the product `Y2 Information Dominance`, retain `fx` only for exact compatibility
+the product `Y2 Information Dominance`, retain `y2` only for exact compatibility
 identifiers, and omit contributor attribution, tracker references, repository
 or website work, delivery infrastructure, CI and test details, branch history,
 and implementation-only refactors. Use commits and pull requests as research
@@ -366,12 +366,12 @@ The workflow builds a ReleaseSafe binary, then uses [hyperfine](https://github.c
 
 | Command                | Budget | What it measures                                   |
 | ---------------------- | ------ | -------------------------------------------------- |
-| `fx` (startup)         | 2ms    | Binary launch through CLI dispatch (no TTY needed) |
-| `fx help`              | 2ms    | Minimal startup, pure text output                  |
-| `fx status --json`     | 2ms    | Config read + JSON serialization                   |
-| `fx background --json` | 2ms    | Background record read                             |
-| `fx doctor --json`     | 2ms    | System checks, subprocess spawns                   |
-| `fx sessions --json`   | 2ms    | Session directory read                             |
+| `y2` (startup)         | 2ms    | Binary launch through CLI dispatch (no TTY needed) |
+| `y2 help`              | 2ms    | Minimal startup, pure text output                  |
+| `y2 status --json`     | 2ms    | Config read + JSON serialization                   |
+| `y2 background --json` | 2ms    | Background record read                             |
+| `y2 doctor --json`     | 2ms    | System checks, subprocess spawns                   |
+| `y2 sessions --json`   | 2ms    | Session directory read                             |
 
 On PRs the check **fails** if any command exceeds its budget.
 
@@ -380,7 +380,7 @@ raw means for comparison but do not assign a substitute product budget because
 the host process and dynamic-loader floor can independently exceed 2ms. The
 process baseline is diagnostic only and is never subtracted.
 
-The startup benchmark uses `FX_BENCH=1`, which runs through CLI dispatch and exits before TTY initialization.
+The startup benchmark uses `Y2_BENCH=1`, which runs through CLI dispatch and exits before TTY initialization.
 
 To run locally:
 
@@ -399,7 +399,7 @@ workflow builds ReleaseSafe first. Results are written to
 Minimum checklist:
 
 1. Run `zig fmt --check src/` and the focused tests for the changed path.
-2. Run `zig build`, then exercise the change with `./zig-out/bin/fx`.
+2. Run `zig build`, then exercise the change with `./zig-out/bin/y2`.
 3. Push the feature branch and open a draft PR immediately.
 4. Require all four **Full CI** jobs and the final ship gate to pass for the exact current commit before marking the PR ready.
 5. Update `README.md` if user-facing behavior changed.

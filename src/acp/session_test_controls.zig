@@ -6,8 +6,8 @@ const private_file_permissions = std.Io.File.Permissions.fromMode(0o600);
 
 pub fn logOptions() session_log.Options {
     return logOptionsFromEnv(
-        io_mod.getenv("FX_E2E_SESSION_BOUNDARY"),
-        io_mod.getenv("FX_E2E_SESSION_BOUNDARY_READY"),
+        io_mod.getenv("Y2_E2E_SESSION_BOUNDARY"),
+        io_mod.getenv("Y2_E2E_SESSION_BOUNDARY_READY"),
     );
 }
 
@@ -26,10 +26,10 @@ fn pauseAtRequestedBoundary(
     _: ?*anyopaque,
     point: session_log.Boundary,
 ) !void {
-    const requested = io_mod.getenv("FX_E2E_SESSION_BOUNDARY") orelse return;
+    const requested = io_mod.getenv("Y2_E2E_SESSION_BOUNDARY") orelse return;
     if (!std.mem.eql(u8, requested, @tagName(point))) return;
 
-    if (io_mod.getenv("FX_E2E_SESSION_BOUNDARY_READY")) |path| {
+    if (io_mod.getenv("Y2_E2E_SESSION_BOUNDARY_READY")) |path| {
         var file = try std.Io.Dir.createFileAbsolute(io_mod.getIo(), path, .{
             .truncate = true,
             .permissions = private_file_permissions,

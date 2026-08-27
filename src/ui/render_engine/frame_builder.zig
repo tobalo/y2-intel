@@ -109,7 +109,7 @@ pub fn buildAndFlushFrame(
     defer surface.deinit();
 
     try paintFrameSurface(&surface, &movement, &options);
-    if (options.presentation == .neutral) surface.neutralizeFxOwnedPresentation();
+    if (options.presentation == .neutral) surface.neutralizeY2OwnedPresentation();
     traceRetainedTranscriptChanges(&surface, &movement, &options);
 
     try surface.validate();

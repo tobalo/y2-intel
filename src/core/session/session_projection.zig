@@ -240,7 +240,7 @@ pub fn eventFileStatFingerprint(stat: EventFileStat, expected_size: u64) !Digest
     writeInt(&encoded, &offset, i128, stat.ctime_ns);
 
     var hasher = Sha256.init(.{});
-    hasher.update("fx:event-file-stat:v1\x00");
+    hasher.update("y2:event-file-stat:v1\x00");
     hasher.update(encoded[0..offset]);
     return hasher.finalResult();
 }

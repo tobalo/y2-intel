@@ -3,11 +3,11 @@ import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import xtermHeadless from "@xterm/headless";
-import { createFxTerminal, supportsJspi, xtermAdapter } from "../node.js";
+import { createY2Terminal, supportsJspi, xtermAdapter } from "../node.js";
 
 const { Terminal } = xtermHeadless;
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const wasmPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/bin/fx-term.wasm"));
+const wasmPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/bin/y2-term.wasm"));
 if (!supportsJspi()) process.exit(2);
 
 const terminal = new Terminal({ cols: 100, rows: 34, allowProposedApi: true, scrollback: 3000 });
@@ -151,10 +151,10 @@ const fetch = async (_url, init = {}) => {
   if (!checkedBrowserCapabilityContext) {
     const serializedPrompt = JSON.stringify(body.messages || []);
     for (const guidance of [
-      "embedded browser version of fx",
+      "embedded browser version of y2",
       "Public web fetch, web search, and general outbound network access are unavailable",
       "Do not attempt curl, wget",
-      "locally installed fx provides the full tool suite",
+      "locally installed y2 provides the full tool suite",
     ]) {
       if (!serializedPrompt.includes(guidance)) {
         throw new Error(`browser capability context omitted ${guidance}: ${serializedPrompt}`);
@@ -216,14 +216,14 @@ const fetch = async (_url, init = {}) => {
     ]);
   }
   if (prompt.includes("unsupported web request")) {
-    return textResponse("This embedded browser cannot access the public web. Install fx locally for the full tool suite.");
+    return textResponse("This embedded browser cannot access the public web. Install y2 locally for the full tool suite.");
   }
   if (prompt.includes("workspace recovery")) return textResponse("session stayed alive");
   throw new Error(`unexpected gateway request: ${JSON.stringify(body)}`);
 };
 
 let stderr = "";
-const runtime = await createFxTerminal({
+const runtime = await createY2Terminal({
   backend: "wasm",
   wasm: await readFile(wasmPath),
   terminal: xtermAdapter(terminal),
@@ -275,7 +275,7 @@ const exitCode = await Promise.race([
   runtime.exited,
   new Promise((_, reject) => setTimeout(() => reject(new Error("workspace runtime exit timeout")), 5000)),
 ]);
-if (exitCode !== 0) throw new Error(`fx-term exited with ${exitCode}`);
+if (exitCode !== 0) throw new Error(`y2-term exited with ${exitCode}`);
 if (!checkedToolProjection) throw new Error("workspace tool projection was not checked");
 if (!checkedBrowserCapabilityContext) throw new Error("browser capability context was not checked");
 if (execCalls.join(",") !== "printf adapter-success,generate-truncated-output,timeout-command,hold-command") {

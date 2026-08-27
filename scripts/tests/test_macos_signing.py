@@ -19,7 +19,9 @@ PGSO_WORKFLOW_PATH = (
 )
 DEV_RELEASE_WORKFLOW_PATH = REPO_ROOT / ".github" / "workflows" / "dev-release.yml"
 PGSO_SETUP_ACTION_PATH = REPO_ROOT / ".github" / "actions" / "setup-pgso" / "action.yml"
-SIGNING_IDENTITY = "Developer ID Application: Vercel, Inc (JW6Y669B67)"
+SIGNING_IDENTITY = "Developer ID Application: Y2 Test (Y2TEST1234)"
+SIGNING_IDENTIFIER = "dev.y2.harness"
+SIGNING_TEAM_ID = "Y2TEST1234"
 TEST_CDHASH = "0123456789abcdef0123456789abcdef01234567"
 SECRET_NAMES = (
     "APPLE_DEVELOPER_ID_P12_BASE64",
@@ -73,7 +75,7 @@ import pathlib
 import sys
 
 args = sys.argv[1:]
-with pathlib.Path(os.environ["FX_SIGNING_TEST_LOG"]).open("a") as log:
+with pathlib.Path(os.environ["Y2_SIGNING_TEST_LOG"]).open("a") as log:
     log.write("security " + " ".join(args[:1]) + "\\n")
 if args and args[0] == "find-identity":
     print('  1) HASH "{SIGNING_IDENTITY}"')
@@ -89,14 +91,14 @@ import pathlib
 import sys
 
 args = sys.argv[1:]
-with pathlib.Path(os.environ["FX_SIGNING_TEST_LOG"]).open("a") as log:
+with pathlib.Path(os.environ["Y2_SIGNING_TEST_LOG"]).open("a") as log:
     log.write("codesign " + " ".join(args) + "\\n")
 if "--force" in args:
     binary = pathlib.Path(args[-1])
     binary.write_bytes(binary.read_bytes() + b"signed\\n")
 if "--display" in args:
-    identifier = os.environ.get("FX_SIGNING_TEST_IDENTIFIER", "com.vercel.fx")
-    team_id = os.environ.get("FX_SIGNING_TEST_TEAM_ID", "JW6Y669B67")
+    identifier = os.environ.get("Y2_SIGNING_TEST_IDENTIFIER", "{SIGNING_IDENTIFIER}")
+    team_id = os.environ.get("Y2_SIGNING_TEST_TEAM_ID", "{SIGNING_TEAM_ID}")
     print(f"Identifier={{identifier}}", file=sys.stderr)
     print(f"TeamIdentifier={{team_id}}", file=sys.stderr)
     print("CDHash={TEST_CDHASH}", file=sys.stderr)
@@ -111,7 +113,7 @@ import pathlib
 import sys
 
 args = sys.argv[1:]
-with pathlib.Path(os.environ["FX_SIGNING_TEST_LOG"]).open("a") as log:
+with pathlib.Path(os.environ["Y2_SIGNING_TEST_LOG"]).open("a") as log:
     log.write("ditto " + " ".join(args) + "\n")
 pathlib.Path(args[-1]).write_bytes(b"notary archive")
 ''',
@@ -126,14 +128,14 @@ import pathlib
 import sys
 
 args = sys.argv[1:]
-with pathlib.Path(os.environ["FX_SIGNING_TEST_LOG"]).open("a") as log:
+with pathlib.Path(os.environ["Y2_SIGNING_TEST_LOG"]).open("a") as log:
     log.write("xcrun " + " ".join(args[:2]) + "\\n")
 if args[:2] == ["notarytool", "submit"]:
-    status = os.environ.get("FX_SIGNING_TEST_SUBMISSION_STATUS", "Accepted")
+    status = os.environ.get("Y2_SIGNING_TEST_SUBMISSION_STATUS", "Accepted")
     print(json.dumps({{"id": "test-submission", "status": status}}))
 elif args[:2] == ["notarytool", "log"]:
-    issues = json.loads(os.environ.get("FX_SIGNING_TEST_NOTARY_ISSUES", "null"))
-    ticket_cdhash = os.environ.get("FX_SIGNING_TEST_TICKET_CDHASH", "{TEST_CDHASH}")
+    issues = json.loads(os.environ.get("Y2_SIGNING_TEST_NOTARY_ISSUES", "null"))
+    ticket_cdhash = os.environ.get("Y2_SIGNING_TEST_TICKET_CDHASH", "{TEST_CDHASH}")
     pathlib.Path(args[-1]).write_text(json.dumps({{
         "status": "Accepted",
         "statusSummary": "Ready for distribution",
@@ -146,11 +148,11 @@ else:
 ''',
         )
         return {
-            "FX_SIGNING_OPENSSL_BIN": openssl,
-            "FX_SIGNING_SECURITY_BIN": security,
-            "FX_SIGNING_CODESIGN_BIN": codesign,
-            "FX_SIGNING_DITTO_BIN": ditto,
-            "FX_SIGNING_XCRUN_BIN": xcrun,
+            "Y2_SIGNING_OPENSSL_BIN": openssl,
+            "Y2_SIGNING_SECURITY_BIN": security,
+            "Y2_SIGNING_CODESIGN_BIN": codesign,
+            "Y2_SIGNING_DITTO_BIN": ditto,
+            "Y2_SIGNING_XCRUN_BIN": xcrun,
         }
 
     def run_script(
@@ -161,7 +163,7 @@ else:
         runner_temp = root / "runner-temp"
         runner_temp.mkdir()
         tool_paths = self.make_tools(root)
-        binary = root / "fx"
+        binary = root / "y2"
         binary.write_bytes(b"unsigned\n")
         binary.chmod(0o755)
         event_log = root / "events.log"
@@ -169,7 +171,10 @@ else:
         env.update(
             {
                 "RUNNER_TEMP": str(runner_temp),
-                "FX_SIGNING_TEST_LOG": str(event_log),
+                "Y2_SIGNING_TEST_LOG": str(event_log),
+                "Y2_SIGNING_IDENTITY": SIGNING_IDENTITY,
+                "Y2_SIGNING_IDENTIFIER": SIGNING_IDENTIFIER,
+                "Y2_SIGNING_TEAM_ID": SIGNING_TEAM_ID,
                 "APPLE_DEVELOPER_ID_P12_BASE64": base64.b64encode(
                     b"p12-private-material"
                 ).decode(),
@@ -198,7 +203,7 @@ else:
         self,
     ) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
             p12_secret = "p12-private-material"
             p8_secret = "p8-private-material"
@@ -217,7 +222,7 @@ else:
             self.assertIn("security import", events)
             self.assertIn("security delete-keychain", events)
             self.assertIn("codesign --force", events)
-            self.assertIn("--identifier com.vercel.fx", events)
+            self.assertIn(f"--identifier {SIGNING_IDENTIFIER}", events)
             self.assertIn("--options runtime", events)
             self.assertIn("--timestamp", events)
             self.assertIn("xcrun notarytool submit", events)
@@ -225,7 +230,7 @@ else:
 
     def test_rejects_notarization_log_issues_and_cleans_credentials(self) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
             issues = json.dumps(
                 [
@@ -238,7 +243,7 @@ else:
 
             result, _, runner_temp, event_log = self.run_script(
                 root,
-                {"FX_SIGNING_TEST_NOTARY_ISSUES": issues},
+                {"Y2_SIGNING_TEST_NOTARY_ISSUES": issues},
             )
 
             output = result.stdout + result.stderr
@@ -252,7 +257,7 @@ else:
 
     def test_rejects_empty_secret_without_echoing_credential_material(self) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
 
             result, _, runner_temp, _ = self.run_script(
@@ -273,12 +278,12 @@ else:
 
     def test_rejects_a_signature_from_the_wrong_apple_team(self) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
 
             result, _, runner_temp, _ = self.run_script(
                 root,
-                {"FX_SIGNING_TEST_TEAM_ID": "WRONGTEAM1"},
+                {"Y2_SIGNING_TEST_TEAM_ID": "WRONGTEAM1"},
             )
 
             output = result.stdout + result.stderr
@@ -288,12 +293,12 @@ else:
 
     def test_rejects_a_signature_with_the_wrong_identifier(self) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
 
             result, _, runner_temp, _ = self.run_script(
                 root,
-                {"FX_SIGNING_TEST_IDENTIFIER": "com.example.fx"},
+                {"Y2_SIGNING_TEST_IDENTIFIER": "com.example.y2"},
             )
 
             output = result.stdout + result.stderr
@@ -303,13 +308,13 @@ else:
 
     def test_rejects_a_notarization_ticket_for_another_binary(self) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
 
             result, _, runner_temp, _ = self.run_script(
                 root,
                 {
-                    "FX_SIGNING_TEST_TICKET_CDHASH":
+                    "Y2_SIGNING_TEST_TICKET_CDHASH":
                         "ffffffffffffffffffffffffffffffffffffffff"
                 },
             )
@@ -321,12 +326,12 @@ else:
 
     def test_rejects_a_failed_notarization_submission(self) -> None:
         self.assertTrue(SCRIPT_PATH.is_file(), "macOS signing helper is missing")
-        with tempfile.TemporaryDirectory(prefix="fx-macos-signing-test-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-macos-signing-test-") as tmp:
             root = pathlib.Path(tmp)
 
             result, _, runner_temp, event_log = self.run_script(
                 root,
-                {"FX_SIGNING_TEST_SUBMISSION_STATUS": "Invalid"},
+                {"Y2_SIGNING_TEST_SUBMISSION_STATUS": "Invalid"},
             )
 
             output = result.stdout + result.stderr
@@ -348,13 +353,13 @@ class MacosSigningWorkflowTests(unittest.TestCase):
         self.assertIn("build-macos-x86_64:", release)
         self.assertIn("runs-on: macos-15-intel", release)
         self.assertEqual(1, release.count("environment: apple-signing"))
-        self.assertIn("scripts/sign-and-notarize-macos.sh zig-out/bin/fx", release)
+        self.assertIn("scripts/sign-and-notarize-macos.sh zig-out/bin/y2", release)
         self.assertIn("sign-stable-release:", pgso)
         self.assertIn("needs: aggregate", pgso)
         self.assertEqual(1, pgso.count("environment: apple-signing"))
         self.assertIn(
             "scripts/sign-and-notarize-macos.sh "
-            '"$RUNNER_TEMP/fx-pgso-aggregate/candidate/fx"',
+            '"$RUNNER_TEMP/y2-pgso-aggregate/candidate/y2"',
             pgso,
         )
         self.assertIn("if: inputs.package_release", pgso)

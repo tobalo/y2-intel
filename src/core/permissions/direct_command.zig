@@ -1335,7 +1335,7 @@ test "direct executor reaps partial spawn and output-limit process groups" {
     };
 
     const sleep_argv = [_][]const u8{ "/bin/sleep", "10" };
-    const missing_argv = [_][]const u8{"/definitely/missing/fx-direct-second-stage"};
+    const missing_argv = [_][]const u8{"/definitely/missing/y2-direct-second-stage"};
     const partial_stages = [_]command_effect.DirectStage{
         .{
             .executable = "/bin/sleep",
@@ -1343,7 +1343,7 @@ test "direct executor reaps partial spawn and output-limit process groups" {
             .environment_profile = .basic_read_only,
         },
         .{
-            .executable = "/definitely/missing/fx-direct-second-stage",
+            .executable = "/definitely/missing/y2-direct-second-stage",
             .argv = &missing_argv,
             .environment_profile = .basic_read_only,
         },
@@ -1718,9 +1718,9 @@ test "direct executor treats downstream pipe closure as normal pipeline completi
 }
 
 test "direct executor fails closed for missing executable" {
-    const missing_argv = [_][]const u8{"/definitely/missing/fx-direct-command"};
+    const missing_argv = [_][]const u8{"/definitely/missing/y2-direct-command"};
     const missing_stages = [_]command_effect.DirectStage{.{
-        .executable = "/definitely/missing/fx-direct-command",
+        .executable = "/definitely/missing/y2-direct-command",
         .argv = &missing_argv,
         .environment_profile = .basic_read_only,
     }};

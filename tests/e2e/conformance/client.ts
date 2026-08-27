@@ -82,15 +82,15 @@ for (const call of toolCalls) {
   permission[`mcp_conformance_${call.name}`] = "allow";
 }
 
-const fxBin = resolve(import.meta.dirname, "../../../zig-out/bin/fx");
-const root = mkdtempSync(join(tmpdir(), "fx-mcp-conformance-client-"));
+const y2Bin = resolve(import.meta.dirname, "../../../zig-out/bin/y2");
+const root = mkdtempSync(join(tmpdir(), "y2-mcp-conformance-client-"));
 const home = join(root, "home");
 const workspace = join(root, "workspace");
-mkdirSync(join(home, ".fx", "skills"), { recursive: true, mode: 0o700 });
+mkdirSync(join(home, ".y2", "skills"), { recursive: true, mode: 0o700 });
 mkdirSync(workspace, { recursive: true });
 
 writeFileSync(
-  join(home, ".fx", "mcp.json"),
+  join(home, ".y2", "mcp.json"),
   JSON.stringify({
     mcp: {
       conformance: {
@@ -104,7 +104,7 @@ writeFileSync(
             ? { client_id: scenarioContext.client_id }
             : {}),
           ...(scenarioContext.client_secret
-            ? { client_secret_env: "FX_MCP_CONFORMANCE_CLIENT_SECRET" }
+            ? { client_secret_env: "Y2_MCP_CONFORMANCE_CLIENT_SECRET" }
             : {}),
         },
       },
@@ -112,7 +112,7 @@ writeFileSync(
   }),
 );
 writeFileSync(
-  join(home, ".fx", "settings.json"),
+  join(home, ".y2", "settings.json"),
   JSON.stringify({
     permission_mode: "auto",
     permission,
@@ -141,7 +141,7 @@ const gateway = startFakeGateway(gatewaySteps);
 try {
   const child = Bun.spawn(
     [
-      fxBin,
+      y2Bin,
       "ask",
       "--json",
       "--auto",
@@ -154,21 +154,21 @@ try {
         ...process.env,
         HOME: home,
         Y2_API_KEY: "mcp-conformance-placeholder",
-        VERCEL_OIDC_TOKEN: "",
-        FX_AUTO_UPGRADE: "0",
-        FX_DISABLE_KEYCHAIN: "1",
-        FX_E2E_MCP_AUTH_AUTOMATE: "1",
+        REMOVED_LEGACY_OIDC_TOKEN: "",
+        Y2_AUTO_UPGRADE: "0",
+        Y2_DISABLE_KEYCHAIN: "1",
+        Y2_E2E_MCP_AUTH_AUTOMATE: "1",
         ...(scenarioContext.client_secret
           ? {
-              FX_MCP_CONFORMANCE_CLIENT_SECRET:
+              Y2_MCP_CONFORMANCE_CLIENT_SECRET:
                 scenarioContext.client_secret,
             }
           : {}),
-        FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_API_CHAT_URL: gateway.chatUrl,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_SKIP_ONBOARDING: "1",
-        FX_SOUND: "0",
+        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        Y2_API_CHAT_URL: gateway.chatUrl,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_SKIP_ONBOARDING: "1",
+        Y2_SOUND: "0",
         NO_COLOR: "1",
       },
       stdout: "pipe",

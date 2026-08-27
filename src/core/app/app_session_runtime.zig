@@ -3551,7 +3551,7 @@ pub fn Runtime(comptime App: type) type {
                 .upgrade => |version| {
                     const body = try std.fmt.allocPrint(
                         app.alloc,
-                        "fx has been updated to v{s}",
+                        "y2 has been updated to v{s}",
                         .{version},
                     );
                     defer app.alloc.free(body);
@@ -5762,7 +5762,7 @@ test "session runtime owns temporary interactive image snapshot capture" {
 }
 
 fn testPaths(alloc: Allocator, tmp: *std.testing.TmpDir) !struct { home: []u8, workspace: []u8 } {
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     return .{
         .home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home"),
@@ -6678,9 +6678,9 @@ test "resume falls back to saved command output when replay contains an empty fr
     const saved_output =
         "exit_code=0\n<stdout>\nFALLBACK_STDOUT_MARKER\n</stdout>\n" ++
         "<stderr>\n</stderr>\n";
-    const replay_handle = "fx-command-replay-empty-frame.bin";
-    var empty_replay = [_]u8{0} ** ("FXRPLY01".len + 9);
-    @memcpy(empty_replay[0.."FXRPLY01".len], "FXRPLY01");
+    const replay_handle = "y2-command-replay-empty-frame.bin";
+    var empty_replay = [_]u8{0} ** ("Y2RPLY01".len + 9);
+    @memcpy(empty_replay[0.."Y2RPLY01".len], "Y2RPLY01");
 
     var calls = [_]types.ToolCall{.{
         .id = "call_empty_replay",
@@ -7313,7 +7313,7 @@ test "upgrade resume restores active session with the installed version notice" 
         .id = 41,
         .path = @constCast("/tmp/resumed.png"),
         .media_type = @constCast("image/png"),
-        .snapshot_path = @constCast("/tmp/fx-session/images/image-41-0123456789abcdef.bin"),
+        .snapshot_path = @constCast("/tmp/y2-session/images/image-41-0123456789abcdef.bin"),
         .snapshot_sha256 = @constCast("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
     }};
     const history = [_]types.HistoryTurn{
@@ -7374,7 +7374,7 @@ test "upgrade resume restores active session with the installed version notice" 
     try std.testing.expectEqualStrings("inspect file", context[1].assistant.user.text);
     try std.testing.expectEqualStrings("run server", context[2].background_command.user.text);
     try std.testing.expectEqual(@as(usize, 3), app.notices.items.len);
-    try std.testing.expectEqualStrings("● fx has been updated to v9.9.9", app.notices.items[0]);
+    try std.testing.expectEqualStrings("● y2 has been updated to v9.9.9", app.notices.items[0]);
     try std.testing.expect(std.mem.find(u8, app.notices.items[1], "older context") != null);
     try std.testing.expect(std.mem.find(u8, app.notices.items[2], "Re-check runtime context") != null);
     try std.testing.expectEqual(@as(usize, 2), app.completed_tool_statuses.items.len);
@@ -8086,7 +8086,7 @@ test "cancelled command presentation survives a persisted session restart" {
             .{ .terminal = .{
                 .id = lifecycle_id,
                 .outcome = .{ .kind = .cancelled, .summary = "Cancelled slow" },
-                .command_artifact_handle = "fx-command-cancelled.log",
+                .command_artifact_handle = "y2-command-cancelled.log",
             } },
             true,
         );
@@ -8120,7 +8120,7 @@ test "cancelled command presentation survives a persisted session restart" {
     try std.testing.expectEqual(@as(usize, 1), resumed.cancelled_command_detail_count);
     try std.testing.expect(resumed.cancelled_command_replayed_output);
     try std.testing.expectEqualStrings(
-        "fx-command-cancelled.log",
+        "y2-command-cancelled.log",
         resumed.cancelled_command_artifact_handle.?,
     );
     try std.testing.expectEqualSlices(
@@ -8221,7 +8221,7 @@ fn expectAuthoritativeCancelledReplayIsSoleArtifact() !void {
         .{ .terminal = .{
             .id = lifecycle_id,
             .outcome = .{ .kind = .cancelled, .summary = "Cancelled" },
-            .command_artifact_handle = "fx-command-cancelled.log",
+            .command_artifact_handle = "y2-command-cancelled.log",
         } },
         true,
     );
@@ -8248,7 +8248,7 @@ fn expectAuthoritativeCancelledReplayIsSoleArtifact() !void {
     };
     try std.testing.expectEqualStrings(descriptor.handle, stored.handle);
     try std.testing.expectEqualStrings(
-        "fx-command-cancelled.log",
+        "y2-command-cancelled.log",
         history[0].interrupted.cancelled_command.?
             .command_artifact_handle orelse return error.TestExpectedArtifactHandle,
     );
@@ -8799,7 +8799,7 @@ test "combined preference patch writes user defaults cleans legacy fields and ap
         .{paths.workspace},
     );
     defer alloc.free(fixture);
-    var settings_file = try tmp.dir.createFile(io_mod.getIo(), "home/.fx/settings.json", .{ .truncate = true });
+    var settings_file = try tmp.dir.createFile(io_mod.getIo(), "home/.y2/settings.json", .{ .truncate = true });
     try settings_file.writeStreamingAll(io_mod.getIo(), fixture);
     settings_file.close(io_mod.getIo());
 
@@ -9095,7 +9095,7 @@ test "session picker current mode filters workspace and all mode includes every 
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home_path = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -9754,7 +9754,7 @@ test "ensureCachedSessionTitle derives from the first prompt and then freezes" {
     try std.testing.expect(Runtime(TestApp).cachedSessionTitle(&app) == null);
 
     try app.session.appendHistoryEntry(alloc, .{ .assistant = .{
-        .user = .{ .text = @constCast("add a session name display to the bottom status row in fx") },
+        .user = .{ .text = @constCast("add a session name display to the bottom status row in y2") },
         .assistant = @constCast("ok"),
         .execution = .{},
     } });

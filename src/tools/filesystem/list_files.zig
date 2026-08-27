@@ -427,7 +427,7 @@ test "list_files regular file target reports open failure" {
 test "list_files permission denied directory returns structured recovery" {
     if (comptime builtin.os.tag == .windows) return error.SkipZigTest;
     const alloc = std.testing.allocator;
-    const root = try std.fmt.allocPrint(alloc, "/tmp/fx-list-files-access-{d}", .{io_mod.nanoTimestamp()});
+    const root = try std.fmt.allocPrint(alloc, "/tmp/y2-list-files-access-{d}", .{io_mod.nanoTimestamp()});
     defer alloc.free(root);
     defer std.Io.Dir.cwd().deleteTree(io_mod.getIo(), root) catch {};
     try std.Io.Dir.cwd().createDirPath(io_mod.getIo(), root);

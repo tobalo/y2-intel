@@ -1089,7 +1089,7 @@ const TestHome = struct {
         };
         errdefer result.map.deinit();
         try result.map.put("HOME", home);
-        try result.map.put("FX_DISABLE_KEYCHAIN", "1");
+        try result.map.put("Y2_DISABLE_KEYCHAIN", "1");
         return result;
     }
 
@@ -1426,7 +1426,7 @@ test "credential store is private atomic and supports restart deletion" {
     defer loaded.deinit(alloc);
     try std.testing.expectEqualStrings("access-secret", loaded.access_token);
 
-    var root = try tmp.dir.openDir(std.testing.io, "home/.fx", .{ .iterate = true });
+    var root = try tmp.dir.openDir(std.testing.io, "home/.y2", .{ .iterate = true });
     defer root.close(std.testing.io);
     const root_stat = try root.stat(std.testing.io);
     try std.testing.expectEqual(

@@ -17,10 +17,10 @@ const token_url = "https://auth.x.ai/oauth2/token";
 const issuer_url = "https://auth.x.ai";
 const userinfo_url = "https://auth.x.ai/oauth2/userinfo";
 const revoke_url = "https://auth.x.ai/oauth2/revoke";
-const e2e_token_url_env = "FX_E2E_GROK_TOKEN_URL";
-const e2e_issuer_url_env = "FX_E2E_GROK_ISSUER_URL";
-const e2e_userinfo_url_env = "FX_E2E_GROK_USERINFO_URL";
-const e2e_revoke_url_env = "FX_E2E_GROK_REVOKE_URL";
+const e2e_token_url_env = "Y2_E2E_GROK_TOKEN_URL";
+const e2e_issuer_url_env = "Y2_E2E_GROK_ISSUER_URL";
+const e2e_userinfo_url_env = "Y2_E2E_GROK_USERINFO_URL";
+const e2e_revoke_url_env = "Y2_E2E_GROK_REVOKE_URL";
 const browser_scope = "openid profile email offline_access grok-cli:access api:access";
 const browser_login_timeout_seconds: i64 = 5 * 60;
 
@@ -368,7 +368,7 @@ fn completeSignIn(
 fn saveSignIn(_: ?*anyopaque, alloc: Allocator, completion: login_flow.SignInCompletion) !void {
     const session = switch (completion) {
         .grok => |session| session,
-        .vercel, .chatgpt => return error.InvalidSignInCompletion,
+        .retired_credential, .chatgpt => return error.InvalidSignInCompletion,
     };
     try grok_session.saveNewSession(alloc, session);
 }
@@ -389,7 +389,7 @@ pub fn runLogin(
     try writeStdout(authorization_url);
     try writeStdout("\n\nWaiting for browser authorization...\n");
     try writeStdout("Paste the code shown by xAI and press Enter if the browser doesn't return.\n");
-    if (io_mod.getenv("FX_NO_OPEN_BROWSER") == null) {
+    if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) {
         _ = url_opener.open(alloc, authorization_url) catch false;
     }
 
@@ -814,7 +814,7 @@ fn buildBrowserAuthorizationUrl(
     try form.append(&out.writer, "code_challenge", code_challenge);
     try form.append(&out.writer, "code_challenge_method", "S256");
     try form.append(&out.writer, "state", state);
-    try form.append(&out.writer, "referrer", "fx");
+    try form.append(&out.writer, "referrer", "y2");
     return out.toOwnedSlice();
 }
 
@@ -1003,7 +1003,7 @@ test "Grok browser authorization URL uses PKCE without device authentication" {
     try std.testing.expect(std.mem.find(u8, url, "code_challenge=challenge-value") != null);
     try std.testing.expect(std.mem.find(u8, url, "code_challenge_method=S256") != null);
     try std.testing.expect(std.mem.find(u8, url, "state=state-value") != null);
-    try std.testing.expect(std.mem.find(u8, url, "referrer=fx") != null);
+    try std.testing.expect(std.mem.find(u8, url, "referrer=y2") != null);
     try std.testing.expect(std.mem.find(u8, url, "nonce") == null);
     try std.testing.expect(std.mem.find(u8, url, "device") == null);
 }

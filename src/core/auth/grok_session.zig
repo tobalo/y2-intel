@@ -52,32 +52,32 @@ pub const DeleteOutcome = enum {
 };
 
 pub const Mutation = struct {
-    fx_dir: io_mod.VerifiedDir,
+    y2_dir: io_mod.VerifiedDir,
     lock: io_mod.TimedAdvisoryLock,
 
     pub fn deinit(self: *Mutation) void {
         self.lock.release();
-        self.fx_dir.close();
+        self.y2_dir.close();
         self.* = undefined;
     }
 
     pub fn load(self: *Mutation, alloc: Allocator) !?Session {
-        return loadFromDir(alloc, &self.fx_dir.dir, true);
+        return loadFromDir(alloc, &self.y2_dir.dir, true);
     }
 
     pub fn save(self: *Mutation, alloc: Allocator, session: Session) !void {
         const text = try stringify(alloc, session);
         defer secret.zeroAndFree(alloc, text);
-        try io_mod.durableReplaceVerified(alloc, &self.fx_dir, auth_file_name, text);
+        try io_mod.durableReplaceVerified(alloc, &self.y2_dir, auth_file_name, text);
     }
 
     pub fn delete(self: *Mutation) !DeleteOutcome {
-        self.fx_dir.dir.deleteFile(io_mod.getIo(), auth_file_name) catch |err| switch (err) {
+        self.y2_dir.dir.deleteFile(io_mod.getIo(), auth_file_name) catch |err| switch (err) {
             error.FileNotFound => return .missing,
             else => return err,
         };
         const durable: io_mod.DurableOps = .{};
-        durable.sync_dir(durable.ctx, self.fx_dir.dir) catch return .deleted_not_durable;
+        durable.sync_dir(durable.ctx, self.y2_dir.dir) catch return .deleted_not_durable;
         return .deleted;
     }
 };
@@ -91,7 +91,7 @@ pub fn load(alloc: Allocator) !?Session {
     };
     defer home_dir.close(io_mod.getIo());
 
-    var fx_dir = home_dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
+    var y2_dir = home_dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
         .iterate = true,
         .follow_symlinks = false,
     }) catch |err| {
@@ -100,12 +100,12 @@ pub fn load(alloc: Allocator) !?Session {
         }
         return null;
     };
-    defer fx_dir.close(io_mod.getIo());
-    return loadFromDir(alloc, &fx_dir, false);
+    defer y2_dir.close(io_mod.getIo());
+    return loadFromDir(alloc, &y2_dir, false);
 }
 
-fn loadFromDir(alloc: Allocator, fx_dir: *std.Io.Dir, report_open_failure: bool) !?Session {
-    var file = fx_dir.openFile(io_mod.getIo(), auth_file_name, .{
+fn loadFromDir(alloc: Allocator, y2_dir: *std.Io.Dir, report_open_failure: bool) !?Session {
+    var file = y2_dir.openFile(io_mod.getIo(), auth_file_name, .{
         .mode = .read_only,
         .allow_directory = false,
         .follow_symlinks = false,
@@ -152,11 +152,11 @@ pub fn beginExistingMutation() !?Mutation {
     };
     defer home_dir.close();
 
-    const fx_dir = openExistingPrivateFxDir(&home_dir) catch |err| switch (err) {
+    const y2_dir = openExistingPrivateY2Dir(&home_dir) catch |err| switch (err) {
         error.FileNotFound => return null,
         else => return err,
     };
-    return try lockMutation(fx_dir);
+    return try lockMutation(y2_dir);
 }
 
 fn beginMutation() !Mutation {
@@ -166,23 +166,23 @@ fn beginMutation() !Mutation {
     };
     defer home_dir.close();
 
-    const fx_dir = try io_mod.openOrCreateVerifiedPrivateDir(&home_dir, profile_paths.root_dir_name);
-    return lockMutation(fx_dir);
+    const y2_dir = try io_mod.openOrCreateVerifiedPrivateDir(&home_dir, profile_paths.root_dir_name);
+    return lockMutation(y2_dir);
 }
 
-fn lockMutation(open_fx_dir: io_mod.VerifiedDir) !Mutation {
-    var fx_dir = open_fx_dir;
-    errdefer fx_dir.close();
+fn lockMutation(open_y2_dir: io_mod.VerifiedDir) !Mutation {
+    var y2_dir = open_y2_dir;
+    errdefer y2_dir.close();
     var lock = try io_mod.acquireTimedAdvisoryLock(
-        &fx_dir,
+        &y2_dir,
         mutation_lock_file_name,
         mutation_lock_deadline_ms,
     );
     errdefer lock.release();
-    return .{ .fx_dir = fx_dir, .lock = lock };
+    return .{ .y2_dir = y2_dir, .lock = lock };
 }
 
-fn openExistingPrivateFxDir(home_dir: *io_mod.VerifiedDir) !io_mod.VerifiedDir {
+fn openExistingPrivateY2Dir(home_dir: *io_mod.VerifiedDir) !io_mod.VerifiedDir {
     var dir = try home_dir.dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
         .iterate = true,
         .follow_symlinks = false,

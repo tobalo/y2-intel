@@ -38,7 +38,6 @@ pub const ParsedCommand = union(enum) {
     compact,
     settings: []const u8,
     alias: []const u8,
-    credits,
     paste,
     fast,
     statusline: []const u8,
@@ -82,7 +81,6 @@ pub const CommandHandlers = struct {
     compact_history: *const fn (ctx: *anyopaque) anyerror!void,
     handle_settings: *const fn (ctx: *anyopaque, rest: []const u8) anyerror!void,
     handle_alias: *const fn (ctx: *anyopaque, rest: []const u8) anyerror!void,
-    show_credits: *const fn (ctx: *anyopaque) anyerror!void,
     paste_clipboard: *const fn (ctx: *anyopaque) anyerror!void,
     toggle_fast: *const fn (ctx: *anyopaque) anyerror!void,
     handle_statusline: *const fn (ctx: *anyopaque, rest: []const u8) anyerror!void,
@@ -132,7 +130,6 @@ fn parsedCommand(kind: SlashKind, payload: []const u8) ParsedCommand {
         .compact => .compact,
         .settings => .{ .settings = payload },
         .alias => .{ .alias = payload },
-        .credits => .credits,
         .paste => .paste,
         .fast => .fast,
         .statusline => .{ .statusline = payload },
@@ -190,7 +187,6 @@ pub fn route(registry: SlashRegistry, handlers: *const CommandHandlers, cmd: []c
         .compact => try handlers.compact_history(handlers.ctx),
         .settings => |rest| try handlers.handle_settings(handlers.ctx, rest),
         .alias => |rest| try handlers.handle_alias(handlers.ctx, rest),
-        .credits => try handlers.show_credits(handlers.ctx),
         .paste => try handlers.paste_clipboard(handlers.ctx),
         .fast => try handlers.toggle_fast(handlers.ctx),
         .statusline => |rest| try handlers.handle_statusline(handlers.ctx, rest),
@@ -325,8 +321,6 @@ test "parse recognizes exact no-payload commands" {
     try std.testing.expectEqual(ParsedCommand.feedback, parse(testSlashRegistry(), "/feedback"));
     try std.testing.expectEqual(ParsedCommand.trace, parse(testSlashRegistry(), "/trace"));
     try std.testing.expectEqual(ParsedCommand.compact, parse(testSlashRegistry(), "/compact"));
-    try std.testing.expectEqual(ParsedCommand.credits, parse(testSlashRegistry(), "/credits"));
-    try std.testing.expectEqual(ParsedCommand.credits, parse(testSlashRegistry(), "/balance"));
     try std.testing.expectEqual(ParsedCommand.paste, parse(testSlashRegistry(), "/paste"));
     try std.testing.expectEqual(ParsedCommand.fast, parse(testSlashRegistry(), "/fast"));
     try std.testing.expectEqual(ParsedCommand.version, parse(testSlashRegistry(), "/version"));
@@ -537,7 +531,6 @@ fn testHandlers(ctx: *TestContext) CommandHandlers {
         .compact_history = unexpectedNoPayload,
         .handle_settings = unexpectedPayload,
         .handle_alias = unexpectedPayload,
-        .show_credits = unexpectedNoPayload,
         .paste_clipboard = unexpectedNoPayload,
         .toggle_fast = unexpectedNoPayload,
         .handle_statusline = unexpectedPayload,

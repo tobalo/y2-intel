@@ -174,7 +174,7 @@ pub fn createTempSnapshotDir(alloc: std.mem.Allocator) ![]u8 {
         io_mod.getIo().random(std.mem.asBytes(&suffix));
         const path = try std.fmt.allocPrint(
             alloc,
-            "{s}/fx-image-snapshots-{x}",
+            "{s}/y2-image-snapshots-{x}",
             .{ temp_root, suffix },
         );
         errdefer alloc.free(path);
@@ -2445,7 +2445,7 @@ test "extractInlineImageAttachments replaces supported paths with matching place
 
 test "extractInlineImageAttachments preserves missing and unsupported tokens" {
     const alloc = std.testing.allocator;
-    const input = "look /tmp/fx-definitely-missing-image.png and notes.txt";
+    const input = "look /tmp/y2-definitely-missing-image.png and notes.txt";
     const result = try extractInlineImageAttachments(alloc, "/", input, 1);
     defer result.deinit(alloc);
 

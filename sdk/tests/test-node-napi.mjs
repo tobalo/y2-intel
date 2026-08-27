@@ -15,7 +15,7 @@ const scripts = [
   "test-native-core-fetch-failure.mjs",
   "test-native-core-cancel-before-fetch.mjs",
   "test-native-core-cancel.mjs",
-  "test-libfx-loader.mjs",
+  "test-liby2-loader.mjs",
 ];
 for (const script of scripts) {
   const args = [fileURLToPath(new URL(script, import.meta.url))];

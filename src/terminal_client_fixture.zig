@@ -74,7 +74,7 @@ fn mainInner(
             .delegate = background_process.provider,
         };
         const provider = if (io_mod.getenv(
-            "FX_TERMINAL_FIXTURE_FAIL_PROCESS_TOKEN",
+            "Y2_TERMINAL_FIXTURE_FAIL_PROCESS_TOKEN",
         ) != null)
             failure_provider.provider()
         else
@@ -156,7 +156,7 @@ fn runFixture(
     alloc: Allocator,
     process_provider: background_process_provider.Provider,
 ) !void {
-    if (io_mod.getenv("FX_TERMINAL_CAPABILITY_FIXTURE")) |mode| {
+    if (io_mod.getenv("Y2_TERMINAL_CAPABILITY_FIXTURE")) |mode| {
         if (std.mem.eql(u8, mode, "start")) {
             return runCapabilityStartFixture(alloc, process_provider);
         }
@@ -165,7 +165,7 @@ fn runFixture(
         }
         return error.InvalidTerminalCapabilityFixtureMode;
     }
-    if (io_mod.getenv("FX_TERMINAL_OUTCOME_FIXTURE")) |mode| {
+    if (io_mod.getenv("Y2_TERMINAL_OUTCOME_FIXTURE")) |mode| {
         if (std.mem.eql(u8, mode, "ordering")) {
             return runOutcomeOrderingFixture(alloc, process_provider);
         }
@@ -177,7 +177,7 @@ fn runFixture(
         }
         return error.InvalidTerminalOutcomeFixtureMode;
     }
-    if (io_mod.getenv("FX_TERMINAL_AUTHORITY_FIXTURE")) |mode| {
+    if (io_mod.getenv("Y2_TERMINAL_AUTHORITY_FIXTURE")) |mode| {
         if (std.mem.eql(u8, mode, "start")) {
             return runAuthorityStartFixture(alloc, process_provider);
         }
@@ -220,7 +220,7 @@ fn runCapabilityForceCloseFixture(
 ) !void {
     const home = io_mod.getenv("HOME") orelse return error.HomeNotSet;
     const terminal_session_id = io_mod.getenv(
-        "FX_TERMINAL_AUTHORITY_SESSION_ID",
+        "Y2_TERMINAL_AUTHORITY_SESSION_ID",
     ) orelse return error.TerminalAuthorityFixtureSessionMissing;
     var owner = try openFixtureOwnerCapability(alloc, home);
     defer owner.deinit();
@@ -274,7 +274,7 @@ fn fixturePrincipal(home: []const u8) contracts.Principal {
 
 fn authorityFixturePrincipal(home: []const u8) contracts.Principal {
     var principal = fixturePrincipal(home);
-    if (io_mod.getenv("FX_TERMINAL_AUTHORITY_FIXTURE_COMPAT")) |value| {
+    if (io_mod.getenv("Y2_TERMINAL_AUTHORITY_FIXTURE_COMPAT")) |value| {
         if (std.mem.eql(u8, value, "1")) {
             principal.profile_user = protocol_fixture_profile_user;
         }
@@ -288,7 +288,7 @@ fn runAuthorityStartFixture(
 ) !void {
     const home = io_mod.getenv("HOME") orelse return error.HomeNotSet;
     const compatibility_fixture = if (io_mod.getenv(
-        "FX_TERMINAL_AUTHORITY_FIXTURE_COMPAT",
+        "Y2_TERMINAL_AUTHORITY_FIXTURE_COMPAT",
     )) |value|
         std.mem.eql(u8, value, "1")
     else
@@ -347,7 +347,7 @@ fn runAuthorityReloadFixture(
 ) !void {
     const home = io_mod.getenv("HOME") orelse return error.HomeNotSet;
     const terminal_session_id = io_mod.getenv(
-        "FX_TERMINAL_AUTHORITY_SESSION_ID",
+        "Y2_TERMINAL_AUTHORITY_SESSION_ID",
     ) orelse return error.TerminalAuthorityFixtureSessionMissing;
     var owner = try openFixtureOwnerCapability(alloc, home);
     defer owner.deinit();
@@ -481,7 +481,7 @@ fn runOutcomeFailureFixture(
     alloc: Allocator,
     process_provider: background_process_provider.Provider,
 ) !void {
-    const point = io_mod.getenv("FX_TERMINAL_TEST_HOST_FAILURE_POINT") orelse
+    const point = io_mod.getenv("Y2_TERMINAL_TEST_HOST_FAILURE_POINT") orelse
         return error.TerminalOutcomeFixtureFailurePointMissing;
     const ordered = std.mem.eql(u8, point, "task_allocation") or
         std.mem.eql(u8, point, "worker_start");
@@ -750,7 +750,7 @@ fn orderingMarkerPath(
     correlation_id: u64,
     suffix: []const u8,
 ) ![]const u8 {
-    const prefix = io_mod.getenv("FX_TERMINAL_TEST_ORDER_BARRIER") orelse
+    const prefix = io_mod.getenv("Y2_TERMINAL_TEST_ORDER_BARRIER") orelse
         return error.TerminalOutcomeFixtureBarrierMissing;
     return std.fmt.bufPrint(
         buffer,

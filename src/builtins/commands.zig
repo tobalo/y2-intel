@@ -34,7 +34,7 @@ pub const top_level_specs = [_]TopLevelSpec{
         .summary = "Run one noninteractive request",
         .options = &.{
             .{ .flag = "--auto", .description = "Automatically review unresolved permission requests" },
-            .{ .flag = "--yolo", .description = "Disable fx permission checks" },
+            .{ .flag = "--yolo", .description = "Disable y2 permission checks" },
             .{ .flag = "--image PATH", .description = "Attach an image file; repeat for multiple images" },
             json_option,
             .{ .flag = "--quiet", .description = "Suppress assistant output" },
@@ -121,7 +121,7 @@ pub const top_level_specs = [_]TopLevelSpec{
             "Modes:",
             "  ask    Prompt before sensitive tool calls",
             "  auto   Apply rules, then review unresolved sensitive tool calls (default)",
-            "  yolo   Disable fx permission checks",
+            "  yolo   Disable y2 permission checks",
             "",
             "Change the mode from the interactive shell with `/permissions [ask|auto|yolo|reset]`,",
             "and manage persistent allow rules with `/allowlist`.",
@@ -138,7 +138,7 @@ pub const top_level_specs = [_]TopLevelSpec{
         .kind = .provider,
         .token = "provider",
         .usage = "provider <y2|codex|grok>",
-        .summary = "Choose the model provider used by fx",
+        .summary = "Choose the model provider used by y2",
     },
     .{
         .kind = .doctor,
@@ -211,15 +211,6 @@ pub const top_level_specs = [_]TopLevelSpec{
         },
     },
     .{
-        .kind = .credits,
-        .token = "credits",
-        .aliases = &.{"balance"},
-        .usage = "credits [--json]",
-        .summary = "Show provider usage when available",
-        .options = &.{json_option},
-        .hidden_from_top_level_help = true,
-    },
-    .{
         .kind = .usage,
         .token = "usage",
         .usage = "usage [--period <24h|7d|30d>] [--json]",
@@ -229,7 +220,7 @@ pub const top_level_specs = [_]TopLevelSpec{
             json_option,
         },
         .details = &.{
-            "Reports only usage recorded by fx on this machine.",
+            "Reports only usage recorded by y2 on this machine.",
             "This command reads local state and does not query account-wide Gateway reports.",
         },
     },
@@ -360,14 +351,14 @@ pub const top_level_flags = [_]TopLevelFlag{
 };
 
 pub const top_level_examples = [_]TopLevelExample{
-    .{ .command = "fx", .description = "Start a fresh interactive session" },
-    .{ .command = "fx ask \"Explain the changes in this repository\"", .description = "Run one request and exit" },
-    .{ .command = "fx session resume last", .description = "Continue the latest session for this workspace" },
-    .{ .command = "fx status --json", .description = "Inspect the current configuration as JSON" },
+    .{ .command = "y2", .description = "Start a fresh interactive session" },
+    .{ .command = "y2 ask \"Explain the changes in this repository\"", .description = "Run one request and exit" },
+    .{ .command = "y2 session resume last", .description = "Continue the latest session for this workspace" },
+    .{ .command = "y2 status --json", .description = "Inspect the current configuration as JSON" },
 };
 
 pub const top_level_notes = [_][]const u8{
-    "Run `fx <command> --help` for command-specific options and examples.",
+    "Run `y2 <command> --help` for command-specific options and examples.",
     "Run `/help` inside an interactive session for slash commands.",
 };
 
@@ -379,7 +370,7 @@ pub const top_level_resources = [_]TopLevelResource{
 pub const top_level_registry = TopLevelRegistry{
     .specs = top_level_specs[0..],
     .description = "Native agentic intelligence harness for the terminal.",
-    .interactive_hint = "Y2 Information Dominance starts an interactive session by default. Use `fx ask` to run one noninteractive request.",
+    .interactive_hint = "Y2 Information Dominance starts an interactive session by default. Use `y2 ask` to run one noninteractive request.",
     .help_groups = top_level_help_groups[0..],
     .flags = top_level_flags[0..],
     .examples = top_level_examples[0..],
@@ -433,18 +424,17 @@ pub const slash_specs = [_]SlashSpec{
     .{ .kind = .images, .command = "/images", .help_entry = "/images [clear]", .completion_description = "manage pending image attachments", .presentation_category = .media, .has_args = true, .accepts_payload = true },
     .{ .kind = .model, .command = "/model", .help_entry = "/model <id-or-query>", .completion_description = "choose what model and reasoning effort to use", .presentation_category = .model, .has_args = true, .accepts_payload = true },
     .{ .kind = .models, .command = "/models", .help_entry = "/models", .completion_description = "browse available models", .presentation_category = .model },
-    .{ .kind = .permissions, .command = "/permissions", .help_entry = "/permissions [ask|auto|yolo|reset]", .completion_description = "choose what fx is allowed to do", .presentation_category = .security, .show_in_welcome = true, .has_args = true, .accepts_payload = true },
+    .{ .kind = .permissions, .command = "/permissions", .help_entry = "/permissions [ask|auto|yolo|reset]", .completion_description = "choose what y2 is allowed to do", .presentation_category = .security, .show_in_welcome = true, .has_args = true, .accepts_payload = true },
     .{ .kind = .allowlist, .command = "/allowlist", .help_entry = "/allowlist [view [effective|local|user]|[local|user] add|remove|reset ...]", .completion_description = "manage trusted commands, tools, and URLs", .presentation_category = .security, .show_in_welcome = true, .has_args = true, .accepts_payload = true },
     .{ .kind = .undo, .command = "/undo", .help_entry = "/undo", .completion_description = "undo the latest tracked file operation", .presentation_category = .session },
     .{ .kind = .mcp, .command = "/mcp", .help_entry = "/mcp [list|resource|prompt|add|remove|path|reload|auth|logout]", .completion_description = "manage local and remote MCP servers, resources, and prompts", .presentation_category = .extensions, .has_args = true, .accepts_payload = true },
     .{ .kind = .skills, .command = "/skills", .help_entry = "/skills [list|add|install|show|create|remove|path] [name|url|path] ($ opens skill search)", .completion_description = "browse and manage skills", .presentation_category = .extensions, .has_args = true, .accepts_payload = true },
     .{ .kind = .copy, .command = "/copy", .help_entry = "/copy", .completion_description = "copy the last assistant response", .presentation_category = .session },
-    .{ .kind = .feedback, .command = "/feedback", .help_entry = "/feedback", .completion_description = "open the fx feedback form", .presentation_category = .product, .show_in_welcome = true },
+    .{ .kind = .feedback, .command = "/feedback", .help_entry = "/feedback", .completion_description = "open the y2 feedback form", .presentation_category = .product, .show_in_welcome = true },
     .{ .kind = .trace, .command = "/trace", .help_entry = "/trace", .completion_description = "copy a private diagnostic trace", .presentation_category = .product },
     .{ .kind = .compact, .command = "/compact", .help_entry = "/compact", .completion_description = "compact older conversation turns", .presentation_category = .session },
     .{ .kind = .settings, .command = "/settings", .help_entry = "/settings [startup-scrollback [on|off]]", .completion_description = "browse and update settings", .presentation_category = .appearance, .has_args = true, .accepts_payload = true },
     .{ .kind = .alias, .command = "/alias", .aliases = &.{}, .help_entry = "/alias [name] [command]", .completion_description = "show alias availability", .presentation_category = .extensions, .has_args = true, .accepts_payload = true },
-    .{ .kind = .credits, .command = "/credits", .aliases = &.{"/balance"}, .requires_prompt_credential = true },
     .{ .kind = .paste, .command = "/paste", .help_entry = "/paste", .completion_description = "attach an image from the clipboard when supported", .presentation_category = .media },
     .{ .kind = .fast, .command = "/fast", .help_entry = "/fast", .completion_description = "toggle Fast mode when supported", .presentation_category = .model },
     .{ .kind = .statusline, .command = "/statusline", .help_entry = "/statusline [context|session|workspace]", .completion_description = "toggle status line segments", .presentation_category = .appearance, .has_args = true, .accepts_payload = true },
@@ -545,7 +535,6 @@ test "built-in slash commands register exact active order" {
         "/compact",
         "/settings",
         "/alias",
-        "/credits",
         "/paste",
         "/fast",
         "/statusline",
@@ -574,9 +563,6 @@ test "built-in slash registry resolves primary commands and aliases" {
 
     const model = command_specs.matchedSlashPrefix(slash_registry, "/model\tmodel-id", .model) orelse return error.TestExpectedEqual;
     try std.testing.expectEqualStrings("/model", model);
-
-    const credits = slash_registry.lookup("/credits") orelse return error.TestExpectedEqual;
-    try std.testing.expect(credits.requires_prompt_credential);
 
     for ([_][]const u8{ "/model", "/models" }) |command| {
         const catalog_command = slash_registry.lookup(command) orelse return error.TestExpectedEqual;

@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, HAS_API_KEY } from "../evals/eval-helpers";
+import { Y2_BIN, HAS_API_KEY } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -37,7 +37,7 @@ afterEach(async () => {
 });
 
 async function launchAndWait(): Promise<TmuxSession> {
-  const root = mkdtempSync(join(tmpdir(), "fx-slash-commands-"));
+  const root = mkdtempSync(join(tmpdir(), "y2-slash-commands-"));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   mkdirSync(home);
@@ -55,7 +55,7 @@ async function launchNoKeyAndWait(): Promise<{
   terminal: TmuxSession;
   stderrPath: string;
 }> {
-  const root = mkdtempSync(join(tmpdir(), "fx-slash-commands-no-key-"));
+  const root = mkdtempSync(join(tmpdir(), "y2-slash-commands-no-key-"));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   const stderrPath = join(root, "stderr.log");
@@ -68,11 +68,11 @@ async function launchNoKeyAndWait(): Promise<{
     env: {
       HOME: home,
       Y2_API_KEY: undefined,
-      FX_AUTO_UPGRADE: "0",
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_PERMISSION_MODE: undefined,
-      FX_SKIP_ONBOARDING: "1",
-      VERCEL_OIDC_TOKEN: undefined,
+      Y2_AUTO_UPGRADE: "0",
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_PERMISSION_MODE: undefined,
+      Y2_SKIP_ONBOARDING: "1",
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
     },
   });
   await terminal.waitForComposer(10_000);
@@ -94,7 +94,7 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
   test(
     "/undo refuses an unavailable copy preimage before exposing older history",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-undo-unavailable-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-undo-unavailable-"));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
@@ -128,14 +128,14 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "undo-e2e-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_AUTO_UPGRADE: "0",
-          FX_DISABLE_KEYCHAIN: "1",
-          FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_MODEL: FAKE_GATEWAY_MODEL,
-          FX_PERMISSION_MODE: "yolo",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_DISABLE_KEYCHAIN: "1",
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_MODEL: FAKE_GATEWAY_MODEL,
+          Y2_PERMISSION_MODE: "yolo",
         },
       });
       await session.waitForComposer(10_000);
@@ -194,11 +194,11 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
   test(
     "compact status notice preserves native scrollback",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-status-compact-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-status-compact-"));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const stderrPath = join(root, "stderr.log");
-      const tapePath = join(root, "session.fxtape");
+      const tapePath = join(root, "session.y2tape");
       mkdirSync(home);
       mkdirSync(workspace);
       tempDirs.push(root);
@@ -212,12 +212,12 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "status-compact-key",
-          FX_AUTO_UPGRADE: "0",
-          FX_DISABLE_KEYCHAIN: "1",
-          FX_PERMISSION_MODE: "auto",
-          FX_RECORD: tapePath,
-          FX_RECORD_INPUT: "1",
-          VERCEL_OIDC_TOKEN: undefined,
+          Y2_AUTO_UPGRADE: "0",
+          Y2_DISABLE_KEYCHAIN: "1",
+          Y2_PERMISSION_MODE: "auto",
+          Y2_RECORD: tapePath,
+          Y2_RECORD_INPUT: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           NO_COLOR: "1",
         },
       });
@@ -243,7 +243,7 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
       expect(await session.waitForSessionEnd(5_000)).toBe(true);
       session = null;
 
-      const replay = JSON.parse(execFileSync(FX_BIN, ["replay", tapePath, "--json"], {
+      const replay = JSON.parse(execFileSync(Y2_BIN, ["replay", tapePath, "--json"], {
         encoding: "utf8",
       }));
       expect(replay.frame_count).toBeGreaterThan(0);

@@ -5,9 +5,9 @@ const Allocator = std.mem.Allocator;
 const initial_capacity: usize = 4 * 1024;
 const max_response_bytes: usize = 1024 * 1024;
 
-extern "fx" fn fx_prompt_history_available() i32;
+extern "y2" fn y2_prompt_history_available() i32;
 
-extern "fx" fn fx_prompt_history_load(
+extern "y2" fn y2_prompt_history_load(
     workspace_ptr: [*]const u8,
     workspace_len: usize,
     limit: usize,
@@ -15,7 +15,7 @@ extern "fx" fn fx_prompt_history_load(
     out_cap: usize,
 ) i32;
 
-extern "fx" fn fx_prompt_history_append(
+extern "y2" fn y2_prompt_history_append(
     timestamp_ms: i64,
     workspace_ptr: [*]const u8,
     workspace_len: usize,
@@ -23,13 +23,13 @@ extern "fx" fn fx_prompt_history_append(
     text_len: usize,
 ) i32;
 
-extern "fx" fn fx_prompt_history_clear(
+extern "y2" fn y2_prompt_history_clear(
     workspace_ptr: [*]const u8,
     workspace_len: usize,
 ) i32;
 
 pub fn available() bool {
-    return fx_prompt_history_available() == 1;
+    return y2_prompt_history_available() == 1;
 }
 
 pub const provider = prompt_history_provider.Provider{
@@ -48,7 +48,7 @@ fn loadRecent(
     var capacity = initial_capacity;
     while (capacity <= max_response_bytes) : (capacity *= 2) {
         const buffer = try alloc.alloc(u8, capacity);
-        const result = fx_prompt_history_load(
+        const result = y2_prompt_history_load(
             workspace_root.ptr,
             workspace_root.len,
             limit,
@@ -91,7 +91,7 @@ fn append(
     workspace_root: []const u8,
     text: []const u8,
 ) !prompt_history_provider.AppendOutcome {
-    return switch (fx_prompt_history_append(
+    return switch (y2_prompt_history_append(
         timestamp_ms,
         workspace_root.ptr,
         workspace_root.len,
@@ -110,7 +110,7 @@ fn clearWorkspace(
     _: Allocator,
     workspace_root: []const u8,
 ) !void {
-    if (fx_prompt_history_clear(workspace_root.ptr, workspace_root.len) != 0) {
+    if (y2_prompt_history_clear(workspace_root.ptr, workspace_root.len) != 0) {
         return error.PromptHistoryHostFailure;
     }
 }

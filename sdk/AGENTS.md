@@ -2,7 +2,7 @@
 
 These instructions apply to work under `sdk/` and supplement the repository-level `AGENTS.md`.
 
-This file is maintainer guidance, not consumer documentation. Keep setup and the supported public surface in `sdk/README.md`. Keep exact API shapes in `sdk/fx-sdk.js` and its tests. Add details here only when they help an agent choose the right owner, preserve a non-obvious invariant, or run the right proof. The native Node-API architecture and security model are documented in `sdk/NAPI.md`.
+This file is maintainer guidance, not consumer documentation. Keep setup and the supported public surface in `sdk/README.md`. Keep exact API shapes in `sdk/y2-sdk.js` and its tests. Add details here only when they help an agent choose the right owner, preserve a non-obvious invariant, or run the right proof. The native Node-API architecture and security model are documented in `sdk/NAPI.md`.
 
 ## Start from the correct owner
 
@@ -10,11 +10,11 @@ The SDK has two WebAssembly surfaces and one shared JavaScript host layer:
 
 | Concern | Source of truth |
 | --- | --- |
-| Shared loader, host imports, adapters, and public JavaScript exports | `sdk/fx-sdk.js` |
-| Headless ACP composition for `fx-core.wasm` | `src/wasm_core_main.zig` |
-| Interactive terminal entry point for `fx-term.wasm` | `src/wasm_term_main.zig` and `runWasmTerminal` in `src/main.zig` |
+| Shared loader, host imports, adapters, and public JavaScript exports | `sdk/y2-sdk.js` |
+| Headless ACP composition for `y2-core.wasm` | `src/wasm_core_main.zig` |
+| Interactive terminal entry point for `y2-term.wasm` | `src/wasm_term_main.zig` and `runWasmTerminal` in `src/main.zig` |
 | Native and WebAssembly capability policy | `src/core/hosts/runtime_profile.zig` |
-| Host-backed terminal session persistence | `src/core/app/app_session_runtime.zig` and `sdk/fx-sdk.js` |
+| Host-backed terminal session persistence | `src/core/app/app_session_runtime.zig` and `sdk/y2-sdk.js` |
 | Browser workspace contract and `terminal.exec` bridge | `src/core/hosts/js_host_workspace.zig` and `src/tools/terminal/browser_terminal.zig` |
 | Browser device login, OAuth session persistence, and URL opening | `src/core/auth/js_host_auth.zig`, `src/core/auth/oauth_session.zig`, and `src/core/hosts/js_host_url_opener.zig` |
 | WASI target, optimization mode, threading, and artifact names | `build.zig` |
@@ -26,14 +26,14 @@ Do not treat the demos or this file as the implementation contract. When prose a
 
 ## Preserve these invariants
 
-- Keep `sdk/fx-sdk.js` a dependency-free ECMAScript module. A bundler, framework, or runtime package must not become necessary to load the SDK.
-- Keep the core and terminal surfaces distinct. `fx-core.wasm` starts the headless ACP server; `fx-term.wasm` starts the interactive terminal. Shared loader changes must be validated against both.
+- Keep `sdk/y2-sdk.js` a dependency-free ECMAScript module. A bundler, framework, or runtime package must not become necessary to load the SDK.
+- Keep the core and terminal surfaces distinct. `y2-core.wasm` starts the headless ACP server; `y2-term.wasm` starts the interactive terminal. Shared loader changes must be validated against both.
 - Detect JavaScript Promise Integration (JSPI) by capability through `supportsJspi()`. Do not replace feature detection with browser or version sniffing. Keep loader errors, demo fallback states, and the compatibility statement in `sdk/README.md` consistent.
-- Treat JavaScript host stores as durable contracts. Session and OAuth snapshots are opaque bytes with optimistic revisions. Preserve `FX_SESSION_REVISION_CONFLICT` and `FX_OAUTH_SESSION_REVISION_CONFLICT`. Persist configuration only after fx accepts it, and do not collapse prompt-history outcomes into generic success.
+- Treat JavaScript host stores as durable contracts. Session and OAuth snapshots are opaque bytes with optimistic revisions. Preserve `Y2_SESSION_REVISION_CONFLICT` and `Y2_OAUTH_SESSION_REVISION_CONFLICT`. Persist configuration only after y2 accepts it, and do not collapse prompt-history outcomes into generic success.
 - Preserve cancellation and lifecycle behavior. Fetch cancellation must reach the host `AbortSignal`; terminal subscriptions must be released exactly once; `abort()` must settle `exited` and must not leave input or resize listeners attached.
 - The WebAssembly runtime is not the native runtime. Keep native tools disabled. The optional workspace host may expose only foreground `terminal.exec` through its typed boundary and permission policy. Its schema is exactly `{ action: "exec", command }`; native profiles and durable terminal actions are unavailable. Any additional capability requires its own typed host boundary, permission review where applicable, and coverage on the affected surface.
 - Keep workspace version 1 constrained to an ephemeral, non-git workspace whose normalized `cwd` equals `root`. Preserve command and output limits, the 30-second maximum deadline, and Ctrl+C cancellation through the shared host-effect abort path.
-- `window.__fxCoreTest` and `document.body.dataset.state` are test interfaces for the core debugger. If either changes intentionally, update the browser test in the same change.
+- `window.__y2CoreTest` and `document.body.dataset.state` are test interfaces for the core debugger. If either changes intentionally, update the browser test in the same change.
 - The live demos may pass a locally stored credential into the WebAssembly environment. Never print, serialize into artifacts, or add test assertions containing that credential.
 
 ## Match the proof to the change
@@ -41,7 +41,7 @@ Do not treat the demos or this file as the implementation contract. When prose a
 | Change | Minimum focused proof |
 | --- | --- |
 | Public export, shared loader, WASI import, or JSPI gate | Build and test both surfaces |
-| `createFxAgent()`, ACP translation, core session persistence, streaming, or cancellation | Core build, core Node tests, and the browser test when browser behavior is involved |
+| `createY2Agent()`, ACP translation, core session persistence, streaming, or cancellation | Core build, core Node tests, and the browser test when browser behavior is involved |
 | Live model API request or model-catalog translation | Core tests plus the opt-in live smoke test when a credential is available |
 | Terminal adapter, input encoding, resize, cleanup, config, or prompt history | Terminal build and the headless terminal suite |
 | Terminal session persistence | Terminal build plus `sdk/tests/test-term-session-resume.mjs` |

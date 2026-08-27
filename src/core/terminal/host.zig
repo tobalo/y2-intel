@@ -17,7 +17,7 @@ const process_supervisor = @import("../background/process_supervisor.zig");
 
 const Allocator = std.mem.Allocator;
 
-pub const internal_mode = "--fx-internal-terminal-host";
+pub const internal_mode = "--y2-internal-terminal-host";
 pub const endpoint_name = "host.sock";
 pub const lock_name = "host.lock";
 const identity_name = "host.json";
@@ -27,7 +27,7 @@ const identity_max_bytes: usize = 1024;
 const max_connection_requests: usize = 32;
 const listener_poll_ms = 50;
 const transport_hash_bytes: usize = 16;
-const transport_hash_context = "fx.terminal.transport.v1\x00";
+const transport_hash_context = "y2.terminal.transport.v1\x00";
 const socket_permissions: std.Io.File.Permissions = switch (builtin.os.tag) {
     .macos, .linux => .fromMode(0o600),
     else => .default_file,
@@ -134,7 +134,7 @@ fn resolveEndpointSelection(
     );
     const runtime_name = try std.fmt.allocPrint(
         alloc,
-        "fx-terminal-{d}-{s}",
+        "y2-terminal-{d}-{s}",
         .{ uid, digest_hex },
     );
     defer alloc.free(runtime_name);
@@ -170,16 +170,16 @@ pub const Config = struct {
         process_provider: background_process_provider.Provider,
     ) !Config {
         var config: Config = .{ .process_provider = process_provider };
-        if (io_mod.getenv("FX_TERMINAL_HOST_PROTOCOL_MIN")) |value| {
+        if (io_mod.getenv("Y2_TERMINAL_HOST_PROTOCOL_MIN")) |value| {
             config.hello.range.minimum = try std.fmt.parseInt(u16, value, 10);
         }
-        if (io_mod.getenv("FX_TERMINAL_HOST_PROTOCOL_CURRENT")) |value| {
+        if (io_mod.getenv("Y2_TERMINAL_HOST_PROTOCOL_CURRENT")) |value| {
             config.hello.range.current = try std.fmt.parseInt(u16, value, 10);
         }
-        if (io_mod.getenv("FX_TERMINAL_HOST_PROTOCOL_CAPABILITIES")) |value| {
+        if (io_mod.getenv("Y2_TERMINAL_HOST_PROTOCOL_CAPABILITIES")) |value| {
             config.hello.capabilities = try std.fmt.parseInt(u64, value, 10);
         }
-        if (io_mod.getenv("FX_TERMINAL_HOST_IDLE_MS")) |value| {
+        if (io_mod.getenv("Y2_TERMINAL_HOST_IDLE_MS")) |value| {
             config.idle_grace_ms = try std.fmt.parseInt(u64, value, 10);
         }
         try config.hello.validate();
@@ -190,7 +190,7 @@ pub const Config = struct {
 
 pub const Paths = struct {
     home_dir: io_mod.VerifiedDir,
-    fx_dir: io_mod.VerifiedDir,
+    y2_dir: io_mod.VerifiedDir,
     host_dir: io_mod.VerifiedDir,
     transport_dir: ?io_mod.VerifiedDir,
     authority_root_path: []u8,
@@ -214,13 +214,13 @@ pub const Paths = struct {
             }),
         };
         errdefer home_dir.close();
-        var fx_dir = try io_mod.openOrCreateVerifiedPrivateDir(
+        var y2_dir = try io_mod.openOrCreateVerifiedPrivateDir(
             &home_dir,
             profile_paths.root_dir_name,
         );
-        errdefer fx_dir.close();
+        errdefer y2_dir.close();
         var host_dir = try io_mod.openOrCreateVerifiedPrivateDir(
-            &fx_dir,
+            &y2_dir,
             host_dir_name,
         );
         errdefer host_dir.close();
@@ -235,7 +235,7 @@ pub const Paths = struct {
         selection_owned = false;
         return .{
             .home_dir = home_dir,
-            .fx_dir = fx_dir,
+            .y2_dir = y2_dir,
             .host_dir = host_dir,
             .transport_dir = transport_dir,
             .authority_root_path = selection.authority_root,
@@ -255,7 +255,7 @@ pub const Paths = struct {
         alloc.free(self.authority_root_path);
         if (self.transport_dir) |*dir| dir.close();
         self.host_dir.close();
-        self.fx_dir.close();
+        self.y2_dir.close();
         self.home_dir.close();
         self.* = undefined;
     }
@@ -514,7 +514,7 @@ fn runSupported(alloc: Allocator, config: Config) !void {
     }
 
     debug_trace.logf("terminal_host", "host retiring idle=true", .{});
-    maybeDelayForTest("FX_TERMINAL_TEST_IDLE_EXIT_DELAY_MS");
+    maybeDelayForTest("Y2_TERMINAL_TEST_IDLE_EXIT_DELAY_MS");
     identity_created = false;
     cleanupIdentity(&paths.host_dir);
     endpoint_created = false;
@@ -1131,11 +1131,11 @@ fn testRequestFailureRequested(
     point: []const u8,
     correlation_id: contracts.CorrelationId,
 ) bool {
-    const requested_point = io_mod.getenv("FX_TERMINAL_TEST_HOST_FAILURE_POINT") orelse
+    const requested_point = io_mod.getenv("Y2_TERMINAL_TEST_HOST_FAILURE_POINT") orelse
         return false;
     if (!std.mem.eql(u8, requested_point, point)) return false;
     const requested_correlation = io_mod.getenv(
-        "FX_TERMINAL_TEST_HOST_FAILURE_CORRELATION",
+        "Y2_TERMINAL_TEST_HOST_FAILURE_CORRELATION",
     ) orelse return false;
     const value = std.fmt.parseInt(u64, requested_correlation, 10) catch return false;
     return value == correlation_id.value;
@@ -1153,14 +1153,14 @@ fn maybeDelayForTest(name: []const u8) void {
 }
 
 fn testAcceptFailureRequested() bool {
-    const path = io_mod.getenv("FX_TERMINAL_TEST_ACCEPT_FAILURE_PATH") orelse
+    const path = io_mod.getenv("Y2_TERMINAL_TEST_ACCEPT_FAILURE_PATH") orelse
         return false;
     std.Io.Dir.accessAbsolute(io_mod.getIo(), path, .{}) catch return false;
     return true;
 }
 
 fn noteTestOrderedAdmission(correlation_id: contracts.CorrelationId) !void {
-    const prefix = io_mod.getenv("FX_TERMINAL_TEST_ORDER_BARRIER") orelse return;
+    const prefix = io_mod.getenv("Y2_TERMINAL_TEST_ORDER_BARRIER") orelse return;
     var path_buffer: [4096]u8 = undefined;
     const path = try std.fmt.bufPrint(
         &path_buffer,
@@ -1175,12 +1175,12 @@ fn awaitTestOrderedBoundary(
     correlation_id: contracts.CorrelationId,
     cancelled: *const std.atomic.Value(bool),
 ) !void {
-    const prefix = io_mod.getenv("FX_TERMINAL_TEST_ORDER_BARRIER") orelse return;
+    const prefix = io_mod.getenv("Y2_TERMINAL_TEST_ORDER_BARRIER") orelse return;
     const first_target = testCorrelationFromEnvironment(
-        "FX_TERMINAL_TEST_ORDER_HOLD_CORRELATION",
+        "Y2_TERMINAL_TEST_ORDER_HOLD_CORRELATION",
     );
     const second_target = testCorrelationFromEnvironment(
-        "FX_TERMINAL_TEST_ORDER_HOLD_CORRELATION_2",
+        "Y2_TERMINAL_TEST_ORDER_HOLD_CORRELATION_2",
     );
     if ((first_target == null or first_target.? != correlation_id.value) and
         (second_target == null or second_target.? != correlation_id.value))
@@ -1436,11 +1436,11 @@ fn verifyEndpointPermissions(host_dir: *io_mod.VerifiedDir) !void {
 }
 
 test "hidden host mode is exact and remains private" {
-    const exact = [_][*:0]const u8{ "fx", internal_mode };
+    const exact = [_][*:0]const u8{ "y2", internal_mode };
     try std.testing.expect(isInternalModeRaw(&exact));
-    const public_like = [_][*:0]const u8{ "fx", "terminal-host" };
+    const public_like = [_][*:0]const u8{ "y2", "terminal-host" };
     try std.testing.expect(!isInternalModeRaw(&public_like));
-    const extra = [_][*:0]const u8{ "fx", internal_mode, "extra" };
+    const extra = [_][*:0]const u8{ "y2", internal_mode, "extra" };
     try std.testing.expect(!isInternalModeRaw(&extra));
 }
 
@@ -1631,7 +1631,7 @@ test "endpoint selection preserves short homes and deterministically separates l
     try std.testing.expect(std.mem.endsWith(
         u8,
         first.authority_root,
-        "/.fx/terminal-host",
+        "/.y2/terminal-host",
     ));
     try std.testing.expect(!std.mem.eql(
         u8,

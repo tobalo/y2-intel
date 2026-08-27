@@ -8,7 +8,7 @@ const session_store = @import("../session/session_store.zig");
 
 const Allocator = std.mem.Allocator;
 
-const lookup_magic = "FXRELL01";
+const lookup_magic = "Y2RELL01";
 const legacy_schema_version: u32 = 1;
 const schema_version: u32 = 2;
 const header_file = session_child_store.subagent_relationship_index_file;

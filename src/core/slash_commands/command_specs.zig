@@ -24,7 +24,6 @@ pub const TopLevelKind = enum {
     session,
     sessions,
     @"resume",
-    credits,
     usage,
     upgrade,
     replay,
@@ -65,7 +64,6 @@ pub const SlashKind = enum {
     compact,
     settings,
     alias,
-    credits,
     paste,
     fast,
     statusline,
@@ -290,8 +288,8 @@ pub fn renderTopLevelHelpWithStyle(alloc: Allocator, registry: TopLevelRegistry,
     try writeWrappedStyledLine(&out.writer, "", "", registry.interactive_hint, width, style, .muted);
 
     try writeSectionHeading(&out.writer, style, "Usage:");
-    try writeWrappedStyledLine(&out.writer, "  ", "  ", "fx [flags]", width, style, .syntax);
-    try writeWrappedStyledLine(&out.writer, "  ", "  ", "fx <command> [...flags] [...args]", width, style, .syntax);
+    try writeWrappedStyledLine(&out.writer, "  ", "  ", "y2 [flags]", width, style, .syntax);
+    try writeWrappedStyledLine(&out.writer, "  ", "  ", "y2 <command> [...flags] [...args]", width, style, .syntax);
 
     try writeSectionHeading(&out.writer, style, "Commands:");
     for (registry.help_groups, 0..) |group, group_index| {
@@ -330,12 +328,12 @@ pub fn renderTopLevelCommandHelp(alloc: Allocator, registry: TopLevelRegistry, k
     var out: std.Io.Writer.Allocating = .init(alloc);
     defer out.deinit();
 
-    try out.writer.writeAll("fx ");
+    try out.writer.writeAll("y2 ");
     try out.writer.writeAll(spec.token);
     try out.writer.writeAll("\n\n");
     try out.writer.writeAll(spec.summary);
     try out.writer.writeAll("\n\nUsage:\n");
-    try out.writer.writeAll("  fx ");
+    try out.writer.writeAll("  y2 ");
     try out.writer.writeAll(spec.usage);
     try out.writer.writeByte('\n');
 
@@ -1548,7 +1546,7 @@ test "rendered top-level help is a complete CLI navigation page" {
 
     try std.testing.expect(std.mem.startsWith(u8, text, "Y2 INFORMATION DOMINANCE v9.8.7\nNative agentic intelligence harness for the terminal."));
     try std.testing.expect(std.mem.find(u8, text, "Y2 Information Dominance starts an interactive session by default.") != null);
-    try std.testing.expect(std.mem.find(u8, text, "fx <command> [...flags] [...args]") != null);
+    try std.testing.expect(std.mem.find(u8, text, "y2 <command> [...flags] [...args]") != null);
     try std.testing.expect(std.mem.find(u8, text, "Commands:") != null);
     try std.testing.expect(std.mem.find(u8, text, "ask <prompt>") != null);
     try std.testing.expect(std.mem.find(u8, text, "Run one noninteractive request") != null);
@@ -1566,17 +1564,17 @@ test "rendered top-level help is a complete CLI navigation page" {
     try std.testing.expect(std.mem.find(u8, text, "-v, --version") != null);
     try std.testing.expect(std.mem.find(u8, text, "Must appear before the command. Accepted names:") == null);
     try std.testing.expect(std.mem.find(u8, text, "skill_description_bytes, skill_catalog_bytes") == null);
-    try std.testing.expect(std.mem.find(u8, text, "FX_EXPERIMENTAL_WORKSPACE_ACCESS=1") == null);
+    try std.testing.expect(std.mem.find(u8, text, "Y2_EXPERIMENTAL_WORKSPACE_ACCESS=1") == null);
     try std.testing.expect(std.mem.find(u8, text, "Supported for interactive, resume, ask, ACP, PR, and issue launches") == null);
     try std.testing.expect(std.mem.find(u8, text, "Examples:") != null);
-    try std.testing.expect(std.mem.find(u8, text, "fx ask \"Explain the changes in this repository\"") != null);
-    try std.testing.expect(std.mem.find(u8, text, "fx session resume last") != null);
+    try std.testing.expect(std.mem.find(u8, text, "y2 ask \"Explain the changes in this repository\"") != null);
+    try std.testing.expect(std.mem.find(u8, text, "y2 session resume last") != null);
     try std.testing.expect(std.mem.find(u8, text, "session resume [last|id]") != null);
-    try std.testing.expect(std.mem.find(u8, text, "fx status --json") != null);
+    try std.testing.expect(std.mem.find(u8, text, "y2 status --json") != null);
     try std.testing.expect(std.mem.find(u8, text, "Run `/help` inside an interactive session for slash commands.") != null);
     try std.testing.expect(std.mem.find(u8, text, "Y2 API documentation:  https://y2.dev/docs/api/") != null);
     try std.testing.expect(std.mem.find(u8, text, "\nReport a problem:      run `/feedback` inside the harness\n") != null);
-    try std.testing.expect(std.mem.find(u8, text, "\n\n\nRun `fx <command> --help`") == null);
+    try std.testing.expect(std.mem.find(u8, text, "\n\n\nRun `y2 <command> --help`") == null);
     try std.testing.expect(std.mem.find(u8, text, "Start:") == null);
     try std.testing.expect(std.mem.find(u8, text, "  Work      ") == null);
     try std.testing.expect(std.mem.find(u8, text, "More:") == null);
@@ -1645,8 +1643,8 @@ test "per-command help renders header usage options and details" {
     const text = try renderTopLevelCommandHelp(std.testing.allocator, testTopLevelRegistry(), .permissions);
     defer std.testing.allocator.free(text);
 
-    try std.testing.expect(std.mem.find(u8, text, "fx permissions\n") != null);
-    try std.testing.expect(std.mem.find(u8, text, "Usage:\n  fx permissions [--json]") != null);
+    try std.testing.expect(std.mem.find(u8, text, "y2 permissions\n") != null);
+    try std.testing.expect(std.mem.find(u8, text, "Usage:\n  y2 permissions [--json]") != null);
     try std.testing.expect(std.mem.find(u8, text, "Options:") != null);
     try std.testing.expect(std.mem.find(u8, text, "--json") != null);
     try std.testing.expect(std.mem.find(u8, text, "Modes:") != null);
@@ -1656,7 +1654,7 @@ test "per-command help preserves long resume usage outside top-level index" {
     const text = try renderTopLevelCommandHelp(std.testing.allocator, testTopLevelRegistry(), .@"resume");
     defer std.testing.allocator.free(text);
 
-    try std.testing.expect(std.mem.find(u8, text, "Usage:\n  fx session resume [last|<id>] [--record] | session resume --id <id> [--record] | --resume [last|<id>] [--record] | resume [last|<id>] [--record] | resume --id <id> [--record] | --resume-last | --continue | -c | -r | --resume-<id>") != null);
+    try std.testing.expect(std.mem.find(u8, text, "Usage:\n  y2 session resume [last|<id>] [--record] | session resume --id <id> [--record] | --resume [last|<id>] [--record] | resume [last|<id>] [--record] | resume --id <id> [--record] | --resume-last | --continue | -c | -r | --resume-<id>") != null);
     try std.testing.expect(std.mem.find(u8, text, "Options:") != null);
     try std.testing.expect(std.mem.find(u8, text, "--record") != null);
 }
@@ -1665,8 +1663,8 @@ test "ACP help documents accepted options" {
     const text = try renderTopLevelCommandHelp(std.testing.allocator, testTopLevelRegistry(), .acp);
     defer std.testing.allocator.free(text);
 
-    try std.testing.expect(std.mem.find(u8, text, "fx acp\n") != null);
-    try std.testing.expect(std.mem.find(u8, text, "Usage:\n  fx acp [--model <id>] [--log-file <path>]") != null);
+    try std.testing.expect(std.mem.find(u8, text, "y2 acp\n") != null);
+    try std.testing.expect(std.mem.find(u8, text, "Usage:\n  y2 acp [--model <id>] [--log-file <path>]") != null);
     try std.testing.expect(std.mem.find(u8, text, "--model <id>") != null);
     try std.testing.expect(std.mem.find(u8, text, "--log-file <path>") != null);
 }
@@ -2064,7 +2062,7 @@ test "slash completion descriptions follow completion matches" {
     try std.testing.expectEqualStrings("/models", nthSlashCompletion(testSlashRegistry(), "/mo", 1).?);
     try std.testing.expectEqualStrings("start a fresh session and keep background processes", nthSlashCompletionDescription(testSlashRegistry(), "/cl", 0).?);
     try std.testing.expectEqualStrings("undo the latest tracked file operation", nthSlashCompletionDescription(testSlashRegistry(), "/un", 0).?);
-    try std.testing.expectEqualStrings("open the fx feedback form", nthSlashCompletionDescription(testSlashRegistry(), "/fee", 0).?);
+    try std.testing.expectEqualStrings("open the y2 feedback form", nthSlashCompletionDescription(testSlashRegistry(), "/fee", 0).?);
     try std.testing.expectEqualStrings("copy a private diagnostic trace", nthSlashCompletionDescription(testSlashRegistry(), "/tr", 0).?);
     try std.testing.expectEqualStrings("compact older conversation turns", nthSlashCompletionDescription(testSlashRegistry(), "/comp", 0).?);
     try std.testing.expectEqualStrings("show alias availability", nthSlashCompletionDescription(testSlashRegistry(), "/ali", 0).?);

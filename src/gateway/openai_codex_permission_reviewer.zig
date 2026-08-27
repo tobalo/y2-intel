@@ -79,5 +79,5 @@ test "Codex reviewer builds a direct Responses request with gpt-5.4-mini" {
     try std.testing.expect(std.mem.find(u8, body, "\"model\":\"gpt-5.4-mini\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"tool_choice\":\"required\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"type\":\"function_call_output\"") != null);
-    try std.testing.expect(std.mem.find(u8, body, "ai-gateway") == null);
+    try std.testing.expect(std.mem.find(u8, body, "retired-gateway") == null);
 }

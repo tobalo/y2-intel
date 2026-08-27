@@ -261,7 +261,7 @@ pub fn commandArtifactHandleFromResult(result: []const u8) ?[]const u8 {
 
         const path = line[prefix.len..];
         const handle = std.fs.path.basename(path);
-        if (std.mem.startsWith(u8, handle, "fx-command-") and
+        if (std.mem.startsWith(u8, handle, "y2-command-") and
             std.mem.endsWith(u8, handle, ".log") and
             !std.mem.endsWith(u8, handle, ".stdout.log") and
             !std.mem.endsWith(u8, handle, ".stderr.log"))

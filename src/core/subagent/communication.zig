@@ -272,7 +272,7 @@ pub const RelationshipApproval = struct {
 /// Durable projection of one canonical prepared request. The executable
 /// payload is represented by its canonical digest; human surfaces receive only
 /// the bounded label, explanation, command projection, and optional file review
-/// exposed by fx.
+/// exposed by y2.
 pub const Approval = struct {
     id: []u8,
     kind: ApprovalKind,
@@ -1323,7 +1323,7 @@ pub const ParentAcknowledgement = struct {
     total_bytes: u64,
 };
 
-const parent_retention_gap_id = "fx-retention-gap";
+const parent_retention_gap_id = "y2-retention-gap";
 
 pub fn acknowledgementForParentPart(
     part: ParentDeliveryPart,
@@ -2552,7 +2552,7 @@ pub const ApprovalInput = struct {
 /// equivalent permission scopes replay regardless of input ordering.
 pub fn approvalIdentityFingerprint(input: ApprovalInput) [32]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.approval-identity.v2\x00");
+    hash.update("y2.subagent.approval-identity.v2\x00");
     hashString(&hash, @tagName(input.kind));
     hashString(&hash, input.id);
     hashString(&hash, input.child_id);
@@ -2999,7 +2999,7 @@ pub fn applyAlwaysGrants(
 /// redacted durable projection.
 pub fn preparedRequestFingerprint(request: permission_request.PermissionRequest) [32]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.prepared-permission.v1\x00");
+    hash.update("y2.subagent.prepared-permission.v1\x00");
     hashString(&hash, request.label);
     hashOptionalString(&hash, request.explanation);
     if (request.tool_arguments_preview) |preview| {
@@ -3053,7 +3053,7 @@ pub fn stableDeliveryId(
     kind: []const u8,
 ) [64]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.delivery.v1\x00");
+    hash.update("y2.subagent.delivery.v1\x00");
     hashString(&hash, source_id);
     hashString(&hash, work_id);
     hashString(&hash, kind);
@@ -3068,7 +3068,7 @@ pub fn stableIntervalDeliveryId(
     due_ms: i64,
 ) [64]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.interval-delivery.v1\x00");
+    hash.update("y2.subagent.interval-delivery.v1\x00");
     hashString(&hash, source_id);
     hashString(&hash, work_id);
     hashU64(&hash, @as(u64, @bitCast(due_ms)));
@@ -3084,7 +3084,7 @@ pub fn stableToolActivityId(
     phase: ToolActivityPhase,
 ) [64]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.tool-activity.v1\x00");
+    hash.update("y2.subagent.tool-activity.v1\x00");
     hashString(&hash, source_id);
     hashString(&hash, work_id);
     hashString(&hash, call_id);
@@ -3100,7 +3100,7 @@ pub fn stableApprovalId(
     prepared_fingerprint: [32]u8,
 ) [64]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.approval.v1\x00");
+    hash.update("y2.subagent.approval.v1\x00");
     hashString(&hash, child_id);
     hashString(&hash, work_id);
     hash.update(&prepared_fingerprint);
@@ -3138,7 +3138,7 @@ pub fn relationshipPreparedFingerprint(
     operation_id: []const u8,
 ) [32]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.relationship-approval.v1\x00");
+    hash.update("y2.subagent.relationship-approval.v1\x00");
     hashString(&hash, @tagName(action));
     hashString(&hash, child_id);
     hashString(&hash, prospective_parent_id);
@@ -4353,9 +4353,9 @@ test "delivery compaction cannot skip non-monotonic committed issuance" {
     defer alloc.free(manager_two);
     const ids = [_][]const u8{
         manager_five,
-        "fxop:m:999999:0000000000000000000000000000000000000000000000000000000000000000",
+        "y2op:m:999999:0000000000000000000000000000000000000000000000000000000000000000",
         manager_two,
-        "fxop:m:1:1111111111111111111111111111111111111111111111111111111111111111",
+        "y2op:m:1:1111111111111111111111111111111111111111111111111111111111111111",
     };
     const deliveries = try alloc.alloc(Delivery, ids.len);
     var initialized: usize = 0;
@@ -5721,7 +5721,7 @@ test "approval response is exact once and always grants precede wake effect" {
         .tool_name = try alloc.dupe(u8, "bash"),
         .target_path = try alloc.dupe(
             u8,
-            "@fx-terminal-env:user:8:/bin/zsh::git status",
+            "@y2-terminal-env:user:8:/bin/zsh::git status",
         ),
     };
     var approval = Approval{

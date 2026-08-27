@@ -27,8 +27,8 @@ fn embeddedChime(cue: Cue) []const u8 {
 
 fn materializedName(cue: Cue) []const u8 {
     return switch (cue) {
-        .click => "fx-click.caf",
-        inline else => |named_cue| "fx-" ++ @tagName(named_cue) ++ ".m4a",
+        .click => "y2-click.caf",
+        inline else => |named_cue| "y2-" ++ @tagName(named_cue) ++ ".m4a",
     };
 }
 
@@ -292,7 +292,7 @@ fn startDetachedWaiter(_: ?*anyopaque, process: Process) std.Thread.SpawnError!v
     thread.detach();
 }
 
-const test_sound_path = "/tmp/fx-success-test.wav";
+const test_sound_path = "/tmp/y2-success-test.wav";
 
 const TestState = struct {
     bell_count: usize = 0,

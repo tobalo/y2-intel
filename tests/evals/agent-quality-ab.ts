@@ -1,7 +1,7 @@
 /**
  * Model-backed A/B harness for agent-quality rows.
  *
- * This compares two explicit fx binaries on the same focused matrix rows. It is
+ * This compares two explicit y2 binaries on the same focused matrix rows. It is
  * intentionally not a no-key CI gate: results are noisy model-backed signals,
  * reported as paired pass-rate deltas with raw artifacts for inspection.
  */
@@ -116,34 +116,34 @@ export function parseRowIds(raw: string | undefined): string[] {
 
 export function loadAbConfigFromEnv(env: NodeJS.ProcessEnv = process.env): AbConfig {
   const baselineBin = requireAbsoluteExecutableBinary(
-    env.FX_AB_BASELINE_BIN ?? "",
+    env.Y2_AB_BASELINE_BIN ?? "",
     "baseline",
   );
   const candidateBin = requireAbsoluteExecutableBinary(
-    env.FX_AB_CANDIDATE_BIN ?? "",
+    env.Y2_AB_CANDIDATE_BIN ?? "",
     "candidate",
   );
-  const model = env.FX_AB_MODEL;
-  if (!model) throw new Error("FX_AB_MODEL is required for A/B runs");
+  const model = env.Y2_AB_MODEL;
+  if (!model) throw new Error("Y2_AB_MODEL is required for A/B runs");
 
-  const trials = Number(env.FX_AB_TRIALS ?? "3");
+  const trials = Number(env.Y2_AB_TRIALS ?? "3");
   if (!Number.isInteger(trials) || trials <= 0) {
-    throw new Error(`FX_AB_TRIALS must be a positive integer, got ${env.FX_AB_TRIALS}`);
+    throw new Error(`Y2_AB_TRIALS must be a positive integer, got ${env.Y2_AB_TRIALS}`);
   }
 
   const outputDir =
-    env.FX_AB_OUTPUT_DIR ??
-    mkdtempSync(join(tmpdir(), `fx-agent-quality-ab-${Date.now()}-`));
+    env.Y2_AB_OUTPUT_DIR ??
+    mkdtempSync(join(tmpdir(), `y2-agent-quality-ab-${Date.now()}-`));
 
   return {
     baselineBin,
     candidateBin,
     model,
-    rowIds: parseRowIds(env.FX_AB_ROWS),
+    rowIds: parseRowIds(env.Y2_AB_ROWS),
     trials,
     outputDir,
-    workspaceRoot: env.FX_AB_WORKSPACE_ROOT ?? REPO_ROOT,
-    timeoutMs: Number(env.FX_AB_TIMEOUT_MS ?? "300000"),
+    workspaceRoot: env.Y2_AB_WORKSPACE_ROOT ?? REPO_ROOT,
+    timeoutMs: Number(env.Y2_AB_TIMEOUT_MS ?? "300000"),
   };
 }
 
@@ -216,10 +216,10 @@ function sideBinary(config: AbConfig, side: AbSide): string {
 }
 
 function sanitizedEnvMetadata(model: string): Record<string, string> {
-  const keys = ["FX_MODEL", "Y2_API_KEY", "VERCEL_OIDC_TOKEN", "NO_COLOR"];
+  const keys = ["Y2_MODEL", "Y2_API_KEY", "REMOVED_LEGACY_OIDC_TOKEN", "NO_COLOR"];
   const metadata: Record<string, string> = {};
   for (const key of keys) {
-    const value = key === "FX_MODEL" ? model : process.env[key];
+    const value = key === "Y2_MODEL" ? model : process.env[key];
     if (value) metadata[key] = redactSensitiveValue(key, value);
   }
   return metadata;
@@ -279,14 +279,14 @@ export async function runAbTrial(
   orderIndex: number,
 ): Promise<AbRunResult> {
   const binaryPath = sideBinary(config, side);
-  const trialHome = mkdtempSync(join(tmpdir(), `fx-ab-${row.id}-${trialIndex}-${side}-`));
+  const trialHome = mkdtempSync(join(tmpdir(), `y2-ab-${row.id}-${trialIndex}-${side}-`));
   const env: Record<string, string | undefined> = {
     PATH: process.env.PATH ?? "",
     HOME: trialHome,
     NO_COLOR: "1",
-    FX_MODEL: config.model,
+    Y2_MODEL: config.model,
     Y2_API_KEY: process.env.Y2_API_KEY,
-    VERCEL_OIDC_TOKEN: process.env.VERCEL_OIDC_TOKEN,
+    REMOVED_LEGACY_OIDC_TOKEN: process.env.REMOVED_LEGACY_OIDC_TOKEN,
   };
 
   const versionOutput = await versionFor(binaryPath, env);
@@ -317,7 +317,7 @@ export async function runAbTrial(
       score = {
         ...score,
         passed: false,
-        reason: `${score.reason}; json.model ${json.model} did not match FX_AB_MODEL ${config.model}`,
+        reason: `${score.reason}; json.model ${json.model} did not match Y2_AB_MODEL ${config.model}`,
       };
     }
   } catch (err) {

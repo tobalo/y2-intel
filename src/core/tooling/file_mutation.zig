@@ -491,9 +491,9 @@ fn applyWithTestControls(
     var random_bytes: [16]u8 = undefined;
     io_mod.getIo().random(&random_bytes);
     const suffix = std.fmt.bytesToHex(random_bytes, .lower);
-    var temp_name_buffer: [".fx-stage-".len + suffix.len]u8 = undefined;
-    @memcpy(temp_name_buffer[0..".fx-stage-".len], ".fx-stage-");
-    @memcpy(temp_name_buffer[".fx-stage-".len..], suffix[0..]);
+    var temp_name_buffer: [".y2-stage-".len + suffix.len]u8 = undefined;
+    @memcpy(temp_name_buffer[0..".y2-stage-".len], ".y2-stage-");
+    @memcpy(temp_name_buffer[".y2-stage-".len..], suffix[0..]);
     const temp_name = temp_name_buffer[0..];
 
     var stage = parent.createFile(io_mod.getIo(), temp_name, .{
@@ -1752,7 +1752,7 @@ fn expectNoStageFiles(root: []const u8) !void {
     var walker = try dir.walk(std.testing.allocator);
     defer walker.deinit();
     while (try walker.next(std.testing.io)) |entry| {
-        try std.testing.expect(std.mem.find(u8, entry.path, ".fx-stage-") == null);
+        try std.testing.expect(std.mem.find(u8, entry.path, ".y2-stage-") == null);
     }
 }
 
@@ -2832,7 +2832,7 @@ test "apply rejects replaced staged sources without deleting foreign replacement
     var iterator = root_dir.iterate();
     var found_foreign = false;
     while (try iterator.next(std.testing.io)) |entry| {
-        if (std.mem.startsWith(u8, entry.name, ".fx-stage-")) {
+        if (std.mem.startsWith(u8, entry.name, ".y2-stage-")) {
             const foreign = try readTestFile(call_alloc, &tmp, entry.name);
             try std.testing.expectEqualStrings("foreign", foreign);
             found_foreign = true;
@@ -2880,7 +2880,7 @@ test "apply rejects in-place staged content changes before rename" {
     defer root_dir.close(std.testing.io);
     var iterator = root_dir.iterate();
     while (try iterator.next(std.testing.io)) |entry| {
-        try std.testing.expect(!std.mem.startsWith(u8, entry.name, ".fx-stage-"));
+        try std.testing.expect(!std.mem.startsWith(u8, entry.name, ".y2-stage-"));
     }
 }
 

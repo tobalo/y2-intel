@@ -5,15 +5,15 @@ import { createServer } from "node:http";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxAgent } from "../node.js";
+import { createY2Agent } from "../node.js";
 
-const marker = "LIBFX_EXPLICIT_WORKSPACE_CONTEXT";
+const marker = "LIBY2_EXPLICIT_WORKSPACE_CONTEXT";
 const originalCwd = process.cwd();
-const processWorkspace = await mkdtemp(join(tmpdir(), "libfx-process-workspace-"));
-const runtimeHome = await mkdtemp(join(tmpdir(), "libfx-runtime-home-"));
-const runtimeWorkspace = await mkdtemp(join(tmpdir(), "libfx-runtime-workspace-"));
-await writeFile(join(processWorkspace, ".fx.json"), `${JSON.stringify({ context: false })}\n`);
-await writeFile(join(runtimeWorkspace, ".fx.json"), `${JSON.stringify({ context: true })}\n`);
+const processWorkspace = await mkdtemp(join(tmpdir(), "liby2-process-workspace-"));
+const runtimeHome = await mkdtemp(join(tmpdir(), "liby2-runtime-home-"));
+const runtimeWorkspace = await mkdtemp(join(tmpdir(), "liby2-runtime-workspace-"));
+await writeFile(join(processWorkspace, ".y2.json"), `${JSON.stringify({ context: false })}\n`);
+await writeFile(join(runtimeWorkspace, ".y2.json"), `${JSON.stringify({ context: true })}\n`);
 await writeFile(join(runtimeWorkspace, "AGENTS.md"), `# Context\n\n${marker}\n`);
 
 let requestBody = "";
@@ -30,19 +30,19 @@ const server = createServer((request, response) => {
 await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen));
 const { port } = server.address();
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const addon = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/libfx.node"));
+const addon = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/liby2.node"));
 
 try {
   process.chdir(processWorkspace);
-  const agent = await createFxAgent({
+  const agent = await createY2Agent({
     nativeAddon: addon,
     backend: "native",
     home: runtimeHome,
     workspaceRoot: runtimeWorkspace,
     env: {
       OPENAI_API_KEY: "native-core-config-key",
-      FX_API_CHAT_URL: `http://127.0.0.1:${port}/chat`,
-      FX_MODEL: "native/test-model",
+      Y2_API_CHAT_URL: `http://127.0.0.1:${port}/chat`,
+      Y2_MODEL: "native/test-model",
     },
   });
   const session = await agent.createSession();

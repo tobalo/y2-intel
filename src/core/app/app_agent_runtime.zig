@@ -197,7 +197,7 @@ pub fn Runtime(comptime App: type) type {
             const provider_capabilities = if (comptime @hasDecl(App, "providerSet"))
                 app.providerSet().select(selected_provider).capabilities
             else if (selected_provider == .gateway)
-                provider_set.Bundle.Capabilities{ .fx_search = true, .vision_fallback = true, .deferred_usage = true }
+                provider_set.Bundle.Capabilities{ .y2_search = true, .vision_fallback = true, .deferred_usage = true }
             else
                 provider_set.Bundle.Capabilities{};
             var ctx: tool_runtime.Context = .{
@@ -294,7 +294,7 @@ pub fn Runtime(comptime App: type) type {
                 ctx.on_web_fetch_progress = app_callbacks.Bindings(App).onWebFetchProgress;
             }
             if (comptime @hasField(App, "web_search_runtime")) {
-                if (provider_capabilities.fx_search) {
+                if (provider_capabilities.y2_search) {
                     app.web_search_runtime.configure(.{
                         .api_key = app.auth.apiKey() orelse "",
                         .credential_source = app.auth.credentialSource(),
@@ -1097,7 +1097,7 @@ pub fn Runtime(comptime App: type) type {
                 .provider_capabilities = if (comptime @hasDecl(App, "providerSet"))
                     app.providerSet().select(job.provider).capabilities
                 else if (job.provider == .gateway)
-                    .{ .fx_search = true, .vision_fallback = true, .deferred_usage = true }
+                    .{ .y2_search = true, .vision_fallback = true, .deferred_usage = true }
                 else
                     .{},
                 .custom_tool_guidance = tool_projection.custom_guidance,
@@ -1262,7 +1262,7 @@ fn mcpToolAvailable(ctx: tool_runtime.Context, name: []const u8) bool {
 const test_ignored_list_entries = [_][]const u8{ ".git", "zig-out" };
 const test_gateway_chat_url = "https://gateway.test/chat";
 const test_tools = [_]tool_dispatch.Tool{
-    test_builtin_tools.web_search,
+    test_builtin_tools.test_web_search,
     test_builtin_tools.terminal,
     test_builtin_tools.memory,
     test_builtin_tools.semantic_search,
@@ -2293,15 +2293,15 @@ test "tool labels preserve skill name value" {
     const install_call: ToolCall = .{
         .id = "install_skill",
         .name = "install_skill",
-        .arguments_json = "{\"source\":\"vercel-labs/agent-skills\",\"skill\":\"workflow\"}",
+        .arguments_json = "{\"source\":\"example-org/agent-skills\",\"skill\":\"workflow\"}",
     };
     const install_active = try app.describeToolAction(arena, install_call);
     try std.testing.expect(std.mem.find(u8, install_active, "Installing skill") != null);
-    try std.testing.expect(std.mem.find(u8, install_active, "vercel-labs/agent-skills") != null);
+    try std.testing.expect(std.mem.find(u8, install_active, "example-org/agent-skills") != null);
 
     const install_completed = try app.describeToolActionCompleted(arena, install_call);
     try std.testing.expect(std.mem.find(u8, install_completed, "Installed skill") != null);
-    try std.testing.expect(std.mem.find(u8, install_completed, "vercel-labs/agent-skills") != null);
+    try std.testing.expect(std.mem.find(u8, install_completed, "example-org/agent-skills") != null);
 }
 
 test "subagent labels name the action once with the subagent fallback" {

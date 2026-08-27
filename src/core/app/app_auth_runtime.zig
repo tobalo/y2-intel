@@ -59,7 +59,7 @@ pub fn Runtime(comptime App: type) type {
                 const required_source: credentials.Source = switch (provider) {
                     .codex => .chatgpt_subscription,
                     .grok => .grok_subscription,
-                    .gateway => app.auth.credentialSource() orelse .fx_login,
+                    .gateway => app.auth.credentialSource() orelse .api_key,
                 };
                 const route_change = app.auth.selectForProvider(app.alloc, provider) catch |err| switch (err) {
                     error.OutOfMemory => return err,
@@ -104,7 +104,7 @@ pub fn Runtime(comptime App: type) type {
                 try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .warning,
-                    .body = "Pass Y2_API_KEY, or OPENAI_API_KEY with OPENAI_BASE_URL, through createFxTerminal().",
+                    .body = "Pass Y2_API_KEY, or OPENAI_API_KEY with OPENAI_BASE_URL, through createY2Terminal().",
                 }, true);
                 return;
             }
@@ -137,7 +137,7 @@ pub fn Runtime(comptime App: type) type {
                     try writeAuthNotice(app, .{
                         .topic = "auth",
                         .tone = .warning,
-                        .body = "Usage: /logout [vercel|codex|grok]",
+                        .body = "Usage: /logout [y2|codex|grok]",
                     });
                     return;
                 };
@@ -205,17 +205,11 @@ pub fn Runtime(comptime App: type) type {
                 });
                 return;
             }
-            const result = login_flow.logout(app.alloc, app.auth.oauthTransport()) catch |err| switch (err) {
-                error.SessionDeleteFailed => {
-                    try writeAuthNotice(app, .{
-                        .topic = "auth",
-                        .tone = .@"error",
-                        .body = "Could not complete fx logout. The current source is unchanged.",
-                    });
-                    return;
-                },
-            };
-            try applyLogoutResult(app, result);
+            try writeAuthNotice(app, .{
+                .topic = "auth",
+                .tone = .neutral,
+                .body = "Y2 API and OpenAI-compatible endpoints use API keys, not a login session. Unset Y2_API_KEY or OPENAI_API_KEY, or replace the saved key with /setup.",
+            });
         }
 
         pub fn openSetupHub(app: *App) !void {
@@ -230,41 +224,6 @@ pub fn Runtime(comptime App: type) type {
             try app.auth.refreshSourceInventory(app.alloc);
             app.auth.openPickerForProvider(app.alloc, provider_runtime.provider(app));
             app.shell.render_requests.request(.footer);
-        }
-
-        fn applyLogoutResult(app: *App, result: login_flow.LogoutResult) !void {
-            // Logging out is an explicit rejection of that credential, so a
-            // remembered pointer to it would silently reactivate on next login.
-            // A remembered source always wins resolution, so an active fx login
-            // is the only way one can be remembered; clearing otherwise is a
-            // no-op against a store that holds nothing.
-            if (app.auth.credentialSource() == .fx_login) forgetCredentialSource(app);
-            applyCredentialChange(app, try app.auth.reconcileAfterFxLoginLogout(app.alloc));
-            try writeAuthNotice(app, if (result.local_durability_failed)
-                .{
-                    .topic = "auth",
-                    .tone = .warning,
-                    .body = "Could not confirm durable fx logout. The active source was recalculated.",
-                }
-            else if (result.session_deleted)
-                .{
-                    .topic = "auth",
-                    .tone = .neutral,
-                    .body = "Signed out of fx.",
-                }
-            else
-                .{
-                    .topic = "auth",
-                    .tone = .neutral,
-                    .body = "No fx login session found.",
-                });
-            if (result.remote_revocation_failed) {
-                try writeAuthNotice(app, .{
-                    .topic = "auth",
-                    .tone = .warning,
-                    .body = login_flow.remote_revocation_warning,
-                });
-            }
         }
 
         pub fn applyPickerChoice(app: *App, choice: auth_runtime.Choice) !void {
@@ -359,7 +318,7 @@ pub fn Runtime(comptime App: type) type {
             const sign_in_source: credentials.Source = if (comptime @hasDecl(@TypeOf(app.auth), "pickerView"))
                 app.auth.pickerView().sign_in_source
             else
-                .fx_login;
+                .retired_login;
             app.auth.pulseSignIn(app.alloc);
             switch (app.auth.pollSignInTransition(app.alloc)) {
                 .none => {},
@@ -373,17 +332,17 @@ pub fn Runtime(comptime App: type) type {
                     var owned = completed;
                     defer owned.deinit(app.alloc);
                     switch (owned) {
-                        .vercel => |*selection| {
-                            if (!try selectCredentialSource(app, .fx_login)) {
+                        .retired_credential => |*selection| {
+                            if (!try selectCredentialSource(app, .retired_login)) {
                                 _ = app.auth.popPickerStage(app.alloc);
                                 try writeAuthNotice(app, .{
                                     .topic = "auth",
                                     .tone = .@"error",
-                                    .body = "Signed in, but the fx login credential could not be loaded.",
+                                    .body = "Signed in, but the y2 login credential could not be loaded.",
                                 });
                                 return;
                             }
-                            rememberCredentialSource(app, .fx_login);
+                            rememberCredentialSource(app, .retired_login);
 
                             if (selection.teams.items.len > 0) {
                                 app.auth.openTeamPicker(app.alloc, selection);
@@ -393,7 +352,7 @@ pub fn Runtime(comptime App: type) type {
                             try writeAuthNotice(app, .{
                                 .topic = "auth",
                                 .tone = .neutral,
-                                .body = "Signed in to Vercel.",
+                                .body = "Signed in to Retired credential.",
                             });
                         },
                         .chatgpt => {
@@ -418,7 +377,7 @@ pub fn Runtime(comptime App: type) type {
                 provider,
                 comptime provider_runtime.supported(App),
             )) {
-                .vercel => unreachable,
+                .retired_credential => unreachable,
                 .switch_provider => |target| {
                     app.auth.closePicker(app.alloc);
                     try switchProvider(app, target, false, .post_oauth);
@@ -640,7 +599,7 @@ pub fn Runtime(comptime App: type) type {
                 return;
             }) {
                 app.shell.render_requests.request(.footer);
-                if (io_mod.getenv("FX_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
+                if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
             }
         }
 
@@ -671,7 +630,7 @@ pub fn Runtime(comptime App: type) type {
                 return;
             }) {
                 app.shell.render_requests.request(.footer);
-                if (io_mod.getenv("FX_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
+                if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
             }
         }
 
@@ -684,7 +643,7 @@ pub fn Runtime(comptime App: type) type {
                 return;
             }) {
                 app.shell.render_requests.request(.footer);
-                if (io_mod.getenv("FX_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
+                if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
             }
         }
 
@@ -697,7 +656,7 @@ pub fn Runtime(comptime App: type) type {
                 return;
             }) {
                 app.shell.render_requests.request(.footer);
-                if (io_mod.getenv("FX_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
+                if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
             }
         }
 
@@ -802,9 +761,9 @@ pub fn Runtime(comptime App: type) type {
                     .body = if (intent == .post_oauth)
                         "Subscription sign-in completed, but its saved credential is unavailable. The current provider is unchanged."
                     else if (target == .codex)
-                        "Run fx login codex, then try switching again."
+                        "Run y2 login codex, then try switching again."
                     else if (target == .grok)
-                        "Run fx login grok, then try switching again."
+                        "Run y2 login grok, then try switching again."
                     else
                         credentials.missing_interactive_credential_message,
                 }, true);
@@ -895,7 +854,7 @@ pub fn Runtime(comptime App: type) type {
             const preferred_model = if (intent == .post_oauth)
                 saved_model
             else
-                io_mod.getenv("FX_MODEL") orelse saved_model;
+                io_mod.getenv("Y2_MODEL") orelse saved_model;
             const selected_model = selectCatalogModel(catalog.items, current_model, preferred_model) orelse unreachable;
             var owned_model = try app.alloc.dupe(u8, selected_model);
             errdefer app.alloc.free(owned_model);
@@ -972,7 +931,7 @@ pub fn Runtime(comptime App: type) type {
         }
 
         fn beginTeamPicker(app: *App) !void {
-            if (!app.auth.pickerView().fx_login_session_available) return;
+            if (!app.auth.pickerView().retired_login_session_available) return;
             try app.flushBeforeBlockingExternalWork();
 
             var selection = login_flow.loadTeamSelection(app.alloc, app.auth.oauthTransport()) catch |err| {
@@ -981,9 +940,9 @@ pub fn Runtime(comptime App: type) type {
                     .topic = "auth",
                     .tone = .@"error",
                     .body = switch (err) {
-                        error.NoSession => "The fx login session is no longer available. Sign in to change teams.",
-                        error.NoTeams => "No Vercel teams are available for this account.",
-                        else => "Could not load Vercel teams. The current team is unchanged.",
+                        error.NoSession => "The y2 login session is no longer available. Sign in to change teams.",
+                        error.NoTeams => "No Retired credential teams are available for this account.",
+                        else => "Could not load Retired credential teams. The current team is unchanged.",
                     },
                 }, true);
                 return;
@@ -999,7 +958,7 @@ pub fn Runtime(comptime App: type) type {
             const team = selection.teams.items[index];
             const body = try std.fmt.allocPrint(
                 app.alloc,
-                "Changed Vercel team to {s} ({s}).",
+                "Changed Retired credential team to {s} ({s}).",
                 .{ team.name, team.slug },
             );
             defer app.alloc.free(body);
@@ -1011,26 +970,26 @@ pub fn Runtime(comptime App: type) type {
                     .topic = "auth",
                     .tone = .@"error",
                     .body = switch (err) {
-                        error.SessionChanged, error.NoSession => "The fx login session changed before the team could be saved.",
-                        else => "Could not change the Vercel team. The current team is unchanged.",
+                        error.SessionChanged, error.NoSession => "The y2 login session changed before the team could be saved.",
+                        else => "Could not change the Retired credential team. The current team is unchanged.",
                     },
                 }, true);
                 return;
             };
             defer selected_team.deinit(app.alloc);
 
-            if (app.auth.credentialSource() == .fx_login) {
+            if (app.auth.credentialSource() == .retired_login) {
                 applyCredentialChange(app, app.auth.adoptSelectedTeam(app.alloc, &selected_team));
-            } else if (!try selectCredentialSource(app, .fx_login)) {
+            } else if (!try selectCredentialSource(app, .retired_login)) {
                 app.auth.closePicker(app.alloc);
                 try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .@"error",
-                    .body = "Changed the Vercel team, but the fx login credential could not be loaded.",
+                    .body = "Changed the Retired credential team, but the y2 login credential could not be loaded.",
                 }, true);
                 return;
             }
-            rememberCredentialSource(app, .fx_login);
+            rememberCredentialSource(app, .retired_login);
             app.auth.closePicker(app.alloc);
             try app.writeDomainNotice(.{
                 .topic = "auth",
@@ -1048,14 +1007,14 @@ pub fn Runtime(comptime App: type) type {
                 app.auth.openSignInPicker(app.alloc);
             if (started catch |err| {
                 debug_trace.logf("auth", "login failed err={s}", .{@errorName(err)});
-                try writeLoginError(app, .fx_login, err);
+                try writeLoginError(app, .retired_login, err);
                 return;
             }) {
                 app.shell.render_requests.request(.footer);
                 // Open the browser as soon as the device code is ready instead of
                 // waiting for Enter; Enter stays as a manual re-open, and
-                // FX_NO_OPEN_BROWSER opts out for headless/SSH sessions.
-                if (io_mod.getenv("FX_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
+                // Y2_NO_OPEN_BROWSER opts out for headless/SSH sessions.
+                if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
             }
         }
 
@@ -1073,8 +1032,8 @@ pub fn Runtime(comptime App: type) type {
             return true;
         }
 
-        fn refreshFxLoginCredentialIfNeeded(app: *App) !void {
-            if (!try app.auth.refreshFxLoginIfNeeded(app.alloc)) return;
+        fn refreshRetiredLoginCredentialIfNeeded(app: *App) !void {
+            if (!try app.auth.refreshRetiredLoginIfNeeded(app.alloc)) return;
             reconcileGatewayCredential(app);
             if (app.auth.modelCatalogAccess().authorizationCredential() == null) return;
             app.model_cache.reset();
@@ -1089,7 +1048,7 @@ pub fn Runtime(comptime App: type) type {
                 try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .warning,
-                    .body = "Missing Y2_API_KEY or OPENAI_API_KEY. Supply it through createFxTerminal().",
+                    .body = "Missing Y2_API_KEY or OPENAI_API_KEY. Supply it through createY2Terminal().",
                 }, true);
                 return false;
             }
@@ -1099,7 +1058,7 @@ pub fn Runtime(comptime App: type) type {
 
         fn preparePromptCredential(app: *App) !bool {
             for (0..2) |_| {
-                refreshFxLoginCredentialIfNeeded(app) catch |err| switch (err) {
+                refreshRetiredLoginCredentialIfNeeded(app) catch |err| switch (err) {
                     error.OutOfMemory => return err,
                     else => return recoverPromptCredentialRefreshFailure(app, err),
                 };
@@ -1111,9 +1070,9 @@ pub fn Runtime(comptime App: type) type {
         fn recoverPromptCredentialRefreshFailure(app: *App, err: anyerror) !bool {
             const active_source = app.auth.credentialSource();
             const source = if (active_source) |active|
-                if (credentials.sourceRefreshable(active)) active else .fx_login
+                if (credentials.sourceRefreshable(active)) active else .retired_login
             else
-                .fx_login;
+                .retired_login;
             return recoverCredentialFailure(app, source, err);
         }
 
@@ -1203,10 +1162,10 @@ pub fn Runtime(comptime App: type) type {
                     else => .{ .topic = "auth", .tone = .@"error", .body = "Grok sign-in failed. The current credential is unchanged." },
                 }
             else switch (err) {
-                error.ClientIdMissing => .{ .topic = "auth", .tone = .@"error", .body = "fx login is not configured yet. The current credential is unchanged." },
-                error.AccessDenied => .{ .topic = "auth", .tone = .@"error", .body = "Vercel sign-in was denied. The current credential is unchanged." },
-                error.ExpiredToken, error.LoginTimedOut => .{ .topic = "auth", .tone = .warning, .body = "The Vercel sign-in code expired. The current credential is unchanged; run /login to try again." },
-                else => .{ .topic = "auth", .tone = .@"error", .body = "Vercel sign-in failed. The current credential is unchanged." },
+                error.ClientIdMissing => .{ .topic = "auth", .tone = .@"error", .body = "y2 login is not configured yet. The current credential is unchanged." },
+                error.AccessDenied => .{ .topic = "auth", .tone = .@"error", .body = "Retired credential sign-in was denied. The current credential is unchanged." },
+                error.ExpiredToken, error.LoginTimedOut => .{ .topic = "auth", .tone = .warning, .body = "The Retired credential sign-in code expired. The current credential is unchanged; run /login to try again." },
+                else => .{ .topic = "auth", .tone = .@"error", .body = "Retired credential sign-in failed. The current credential is unchanged." },
             };
             try writeAuthNotice(app, notice);
         }
@@ -1409,8 +1368,8 @@ const TestTeam = struct {
 };
 
 const test_teams = [_]TestTeam{.{
-    .name = "Vercel Labs",
-    .slug = "vercel-labs",
+    .name = "Retired credential Labs",
+    .slug = "example-org",
 }};
 
 const TestSelectedTeam = struct {
@@ -1482,7 +1441,7 @@ const TestAuth = struct {
 
     fn openTeamPicker(_: *TestAuth, _: std.mem.Allocator, _: *login_flow.TeamSelection) void {}
 
-    fn refreshFxLoginIfNeeded(self: *TestAuth, _: std.mem.Allocator) !bool {
+    fn refreshRetiredLoginIfNeeded(self: *TestAuth, _: std.mem.Allocator) !bool {
         self.refresh_count += 1;
         if (self.refresh_error) |err| return err;
         if (self.gateway_ready_after_refresh_count == self.refresh_count) self.gateway_ready = true;
@@ -1495,12 +1454,12 @@ const TestAuth = struct {
 
     fn modelCatalogAccess(self: *const TestAuth) credentials.CatalogAccess {
         return if (self.catalog_ready)
-            credentials.catalogAccessForCredential(.fx_login, "refreshed-key", "team_123")
+            credentials.catalogAccessForCredential(.retired_login, "refreshed-key", "team_123")
         else
-            .{ .public_only = .fx_login_team_required };
+            .{ .public_only = .retired_login_team_required };
     }
 
-    fn reconcileAfterFxLoginLogout(self: *TestAuth, _: std.mem.Allocator) !bool {
+    fn reconcileAfterRetiredLoginLogout(self: *TestAuth, _: std.mem.Allocator) !bool {
         self.logout_reconcile_count += 1;
         return self.logout_changed;
     }
@@ -1687,35 +1646,35 @@ test "OAuth app gating accepts native auth or JS-host auth and rejects neither" 
 
 test "interactive sign-in opens the owned browser URL through the host" {
     var app: TestApp = .{};
-    app.auth.sign_in_url = "https://vercel.test/verify?code=TEST-CODE";
+    app.auth.sign_in_url = "https://identity.example/verify?code=TEST-CODE";
 
     try Runtime(TestApp).openSignInBrowser(&app);
 
     try std.testing.expectEqual(@as(usize, 1), app.test_url_opener.calls);
     try std.testing.expectEqualStrings(
-        "https://vercel.test/verify?code=TEST-CODE",
+        "https://identity.example/verify?code=TEST-CODE",
         app.test_url_opener.openedUrl(),
     );
 }
 
 test "interactive sign-in preserves manual fallback when the host launcher fails" {
     var app: TestApp = .{};
-    app.auth.sign_in_url = "https://vercel.test/verify";
+    app.auth.sign_in_url = "https://identity.example/verify";
     app.test_url_opener.succeeds = false;
 
     try Runtime(TestApp).openSignInBrowser(&app);
 
     try std.testing.expectEqual(@as(usize, 1), app.test_url_opener.calls);
     try std.testing.expectEqualStrings(
-        "https://vercel.test/verify",
+        "https://identity.example/verify",
         app.test_url_opener.openedUrl(),
     );
-    try std.testing.expectEqualStrings("https://vercel.test/verify", app.auth.sign_in_url.?);
+    try std.testing.expectEqualStrings("https://identity.example/verify", app.auth.sign_in_url.?);
 }
 
 test "interactive sign-in frees its browser URL when the host opener errors" {
     var app: TestApp = .{};
-    app.auth.sign_in_url = "https://vercel.test/verify";
+    app.auth.sign_in_url = "https://identity.example/verify";
     app.test_url_opener.error_on_open = true;
 
     try std.testing.expectError(
@@ -1730,8 +1689,8 @@ test "auth source changes invalidate the catalog and failed selection preserves 
     const runtime = Runtime(TestApp);
 
     app.auth.select_result = true;
-    try std.testing.expect(try runtime.selectCredentialSource(&app, .fx_login));
-    try std.testing.expectEqual(credentials.Source.fx_login, app.auth.selected_source.?);
+    try std.testing.expect(try runtime.selectCredentialSource(&app, .retired_login));
+    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.selected_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
 
@@ -1787,7 +1746,7 @@ test "completed credential switch emits exactly one transcript line" {
     try std.testing.expectEqualStrings(expected, app.transcript.items);
 }
 
-test "team change from an environment source activates and remembers fx login" {
+test "team change from an environment source activates and remembers y2 login" {
     var app: TestApp = .{};
     defer app.deinit();
     app.auth.select_result = true;
@@ -1796,43 +1755,43 @@ test "team change from an environment source activates and remembers fx login" {
 
     try std.testing.expectEqual(@as(usize, 1), app.auth.team_selection.select_count);
     try std.testing.expect(!app.auth.selected_team_adopted);
-    try std.testing.expectEqual(credentials.Source.fx_login, app.auth.active_source.?);
-    try std.testing.expectEqual(credentials.Source.fx_login, app.auth.selected_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.selected_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.fx_login, app.last_preference_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.last_preference_source.?);
     try std.testing.expect(app.auth.picker_closed);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
     try std.testing.expectEqual(@as(usize, 1), app.notice_write_count);
     try std.testing.expectEqualStrings(
-        "Changed Vercel team to Vercel Labs (vercel-labs).\n",
+        "Changed Retired credential team to Retired credential Labs (example-org).\n",
         app.transcript.items,
     );
 }
 
-test "team change on an active fx login updates and remembers the selected team" {
+test "team change on an active y2 login updates and remembers the selected team" {
     var app: TestApp = .{};
     defer app.deinit();
-    app.auth.active_source = .fx_login;
+    app.auth.active_source = .retired_login;
 
     try Runtime(TestApp).applyTeamChoice(&app, 0);
 
     try std.testing.expect(app.auth.selected_team_adopted);
     try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.fx_login, app.last_preference_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.last_preference_source.?);
 }
 
-test "successful direct login remembers fx login after activation" {
+test "successful direct login remembers y2 login after activation" {
     var app: TestApp = .{};
     defer app.deinit();
     app.auth.select_result = true;
-    app.auth.sign_in_transition = .{ .succeeded = .{ .vercel = .{} } };
+    app.auth.sign_in_transition = .{ .succeeded = .{ .retired_credential = .{} } };
 
     try Runtime(TestApp).collectSignInFacts(&app);
 
-    try std.testing.expectEqual(credentials.Source.fx_login, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.active_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.fx_login, app.last_preference_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.last_preference_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.notice_write_count);
 }
 
@@ -1840,7 +1799,7 @@ test "direct login source load failure leaves the environment preference unchang
     var app: TestApp = .{};
     defer app.deinit();
     app.auth.select_result = null;
-    app.auth.sign_in_transition = .{ .succeeded = .{ .vercel = .{} } };
+    app.auth.sign_in_transition = .{ .succeeded = .{ .retired_credential = .{} } };
 
     try Runtime(TestApp).collectSignInFacts(&app);
 
@@ -1854,12 +1813,12 @@ test "failed preference persistence keeps a successful direct login active" {
     var app: TestApp = .{};
     defer app.deinit();
     app.auth.select_result = true;
-    app.auth.sign_in_transition = .{ .succeeded = .{ .vercel = .{} } };
+    app.auth.sign_in_transition = .{ .succeeded = .{ .retired_credential = .{} } };
     app.preference_write_succeeds = false;
 
     try Runtime(TestApp).collectSignInFacts(&app);
 
-    try std.testing.expectEqual(credentials.Source.fx_login, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.active_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
     try std.testing.expectEqual(@as(?credentials.Source, null), app.last_preference_source);
 }
@@ -1920,12 +1879,12 @@ test "prompt credential refresh reloads the catalog after the credential changes
     defer app.deinit();
     const runtime = Runtime(TestApp);
 
-    try runtime.refreshFxLoginCredentialIfNeeded(&app);
+    try runtime.refreshRetiredLoginCredentialIfNeeded(&app);
     try std.testing.expectEqual(@as(usize, 1), app.auth.refresh_count);
     try std.testing.expectEqual(@as(usize, 0), app.model_cache.reset_count);
 
     app.auth.refresh_changed = true;
-    try runtime.refreshFxLoginCredentialIfNeeded(&app);
+    try runtime.refreshRetiredLoginCredentialIfNeeded(&app);
     try std.testing.expectEqual(@as(usize, 2), app.auth.refresh_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
@@ -1942,51 +1901,13 @@ test "credential removal clears the reconciliation credential" {
     try std.testing.expectEqual(@as(usize, 0), app.session.usage.refresh_count);
 }
 
-test "logout result reconciles live auth and renders only sanitized notices" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.logout_changed = true;
-
-    try Runtime(TestApp).applyLogoutResult(&app, .{
-        .session_deleted = true,
-        .remote_revocation_failed = true,
-    });
-
-    try std.testing.expectEqual(@as(usize, 1), app.auth.logout_reconcile_count);
-    try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
-    try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "Signed out of fx.") != null);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, login_flow.remote_revocation_warning) != null);
-    for ([_][]const u8{ "access-secret", "refresh-secret", "RemoteRevokeFailed", "https://issuer.example" }) |detail| {
-        try std.testing.expect(std.mem.find(u8, app.transcript.items, detail) == null);
-    }
-}
-
-test "logout durability failure still reconciles live auth" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.logout_changed = true;
-
-    try Runtime(TestApp).applyLogoutResult(&app, .{
-        .session_deleted = true,
-        .local_durability_failed = true,
-        .remote_revocation_failed = true,
-    });
-
-    try std.testing.expectEqual(@as(usize, 1), app.auth.logout_reconcile_count);
-    try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "Could not confirm durable fx logout.") != null);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, login_flow.remote_revocation_warning) != null);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "current source is unchanged") == null);
-}
-
 test "prompt credential refresh failure is recoverable and detail-free" {
     var app: TestApp = .{};
     defer app.deinit();
     app.auth.refresh_error = error.OAuthRequestFailed;
 
     try std.testing.expect(!try Runtime(TestApp).preparePromptCredential(&app));
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "fx login credential refresh failed.") != null);
+    try std.testing.expect(std.mem.find(u8, app.transcript.items, "y2 login credential refresh failed.") != null);
     try std.testing.expect(std.mem.find(u8, app.transcript.items, "Choose another source below.") != null);
     try std.testing.expect(std.mem.find(u8, app.transcript.items, "OAuthRequestFailed") == null);
     try std.testing.expect(app.shell.render_requests.footer_requested);
@@ -2015,7 +1936,7 @@ test "prompt credential admission rejects a credential that remains unavailable"
 
     try std.testing.expect(!try Runtime(TestApp).preparePromptCredential(&app));
     try std.testing.expectEqual(@as(usize, 2), app.auth.refresh_count);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "fx login credential refresh failed.") != null);
+    try std.testing.expect(std.mem.find(u8, app.transcript.items, "y2 login credential refresh failed.") != null);
     try std.testing.expect(app.auth.picker_opened);
 }
 

@@ -11,7 +11,7 @@ import {
 } from "node:fs";
 import { tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -47,7 +47,7 @@ afterEach(async () => {
 });
 
 async function waitForTerminalHostExit(root: string): Promise<void> {
-  const identityPath = join(root, "home", ".fx", "terminal-host", "host.json");
+  const identityPath = join(root, "home", ".y2", "terminal-host", "host.json");
   const deadline = Date.now() + 5_000;
   while (Date.now() < deadline) {
     if (!existsSync(identityPath)) return;
@@ -57,7 +57,7 @@ async function waitForTerminalHostExit(root: string): Promise<void> {
 }
 
 function createRoot() {
-  const root = mkdtempSync(join(tmpdir(), "fx-e2e-ask-presentation-"));
+  const root = mkdtempSync(join(tmpdir(), "y2-e2e-ask-presentation-"));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   mkdirSync(home);
@@ -67,7 +67,7 @@ function createRoot() {
 }
 
 function createShortRoot() {
-  const root = realpathSync(mkdtempSync("/tmp/fx-ask-terminal-"));
+  const root = realpathSync(mkdtempSync("/tmp/y2-ask-terminal-"));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   mkdirSync(home);
@@ -83,14 +83,14 @@ function gatewayEnv(
   return {
     HOME: home,
     Y2_API_KEY: "fake-ask-presentation-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_DISABLE_KEYCHAIN: "1",
-    FX_SKIP_ONBOARDING: "1",
-    FX_MODEL: FAKE_GATEWAY_MODEL,
-    FX_PERMISSION_MODE: "auto",
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_DISABLE_KEYCHAIN: "1",
+    Y2_SKIP_ONBOARDING: "1",
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_PERMISSION_MODE: "auto",
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
   };
 }
 
@@ -99,8 +99,8 @@ function shellQuote(value: string): string {
 }
 
 function terminalCommand(args: string[]): string {
-  const fx = [FX_BIN, ...args].map(shellQuote).join(" ");
-  const script = `${fx}; code=$?; printf '\\n__FX_EXIT_%s__\\n' "$code"; exit "$code"`;
+  const y2 = [Y2_BIN, ...args].map(shellQuote).join(" ");
+  const script = `${y2}; code=$?; printf '\\n__Y2_EXIT_%s__\\n' "$code"; exit "$code"`;
   return `/bin/sh -c ${shellQuote(script)}`;
 }
 
@@ -136,7 +136,7 @@ function fakeGatewayStreamingText(lines: string[], delayMs: number) {
   );
 }
 
-describe("fx ask presentation", () => {
+describe("y2 ask presentation", () => {
   test("redirected command output separates the next tool header", async () => {
     const root = createRoot();
     const gateway = startFakeGateway([
@@ -162,7 +162,7 @@ describe("fx ask presentation", () => {
     ]);
     gateways.push(gateway);
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--yolo", "--no-save", "--no-color", "Run both commands."],
       {
         cwd: root.workspace,
@@ -187,31 +187,31 @@ describe("fx ask presentation", () => {
     if (configuredShell.endsWith("/zsh")) {
       writeFileSync(
         join(root.home, ".zprofile"),
-        "export FX_PROFILE_LOGIN=login\nexport PATH=\"$HOME/profile-bin:$PATH\"\n",
+        "export Y2_PROFILE_LOGIN=login\nexport PATH=\"$HOME/profile-bin:$PATH\"\n",
       );
       writeFileSync(
         join(root.home, ".zshrc"),
-        "export FX_PROFILE_RC=rc\nalias fx_profile_alias='printf alias-user'\n" +
-          "fx_profile_function() { printf function-user; }\n",
+        "export Y2_PROFILE_RC=rc\nalias y2_profile_alias='printf alias-user'\n" +
+          "y2_profile_function() { printf function-user; }\n",
       );
     } else {
       writeFileSync(
         join(root.home, ".bash_profile"),
-        "export FX_PROFILE_LOGIN=login\nexport PATH=\"$HOME/profile-bin:$PATH\"\n" +
+        "export Y2_PROFILE_LOGIN=login\nexport PATH=\"$HOME/profile-bin:$PATH\"\n" +
           "source \"$HOME/.bashrc\"\n",
       );
       writeFileSync(
         join(root.home, ".bashrc"),
-        "export FX_PROFILE_RC=rc\nalias fx_profile_alias='printf alias-user'\n" +
-          "fx_profile_function() { printf function-user; }\n",
+        "export Y2_PROFILE_RC=rc\nalias y2_profile_alias='printf alias-user'\n" +
+          "y2_profile_function() { printf function-user; }\n",
       );
     }
 
     const profileCommand =
-      "printf 'mode=%s:%s:' \"${FX_PROFILE_LOGIN-unset}\" \"${FX_PROFILE_RC-unset}\"; " +
+      "printf 'mode=%s:%s:' \"${Y2_PROFILE_LOGIN-unset}\" \"${Y2_PROFILE_RC-unset}\"; " +
       "case :\"$PATH\": in *:\"$HOME/profile-bin\":*) printf 'path-user:';; *) printf 'path-clean:';; esac; " +
-      "if alias fx_profile_alias >/dev/null 2>&1; then fx_profile_alias; else printf no-alias; fi; printf ':'; " +
-      "if command -v fx_profile_function >/dev/null; then fx_profile_function; else printf no-function; fi";
+      "if alias y2_profile_alias >/dev/null 2>&1; then y2_profile_alias; else printf no-alias; fi; printf ':'; " +
+      "if command -v y2_profile_function >/dev/null; then y2_profile_function; else printf no-function; fi";
     const nestedExecMarker = join(root.workspace, "nested-no-save-ran");
     const gateway = startFakeGateway([
       fakeGatewayToolCall("terminal-omitted", "terminal", {
@@ -253,7 +253,7 @@ describe("fx ask presentation", () => {
     ]);
     gateways.push(gateway);
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--yolo", "--no-save", "Verify terminal exec profiles."],
       {
         cwd: root.workspace,
@@ -338,7 +338,7 @@ describe("fx ask presentation", () => {
     expect(gateway.requests[2]!.body).toContain("no-alias:no-function");
     expect(gateway.requests[4]!.body).toContain("tool_execution_failed");
     expect(gateway.requests[4]!.body).toContain(
-      "Durable terminal actions require a saved fx session.",
+      "Durable terminal actions require a saved y2 session.",
     );
     expect(gateway.requests[4]!.body).toContain(
       "Use terminal.exec, or rerun without --no-save.",
@@ -353,12 +353,12 @@ describe("fx ask presentation", () => {
     expect(existsSync(nestedExecMarker)).toBe(false);
     expect(gateway.requests[6]!.body).toContain("neighbor-exec");
     expect(
-      existsSync(join(root.home, ".fx", "terminal-host", "host.json")),
+      existsSync(join(root.home, ".y2", "terminal-host", "host.json")),
     ).toBe(false);
   }, TIMEOUT);
 
   test.skipIf(!tmuxAvailable())(
-    "fx ask executes the shared public terminal tool through the tmux backend",
+    "y2 ask executes the shared public terminal tool through the tmux backend",
     async () => {
       const root = createShortRoot();
       const toolCallId = "ask_terminal_tmux_1";
@@ -381,13 +381,13 @@ describe("fx ask presentation", () => {
       ]);
       gateways.push(gateway);
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--yolo", "Run the tmux public terminal fixture."],
         {
           cwd: root.workspace,
           env: {
             ...gatewayEnv(root.home, gateway),
-            FX_TERMINAL_HOST_IDLE_MS: "200",
+            Y2_TERMINAL_HOST_IDLE_MS: "200",
           },
           timeoutMs: TIMEOUT,
         },
@@ -411,7 +411,7 @@ describe("fx ask presentation", () => {
     const root = createRoot();
     const rawGateway = startFakeGateway([fakeGatewayFinalText(MARKDOWN)]);
     gateways.push(rawGateway);
-    const raw = await runFx(["ask", "--no-save", "Render the fixture."], {
+    const raw = await runY2(["ask", "--no-save", "Render the fixture."], {
       cwd: root.workspace,
       env: gatewayEnv(root.home, rawGateway),
       timeoutMs: TIMEOUT,
@@ -424,7 +424,7 @@ describe("fx ask presentation", () => {
 
     const jsonGateway = startFakeGateway([fakeGatewayFinalText(MARKDOWN)]);
     gateways.push(jsonGateway);
-    const json = await runFx(
+    const json = await runY2(
       ["ask", "--json", "--no-save", "Render the fixture."],
       {
         cwd: root.workspace,
@@ -481,7 +481,7 @@ describe("fx ask presentation", () => {
       await session.waitForText("Between groups.", TIMEOUT);
       await session.resizeWindow(104, 36);
       releaseFinal!();
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const pane = await session.capturePane();
       const scrollback = await session.captureFullScrollback();
       const escaped = await session.captureFullScrollbackEscapes();
@@ -530,7 +530,7 @@ describe("fx ask presentation", () => {
       });
       sessions.push(session);
 
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const pane = await session.captureFullScrollback();
       expect(pane).toContain("● 1 tool call · 1 read");
       expect(pane).toContain("Listing memories");
@@ -542,7 +542,7 @@ describe("fx ask presentation", () => {
   );
 
   test.skipIf(!tmuxAvailable())(
-    "--no-color keeps the TTY layout without Fx styles or hyperlinks",
+    "--no-color keeps the TTY layout without Y2 styles or hyperlinks",
     async () => {
       const root = createRoot();
       const gateway = startFakeGateway([fakeGatewayFinalText(MARKDOWN)]);
@@ -563,7 +563,7 @@ describe("fx ask presentation", () => {
       });
       sessions.push(session);
 
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const pane = await session.captureFullScrollback();
       const escaped = await session.captureFullScrollbackEscapes();
       expect(pane).toContain("Render the no-color fixture.");
@@ -594,7 +594,7 @@ describe("fx ask presentation", () => {
         cwd: root.workspace,
         env: {
           ...gatewayEnv(root.home, gateway),
-          FX_THEME: "light",
+          Y2_THEME: "light",
           NO_COLOR: undefined,
         },
         width: 120,
@@ -604,7 +604,7 @@ describe("fx ask presentation", () => {
       });
       sessions.push(session);
 
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const escaped = await session.captureFullScrollbackEscapes();
       expect(escaped).toContain("\x1b[38;5;238mconst\x1b[39m");
       expect(escaped).not.toContain("\x1b[38;5;252mconst\x1b[39m");
@@ -658,7 +658,7 @@ describe("fx ask presentation", () => {
       });
       sessions.push(session);
 
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const scrollback = await session.captureFullScrollback();
       let previousIndex = -1;
       for (const line of answerLines) {
@@ -777,7 +777,7 @@ describe("fx ask presentation", () => {
         releaseResponse();
       }
 
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const finalScrollback = await session.captureFullScrollback();
       expect(finalScrollback.split("Run /help for commands")).toHaveLength(2);
       for (const line of answerLines) {
@@ -820,9 +820,9 @@ describe("fx ask presentation", () => {
       });
       sessions.push(session);
 
-      await session.waitForText(/__FX_EXIT_[0-9]+__/, TIMEOUT);
+      await session.waitForText(/__Y2_EXIT_[0-9]+__/, TIMEOUT);
       const scrollback = await session.captureFullScrollback();
-      expect(scrollback).toContain("__FX_EXIT_0__");
+      expect(scrollback).toContain("__Y2_EXIT_0__");
       let previousIndex = -1;
       for (const line of answerLines) {
         const marker = line.slice(0, "WRAPPED_LINE_00".length);
@@ -871,7 +871,7 @@ describe("fx ask presentation", () => {
       });
       sessions.push(session);
 
-      await session.waitForText("__FX_EXIT_0__", TIMEOUT);
+      await session.waitForText("__Y2_EXIT_0__", TIMEOUT);
       const scrollback = await session.captureFullScrollback();
       expect(scrollback).toContain("Run the notice filtering fixture.");
       expect(scrollback).toContain("Notice filtering complete.");

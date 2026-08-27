@@ -2317,7 +2317,7 @@ pub fn billingProjectionEql(first: Snapshot, second: Snapshot) bool {
 pub fn writeSnapshot(writer: *std.Io.Writer, snapshot: Snapshot) !void {
     try validateSnapshot(snapshot);
     // Keep the durable session payload in the exact pre-usage-dashboard
-    // shape. Older fx binaries reject unknown snapshot fields instead of
+    // shape. Older y2 binaries reject unknown snapshot fields instead of
     // ignoring them; richer metrics and recovery hints live in the validated
     // session sidecar.
     try writer.writeAll("{\"billing\":");
@@ -3228,7 +3228,7 @@ fn testGatewayUsageOutcome(
 ) stream_provider.UsageOutcome {
     const reference = testGatewayUsageReference(
         generation_id,
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
     );
     return if (immediate)
         .{ .immediate = reference }
@@ -3391,7 +3391,7 @@ test "profile publication failure preserves session totals and retries backlog" 
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -3472,7 +3472,7 @@ test "restored publication backlog settles the pending generation exactly" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try source.applyGeneration(alloc, .{
@@ -3559,7 +3559,7 @@ test "no-checkpoint usage drains a transient publication failure" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -3611,7 +3611,7 @@ test "missing profile publication sink keeps the durable pending bridge" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -3689,7 +3689,7 @@ test "usage snapshot parsing releases every partial allocation" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -3709,7 +3709,7 @@ test "usage snapshot parsing releases every partial allocation" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAW",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         "team_1",
     );
 
@@ -3760,7 +3760,7 @@ test "fresh usage aggregates authoritative generations in invocation order" {
         125,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         "team_1",
     );
     try usage.applyGeneration(alloc, .{
@@ -3781,7 +3781,7 @@ test "fresh usage aggregates authoritative generations in invocation order" {
         75,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAW",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         "team_1",
     );
     try usage.applyGeneration(alloc, .{
@@ -3832,7 +3832,7 @@ test "usage deduplicates terminal and generation callbacks" {
         10,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.finishObservedInvocation(
@@ -3841,7 +3841,7 @@ test "usage deduplicates terminal and generation callbacks" {
         10,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     const record = GenerationRecord{
@@ -3877,7 +3877,7 @@ test "usage deduplicates callbacks after the durable settlement boundary" {
         10,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -3902,7 +3902,7 @@ test "usage deduplicates callbacks after the durable settlement boundary" {
         10,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
 
@@ -3926,7 +3926,7 @@ test "model aggregates remain ordered by invocation when reconciliation finishes
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.finishObservedInvocation(
@@ -3935,7 +3935,7 @@ test "model aggregates remain ordered by invocation when reconciliation finishes
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAW",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
 
@@ -4001,7 +4001,7 @@ test "active invocation dominates separate pending and publication state" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
 
@@ -4088,7 +4088,7 @@ test "generation allocation failure marks billing incomplete before snapshot" {
             1,
             .observed_generation,
             "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-            "https://ai-gateway.vercel.sh",
+            "https://retired-gateway.invalid",
             null,
         ),
     );
@@ -4111,7 +4111,7 @@ test "invalid generation identity settles the provider observation" {
         .{ .generation_id = "resp_provider_local" },
         .{ .immediate = testGatewayUsageReference(
             "resp_provider_local",
-            "https://ai-gateway.vercel.sh",
+            "https://retired-gateway.invalid",
         ) },
     );
 
@@ -4253,7 +4253,7 @@ test "pending and ambiguous generation states remain honest" {
         8,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
 
@@ -4294,24 +4294,24 @@ test "deferred usage preserves provider and credential authority" {
     var usage = Usage.initFresh();
     defer usage.deinit(alloc);
     const identity = @import("../auth/credential_authority.zig").derive(
-        .fx_login,
+        .retired_login,
         "acct_1",
     ).?;
     const observation = try InvocationObservation.begin(&usage);
     try observation.complete(alloc, .{}, .{ .deferred = .{
         .provider = .gateway,
         .generation_id = "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        .scope = "https://ai-gateway.vercel.sh",
+        .scope = "https://retired-gateway.invalid",
         .tenant = "team_1",
         .account_id = "acct_1",
-        .credential_source = .fx_login,
+        .credential_source = .retired_login,
         .credential_identity = identity,
     } });
 
     var snapshot = try usage.snapshot(alloc);
     defer snapshot.deinit(alloc);
     try std.testing.expectEqual(model_provider.ProviderId.gateway, snapshot.pending[0].provider);
-    try std.testing.expectEqual(types.CredentialSource.fx_login, snapshot.pending[0].credential_source.?);
+    try std.testing.expectEqual(types.CredentialSource.retired_login, snapshot.pending[0].credential_source.?);
     try std.testing.expect(snapshot.pending[0].credential_identity.?.eql(identity));
 }
 
@@ -4630,7 +4630,7 @@ test "usage keeps more than sixteen exact resolved models" {
             1,
             .observed_generation,
             id,
-            "https://ai-gateway.vercel.sh",
+            "https://retired-gateway.invalid",
             null,
         );
         try usage.applyGeneration(alloc, .{
@@ -4700,7 +4700,7 @@ test "sixteenth pending generation is the capacity boundary" {
             1,
             .observed_generation,
             id,
-            "https://ai-gateway.vercel.sh",
+            "https://retired-gateway.invalid",
             null,
         );
     }
@@ -4728,7 +4728,7 @@ test "sixteenth pending generation is the capacity boundary" {
             1,
             .observed_generation,
             overflow_id,
-            "https://ai-gateway.vercel.sh",
+            "https://retired-gateway.invalid",
             null,
         ),
     );
@@ -4754,7 +4754,7 @@ test "populated usage snapshot keeps the rollback-readable durable shape" {
         120,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         "team_alpha",
     );
     try usage.applyGeneration(alloc, .{
@@ -4775,7 +4775,7 @@ test "populated usage snapshot keeps the rollback-readable durable shape" {
         90,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAW",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -4798,7 +4798,7 @@ test "populated usage snapshot keeps the rollback-readable durable shape" {
         30,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAX",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         "team_beta",
     );
     try usage.recordCommittedLines(5, 3);
@@ -4919,7 +4919,7 @@ test "rich usage snapshot preserves optional metrics and recovery state" {
         5,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -4941,7 +4941,7 @@ test "rich usage snapshot preserves optional metrics and recovery state" {
         6,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAW",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         "team_alpha",
     );
 
@@ -5348,7 +5348,7 @@ test "terminal checkpoint failure preserves request progress as incomplete" {
 }
 
 test "pending generation origins remain bounded transport inputs" {
-    try validateOrigin("https://ai-gateway.vercel.sh");
+    try validateOrigin("https://retired-gateway.invalid");
     try validateOrigin("http://127.0.0.1:3000");
     try validateOrigin("https://provider.example");
 
@@ -5460,7 +5460,7 @@ test "resumed provider reconciliation uses Gateway credential slot identity" {
     const observation = try InvocationObservation.begin(&usage);
     try observation.complete(alloc, .{}, .{ .deferred = testGatewayUsageReference(
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
     ) });
 
     usage.replaceProviderReconciliationCredential(

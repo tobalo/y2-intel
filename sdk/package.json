@@ -1,7 +1,7 @@
 {
-  "name": "libfx",
+  "name": "liby2",
   "version": "0.0.0",
-  "description": "Embed fx agents and terminals in JavaScript hosts",
+  "description": "Embed y2 agents and terminals in JavaScript hosts",
   "type": "module",
   "repository": {
     "type": "git",
@@ -23,14 +23,14 @@
     },
     "./node": "./node.js",
     "./browser": "./browser.js",
-    "./wasm": "./fx-sdk.js"
+    "./wasm": "./y2-sdk.js"
   },
   "files": [
     "browser.js",
     "node.js",
-    "fx-sdk.js",
-    "fx-core.wasm",
-    "fx-term.wasm",
+    "y2-sdk.js",
+    "y2-core.wasm",
+    "y2-term.wasm",
     "*.node",
     "README.md",
     "LICENSE"

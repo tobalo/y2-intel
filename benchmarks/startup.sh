@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Startup latency benchmarks for fx.
+# Startup latency benchmarks for y2.
 #
 # Measures wall-clock time for common CLI commands using hyperfine.
 # Results are written to benchmarks/results/ in JSON format for CI consumption.
@@ -15,9 +15,9 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-FX_BIN="${REPO_ROOT}/zig-out/bin/fx"
+Y2_BIN="${REPO_ROOT}/zig-out/bin/y2"
 RESULTS_DIR="${REPO_ROOT}/benchmarks/results"
-SESSION_FIXTURE_ROOT="${TMPDIR:-/tmp}/fx-session-list-benchmark-$$"
+SESSION_FIXTURE_ROOT="${TMPDIR:-/tmp}/y2-session-list-benchmark-$$"
 SESSION_FIXTURE_HOME="${SESSION_FIXTURE_ROOT}/home"
 SESSION_FIXTURE_WORKSPACE="${SESSION_FIXTURE_ROOT}/workspace"
 GENERAL_FIXTURE_HOME="${SESSION_FIXTURE_ROOT}/general-home"
@@ -45,24 +45,24 @@ case "${1:-}" in
 esac
 
 if [ "$SKIP_BUILD" = false ]; then
-  echo "Building fx (ReleaseSafe)..."
+  echo "Building y2 (ReleaseSafe)..."
   (cd "$REPO_ROOT" && zig build -Doptimize=ReleaseSafe)
 fi
 
-if [ ! -x "$FX_BIN" ]; then
-  echo "error: fx binary not found at $FX_BIN"
+if [ ! -x "$Y2_BIN" ]; then
+  echo "error: y2 binary not found at $Y2_BIN"
   exit 1
 fi
 
 mkdir -p "$RESULTS_DIR"
 rm -f "${RESULTS_DIR}/tasks.json"
 mkdir -p "$SESSION_FIXTURE_HOME" "$SESSION_FIXTURE_WORKSPACE" "$GENERAL_FIXTURE_HOME"
-mkdir -p "$GENERAL_FIXTURE_HOME/.fx"
-chmod 700 "$GENERAL_FIXTURE_HOME/.fx"
+mkdir -p "$GENERAL_FIXTURE_HOME/.y2"
+chmod 700 "$GENERAL_FIXTURE_HOME/.y2"
 printf '%s\n' \
   '{"model":"openai/gpt-5.4","effort":"high","fast_mode":false,"startup_scrollback":true,"prompt_history":{"enabled":true},"statusLine":{"sandbox":true,"context":true},"permission":{"bash":{"git status *":"allow"}}}' \
-  > "$GENERAL_FIXTURE_HOME/.fx/settings.json"
-chmod 600 "$GENERAL_FIXTURE_HOME/.fx/settings.json"
+  > "$GENERAL_FIXTURE_HOME/.y2/settings.json"
+chmod 600 "$GENERAL_FIXTURE_HOME/.y2/settings.json"
 python3 "${REPO_ROOT}/benchmarks/session_list_fixture.py" \
   --home "$SESSION_FIXTURE_HOME" \
   --workspace "$SESSION_FIXTURE_WORKSPACE"
@@ -75,13 +75,13 @@ else
   TRUE_BIN=true
 fi
 
-echo "=== fx startup benchmarks ==="
-echo "binary: $FX_BIN"
+echo "=== y2 startup benchmarks ==="
+echo "binary: $Y2_BIN"
 echo "runs:   $RUNS (warmup: $WARMUP)"
 echo ""
 
 # Baseline: process launch floor on this host. This is reported for context;
-# the budget checker still enforces each fx command's raw wall-clock mean.
+# the budget checker still enforces each y2 command's raw wall-clock mean.
 echo "--- process baseline ---"
 HOME="$GENERAL_FIXTURE_HOME" hyperfine \
   "${SHELL_OPTS[@]}" \
@@ -93,68 +93,68 @@ HOME="$GENERAL_FIXTURE_HOME" hyperfine \
 
 echo ""
 
-# Benchmark 0: fx startup (CLI dispatch, no TTY needed)
-echo "--- fx (startup) ---"
-HOME="$GENERAL_FIXTURE_HOME" FX_BENCH=1 hyperfine \
+# Benchmark 0: y2 startup (CLI dispatch, no TTY needed)
+echo "--- y2 (startup) ---"
+HOME="$GENERAL_FIXTURE_HOME" Y2_BENCH=1 hyperfine \
   "${SHELL_OPTS[@]}" \
   --runs "$RUNS" \
   --warmup "$WARMUP" \
   --export-json "${RESULTS_DIR}/startup.json" \
-  --command-name "fx (startup)" \
-  "$FX_BIN"
+  --command-name "y2 (startup)" \
+  "$Y2_BIN"
 
 echo ""
 
-# Benchmark 1: fx help (minimal startup path)
-echo "--- fx help ---"
+# Benchmark 1: y2 help (minimal startup path)
+echo "--- y2 help ---"
 HOME="$GENERAL_FIXTURE_HOME" hyperfine \
   "${SHELL_OPTS[@]}" \
   --runs "$RUNS" \
   --warmup "$WARMUP" \
   --export-json "${RESULTS_DIR}/help.json" \
-  --command-name "fx help" \
-  "$FX_BIN help"
+  --command-name "y2 help" \
+  "$Y2_BIN help"
 
 echo ""
 
-# Benchmark 2: fx status --json (config load + JSON serialize)
-echo "--- fx status --json ---"
+# Benchmark 2: y2 status --json (config load + JSON serialize)
+echo "--- y2 status --json ---"
 HOME="$GENERAL_FIXTURE_HOME" hyperfine \
   "${SHELL_OPTS[@]}" \
   --runs "$RUNS" \
   --warmup "$WARMUP" \
   --export-json "${RESULTS_DIR}/status.json" \
-  --command-name "fx status --json" \
-  "$FX_BIN status --json"
+  --command-name "y2 status --json" \
+  "$Y2_BIN status --json"
 
 echo ""
 
-# Benchmark 3: fx doctor --json (system checks)
-echo "--- fx doctor --json ---"
+# Benchmark 3: y2 doctor --json (system checks)
+echo "--- y2 doctor --json ---"
 HOME="$GENERAL_FIXTURE_HOME" hyperfine \
   "${SHELL_OPTS[@]}" \
   --runs "$RUNS" \
   --warmup "$WARMUP" \
   --export-json "${RESULTS_DIR}/doctor.json" \
-  --command-name "fx doctor --json" \
-  "$FX_BIN doctor --json"
+  --command-name "y2 doctor --json" \
+  "$Y2_BIN doctor --json"
 
 echo ""
 
-# Benchmark 4: fx sessions --json (file I/O path)
-echo "--- fx sessions --json ---"
+# Benchmark 4: y2 sessions --json (file I/O path)
+echo "--- y2 sessions --json ---"
 HOME="$SESSION_FIXTURE_HOME" hyperfine \
   "${SHELL_OPTS[@]}" \
   --runs "$RUNS" \
   --warmup "$WARMUP" \
   --export-json "${RESULTS_DIR}/sessions.json" \
-  --command-name "fx sessions --json" \
-  "$FX_BIN sessions --json"
+  --command-name "y2 sessions --json" \
+  "$Y2_BIN sessions --json"
 
 echo ""
 
-# Benchmark 5: fx background --json (file I/O path)
-echo "--- fx background --json ---"
+# Benchmark 5: y2 background --json (file I/O path)
+echo "--- y2 background --json ---"
 (
   cd "$SESSION_FIXTURE_WORKSPACE"
   HOME="$SESSION_FIXTURE_HOME" hyperfine \
@@ -162,8 +162,8 @@ echo "--- fx background --json ---"
     --runs "$RUNS" \
     --warmup "$WARMUP" \
     --export-json "${RESULTS_DIR}/background.json" \
-    --command-name "fx background --json" \
-    "$FX_BIN background --json"
+    --command-name "y2 background --json" \
+    "$Y2_BIN background --json"
 )
 
 echo ""

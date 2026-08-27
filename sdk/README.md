@@ -1,13 +1,13 @@
-# libfx
+# liby2
 
-`libfx` embeds fx agents and interactive terminals in JavaScript
+`liby2` embeds y2 agents and interactive terminals in JavaScript
 applications. It supports Node.js hosts and browser environments with
 JavaScript Promise Integration (JSPI).
 
 ## Installation
 
 ```sh
-npm install libfx
+npm install liby2
 ```
 
 Requirements:
@@ -20,25 +20,25 @@ Requirements:
 The package includes:
 
 - Native Node addons for Linux and macOS on x64 and arm64
-- `fx-core.wasm` for headless agents
-- `fx-term.wasm` for interactive terminals
+- `y2-core.wasm` for headless agents
+- `y2-term.wasm` for interactive terminals
 - A dependency-free JavaScript host layer
 
 ## Exports
 
 | Import | Environment | Description |
 | --- | --- | --- |
-| `libfx` | Node.js or browser | Environment-aware default |
-| `libfx/node` | Node.js | Native-first Node entry point |
-| `libfx/browser` | Browser | WebAssembly browser entry point |
-| `libfx/wasm` | Browser or Node.js | Direct WebAssembly host layer |
+| `liby2` | Node.js or browser | Environment-aware default |
+| `liby2/node` | Node.js | Native-first Node entry point |
+| `liby2/browser` | Browser | WebAssembly browser entry point |
+| `liby2/wasm` | Browser or Node.js | Direct WebAssembly host layer |
 
 Public exports:
 
-- `createFxAgent()` creates a headless ACP agent.
-- `createFxTerminal()` runs the interactive fx terminal.
+- `createY2Agent()` creates a headless ACP agent.
+- `createY2Terminal()` runs the interactive y2 terminal.
 - `supportsJspi()` detects WebAssembly JSPI support.
-- `xtermAdapter()` connects fx to an xterm.js terminal.
+- `xtermAdapter()` connects y2 to an xterm.js terminal.
 - `encodeXtermKeyEvent()` translates browser keyboard events into terminal input.
 
 ## Headless agent
@@ -47,9 +47,9 @@ The default Node entry point prefers the native addon and falls back to
 WebAssembly when necessary.
 
 ```js
-import { createFxAgent } from "libfx";
+import { createY2Agent } from "liby2";
 
-const agent = await createFxAgent({
+const agent = await createY2Agent({
   env: {
     Y2_API_KEY: process.env.Y2_API_KEY,
   },
@@ -95,7 +95,7 @@ Image prompt blocks are not currently supported.
 
 ### Agent lifecycle
 
-The object returned by `createFxAgent()` provides:
+The object returned by `createY2Agent()` provides:
 
 | Member | Description |
 | --- | --- |
@@ -138,17 +138,17 @@ Browser hosts always use WebAssembly.
 
 ```js
 import {
-  createFxAgent,
+  createY2Agent,
   supportsJspi,
-} from "libfx/browser";
+} from "liby2/browser";
 
 if (!supportsJspi()) {
   throw new Error("This browser does not support WebAssembly JSPI.");
 }
 
-const agent = await createFxAgent({
+const agent = await createY2Agent({
   env: {
-    FX_API_CHAT_URL: `${location.origin}/api/harness/chat`,
+    Y2_API_CHAT_URL: `${location.origin}/api/harness/chat`,
     OPENAI_API_KEY: "browser-session",
   },
   fetch(input, init) {
@@ -164,7 +164,7 @@ for await (const update of turn) {
 }
 ```
 
-The browser entry point resolves `fx-core.wasm` and `fx-term.wasm` relative to
+The browser entry point resolves `y2-core.wasm` and `y2-term.wasm` relative to
 the installed package. Pass `wasm` explicitly to provide a URL, `Response`,
 `ArrayBuffer`, typed array, or precompiled `WebAssembly.Module`.
 
@@ -182,17 +182,17 @@ Install xterm.js in the host application:
 npm install @xterm/xterm @xterm/addon-fit
 ```
 
-Create the terminal and connect it to fx:
+Create the terminal and connect it to y2:
 
 ```js
 import { Terminal } from "@xterm/xterm";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import {
-  createFxTerminal,
+  createY2Terminal,
   supportsJspi,
   xtermAdapter,
-} from "libfx/browser";
+} from "liby2/browser";
 
 if (!supportsJspi()) {
   throw new Error("This browser does not support WebAssembly JSPI.");
@@ -208,10 +208,10 @@ terminal.loadAddon(fit);
 terminal.open(document.querySelector("#terminal"));
 fit.fit();
 
-const runtime = await createFxTerminal({
+const runtime = await createY2Terminal({
   terminal: xtermAdapter(terminal),
   env: {
-    FX_API_CHAT_URL: `${location.origin}/api/harness/chat`,
+    Y2_API_CHAT_URL: `${location.origin}/api/harness/chat`,
     OPENAI_API_KEY: "browser-session",
   },
 });
@@ -230,8 +230,8 @@ The terminal runtime provides:
 | --- | --- |
 | `interactive` | Resolves after the terminal is ready for input |
 | `exited` | Resolves with the terminal exit code |
-| `write(data)` | Writes input directly to fx |
-| `resize()` | Notifies fx of terminal geometry changes |
+| `write(data)` | Writes input directly to y2 |
+| `resize()` | Notifies y2 of terminal geometry changes |
 | `abort()` | Stops the terminal and releases subscriptions |
 
 The Y2-hosted terminal is not published yet. Run the repository demo locally
@@ -242,7 +242,7 @@ while the hosted harness route is being prepared.
 Node hosts may select a backend explicitly:
 
 ```js
-const agent = await createFxAgent({
+const agent = await createY2Agent({
   backend: "native",
 });
 ```
@@ -253,10 +253,10 @@ const agent = await createFxAgent({
 | `native` | Require the native backend and fail if it cannot load |
 | `wasm` | Require WebAssembly and JSPI |
 
-The native loader checks `libfx.node` followed by the platform-specific addon:
+The native loader checks `liby2.node` followed by the platform-specific addon:
 
 ```text
-libfx.<platform>-<arch>.node
+liby2.<platform>-<arch>.node
 ```
 
 Supported packaged targets:
@@ -270,7 +270,7 @@ If no compatible native backend is available and JSPI cannot run, startup
 rejects with:
 
 ```js
-error.code === "LIBFX_JSPI_REQUIRED"
+error.code === "LIBY2_JSPI_REQUIRED"
 ```
 
 On Node versions where JSPI remains behind a flag, start the process with:
@@ -298,13 +298,13 @@ Hosts may provide adapters for runtime state and external effects:
 
 ## Security boundaries
 
-`nativeAddon`, `env.OPENAI_BASE_URL`, and `env.FX_API_CHAT_URL` are trusted host
+`nativeAddon`, `env.OPENAI_BASE_URL`, and `env.Y2_API_CHAT_URL` are trusted host
 configuration. Do not populate them from request, tenant, or other untrusted
 input.
 
 The default endpoint is Agent Y2. A host can instead configure an HTTPS
 OpenAI-compatible endpoint with `OPENAI_BASE_URL` and `OPENAI_API_KEY`, or pass
-the full endpoint as `FX_API_CHAT_URL`. Plain HTTP is limited to explicit
+the full endpoint as `Y2_API_CHAT_URL`. Plain HTTP is limited to explicit
 loopback URLs for local development.
 
 The WebAssembly runtime intentionally does not provide:
@@ -319,7 +319,7 @@ The WebAssembly runtime intentionally does not provide:
 - Public web fetch, web search, and general outbound network access
 
 The embedded runtime tells the model not to retry unavailable network work
-through terminal commands. Use locally installed fx when the full native tool
+through terminal commands. Use locally installed y2 when the full native tool
 suite is required.
 
 The optional browser workspace exposes foreground terminal execution through
@@ -334,7 +334,7 @@ returning bounded output.
 
 ## Local development
 
-From the fx repository root, build the native addon and both WebAssembly
+From the y2 repository root, build the native addon and both WebAssembly
 surfaces:
 
 ```sh

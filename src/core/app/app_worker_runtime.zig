@@ -2063,7 +2063,7 @@ test "core.app_worker_runtime assistant chunk trace is metadata only" {
 
     var app = FakeApp.init(alloc);
     defer app.deinit();
-    const secret = "FX_ASSISTANT_CHUNK_SECRET";
+    const secret = "Y2_ASSISTANT_CHUNK_SECRET";
     try Runtime(FakeApp).pushText(&app, secret);
     try tickNoop(&app);
     debug_trace.shutdown();

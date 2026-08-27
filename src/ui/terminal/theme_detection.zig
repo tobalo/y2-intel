@@ -13,7 +13,7 @@ pub const Detection = struct {
 pub const TerminalBackground = theme_protocol.Background;
 
 pub fn explicitThemeOverride() ?bool {
-    const override = io_mod.getenv("FX_THEME") orelse return null;
+    const override = io_mod.getenv("Y2_THEME") orelse return null;
     if (std.ascii.eqlIgnoreCase(override, "light")) return true;
     if (std.ascii.eqlIgnoreCase(override, "dark")) return false;
     return null;

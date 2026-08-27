@@ -252,7 +252,7 @@ def markdown_report(report: dict[str, object]) -> str:
 
 def parse_args(argv: Sequence[str] | None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
-        description="Compare stripped ReleaseSafe fx binaries",
+        description="Compare stripped ReleaseSafe y2 binaries",
     )
     parser.add_argument("--base-binary", type=pathlib.Path, required=True)
     parser.add_argument("--head-binary", type=pathlib.Path, required=True)

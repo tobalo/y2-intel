@@ -13,7 +13,7 @@ import {
 import { homedir, tmpdir, userInfo } from "node:os";
 import { join } from "node:path";
 import { spawnSync } from "node:child_process";
-import { runFx } from "../evals/eval-helpers";
+import { runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -21,8 +21,8 @@ import {
 } from "./tmux-helpers";
 
 const TIMEOUT = 30_000;
-const OAUTH_SERVICE = "FX_OAUTH_SESSION_V1";
-const TEST_ACCOUNT_PREFIX = "fx-e2e-oauth-";
+const OAUTH_SERVICE = "Y2_OAUTH_SESSION_V1";
+const TEST_ACCOUNT_PREFIX = "y2-e2e-oauth-";
 const activeCleanups = new Set<() => void>();
 const KEYCHAIN_PROBE_SCRIPT = `
 ObjC.import("Security");
@@ -143,10 +143,10 @@ function startOAuthIssuer() {
 }
 
 function writeLogin(home: string, issuer: string, tokenSuffix: string): void {
-  const fxDir = join(home, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "auth.json");
+  const y2Dir = join(home, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "auth.json");
   writeFileSync(
     authPath,
     JSON.stringify({
@@ -181,13 +181,13 @@ function keychainEnv(home: string, account: string, issuer: string) {
     HOME: home,
     USER: account,
     Y2_API_KEY: undefined,
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_DISABLE_KEYCHAIN: undefined,
-    FX_SKIP_ONBOARDING: "1",
-    FX_AUTO_UPGRADE: "0",
-    FX_E2E_OAUTH_ISSUER_URL: issuer,
-    FX_TRACE_LOG: join(home, "oauth-keychain-trace.log"),
-    FX_TRACE_SCOPES: "auth,keychain",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_DISABLE_KEYCHAIN: undefined,
+    Y2_SKIP_ONBOARDING: "1",
+    Y2_AUTO_UPGRADE: "0",
+    Y2_E2E_OAUTH_ISSUER_URL: issuer,
+    Y2_TRACE_LOG: join(home, "oauth-keychain-trace.log"),
+    Y2_TRACE_SCOPES: "auth,keychain",
   };
 }
 
@@ -198,7 +198,7 @@ keychainTest(
   async () => {
     const account = isolatedAccount();
     const before = productionMetadata();
-    const home = mkdtempSync(join(tmpdir(), "fx-oauth-keychain-migration-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-oauth-keychain-migration-"));
     attachSystemKeychain(home);
     const issuer = startOAuthIssuer();
     const gateway = startFakeGateway([
@@ -210,17 +210,17 @@ keychainTest(
     writeLogin(home, issuer.issuer, account);
     const env = {
       ...keychainEnv(home, account, issuer.issuer),
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_API_CHAT_URL: gateway.chatUrl,
-      FX_MODEL: FAKE_GATEWAY_MODEL,
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_API_CHAT_URL: gateway.chatUrl,
+      Y2_MODEL: FAKE_GATEWAY_MODEL,
     };
 
     try {
-      const first = await runFx(["status", "--json"], { env, timeoutMs: TIMEOUT });
+      const first = await runY2(["status", "--json"], { env, timeoutMs: TIMEOUT });
       expect(first.code, `stdout: ${first.stdout}\nstderr: ${first.stderr}`).toBe(0);
-      expect(JSON.parse(first.stdout).auth).toBe("fx login");
+      expect(JSON.parse(first.stdout).auth).toBe("y2 login");
       expect(
-        existsSync(join(home, ".fx", "auth.json")),
+        existsSync(join(home, ".y2", "auth.json")),
         readFileSync(join(home, "oauth-keychain-trace.log"), "utf8"),
       ).toBe(false);
 
@@ -228,7 +228,7 @@ keychainTest(
       expect(stored).not.toBeNull();
       expect(JSON.parse(stored!).access_token).toBe(`keychain-access-${account}`);
 
-      const refreshed = await runFx(
+      const refreshed = await runY2(
         ["ask", "--json", "--no-save", "Refresh the saved login."],
         { env, timeoutMs: TIMEOUT },
       );
@@ -239,7 +239,7 @@ keychainTest(
       expect(JSON.parse(refreshed.stdout).output).toContain(
         "Keychain refresh complete",
       );
-      expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
+      expect(existsSync(join(home, ".y2", "auth.json"))).toBe(false);
       expect(JSON.parse(loadKeychainItem(account, home)!).access_token).toBe(
         "keychain-refreshed-access",
       );
@@ -247,15 +247,15 @@ keychainTest(
         issuer.requests.filter((request) => request.path === "/oauth/token"),
       ).toHaveLength(1);
 
-      rmSync(join(home, ".fx"), { recursive: true, force: true });
-      const restarted = await runFx(["status", "--json"], { env, timeoutMs: TIMEOUT });
+      rmSync(join(home, ".y2"), { recursive: true, force: true });
+      const restarted = await runY2(["status", "--json"], { env, timeoutMs: TIMEOUT });
       expect(restarted.code).toBe(0);
-      expect(JSON.parse(restarted.stdout).auth).toBe("fx login");
-      expect(existsSync(join(home, ".fx"))).toBe(false);
+      expect(JSON.parse(restarted.stdout).auth).toBe("y2 login");
+      expect(existsSync(join(home, ".y2"))).toBe(false);
 
-      const logout = await runFx(["logout"], { env, timeoutMs: TIMEOUT });
+      const logout = await runY2(["logout"], { env, timeoutMs: TIMEOUT });
       expect(logout.code, `stdout: ${logout.stdout}\nstderr: ${logout.stderr}`).toBe(0);
-      expect(logout.stdout).toBe("Signed out of fx.\n");
+      expect(logout.stdout).toBe("Signed out of y2.\n");
       expect(loadKeychainItem(account, home)).toBeNull();
       expect(issuer.requests.filter((request) => request.path === "/oauth/revoke")).toHaveLength(2);
     } finally {
@@ -276,7 +276,7 @@ keychainTest(
   async () => {
     const account = isolatedAccount();
     const before = productionMetadata();
-    const home = mkdtempSync(join(tmpdir(), "fx-oauth-keychain-failure-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-oauth-keychain-failure-"));
     attachSystemKeychain(home);
     const issuer = startOAuthIssuer();
     const cleanup = () => deleteKeychainItem(account);
@@ -286,7 +286,7 @@ keychainTest(
 
     let injectedFailureObserved = false;
     try {
-      const status = await runFx(["status", "--json"], {
+      const status = await runY2(["status", "--json"], {
         env: keychainEnv(home, account, issuer.issuer),
         timeoutMs: TIMEOUT,
       });

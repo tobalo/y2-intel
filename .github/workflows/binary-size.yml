@@ -64,22 +64,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          evidence_dir="$RUNNER_TEMP/fx-binary-size-evidence"
+          evidence_dir="$RUNNER_TEMP/y2-binary-size-evidence"
           mkdir -p "$evidence_dir"
           test "$(git rev-parse HEAD)" = "$HEAD_SHA"
           zig build \
             -Dtarget=${{ matrix.target }} \
             -Doptimize=ReleaseSafe \
-            --cache-dir "$RUNNER_TEMP/fx-head-cache" \
-            --global-cache-dir "$RUNNER_TEMP/fx-global-cache"
-          cp zig-out/bin/fx "$evidence_dir/head-fx"
-          file "$evidence_dir/head-fx" > "$evidence_dir/head-file.txt"
+            --cache-dir "$RUNNER_TEMP/y2-head-cache" \
+            --global-cache-dir "$RUNNER_TEMP/y2-global-cache"
+          cp zig-out/bin/y2 "$evidence_dir/head-y2"
+          file "$evidence_dir/head-y2" > "$evidence_dir/head-file.txt"
           cat "$evidence_dir/head-file.txt"
           grep -Eq "$EXPECTED_FILE" "$evidence_dir/head-file.txt"
           if [ "$SECTION_FORMAT" = "macho" ]; then
-            size -m "$evidence_dir/head-fx" > "$evidence_dir/head-sections.txt"
+            size -m "$evidence_dir/head-y2" > "$evidence_dir/head-sections.txt"
           else
-            size -A -d "$evidence_dir/head-fx" > "$evidence_dir/head-sections.txt"
+            size -A -d "$evidence_dir/head-y2" > "$evidence_dir/head-sections.txt"
           fi
           cat "$evidence_dir/head-sections.txt"
 
@@ -87,8 +87,8 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          evidence_dir="$RUNNER_TEMP/fx-binary-size-evidence"
-          base_worktree="$RUNNER_TEMP/fx-binary-size-base"
+          evidence_dir="$RUNNER_TEMP/y2-binary-size-evidence"
+          base_worktree="$RUNNER_TEMP/y2-binary-size-base"
           cleanup() {
             git worktree remove --force "$base_worktree" >/dev/null 2>&1 || true
           }
@@ -100,17 +100,17 @@ jobs:
             zig build \
               -Dtarget=${{ matrix.target }} \
               -Doptimize=ReleaseSafe \
-              --cache-dir "$RUNNER_TEMP/fx-base-cache" \
-              --global-cache-dir "$RUNNER_TEMP/fx-global-cache"
+              --cache-dir "$RUNNER_TEMP/y2-base-cache" \
+              --global-cache-dir "$RUNNER_TEMP/y2-global-cache"
           )
-          cp "$base_worktree/zig-out/bin/fx" "$evidence_dir/base-fx"
-          file "$evidence_dir/base-fx" > "$evidence_dir/base-file.txt"
+          cp "$base_worktree/zig-out/bin/y2" "$evidence_dir/base-y2"
+          file "$evidence_dir/base-y2" > "$evidence_dir/base-file.txt"
           cat "$evidence_dir/base-file.txt"
           grep -Eq "$EXPECTED_FILE" "$evidence_dir/base-file.txt"
           if [ "$SECTION_FORMAT" = "macho" ]; then
-            size -m "$evidence_dir/base-fx" > "$evidence_dir/base-sections.txt"
+            size -m "$evidence_dir/base-y2" > "$evidence_dir/base-sections.txt"
           else
-            size -A -d "$evidence_dir/base-fx" > "$evidence_dir/base-sections.txt"
+            size -A -d "$evidence_dir/base-y2" > "$evidence_dir/base-sections.txt"
           fi
           cat "$evidence_dir/base-sections.txt"
 
@@ -119,10 +119,10 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          evidence_dir="$RUNNER_TEMP/fx-binary-size-evidence"
+          evidence_dir="$RUNNER_TEMP/y2-binary-size-evidence"
           python3 -m scripts.binary_size \
-            --base-binary "$evidence_dir/base-fx" \
-            --head-binary "$evidence_dir/head-fx" \
+            --base-binary "$evidence_dir/base-y2" \
+            --head-binary "$evidence_dir/head-y2" \
             --base-sections "$evidence_dir/base-sections.txt" \
             --head-sections "$evidence_dir/head-sections.txt" \
             --base-sha "$BASE_SHA" \
@@ -148,12 +148,12 @@ jobs:
         with:
           name: binary-size-evidence-${{ matrix.name }}-${{ github.event.pull_request.number }}
           path: |
-            ${{ runner.temp }}/fx-binary-size-evidence/report.json
-            ${{ runner.temp }}/fx-binary-size-evidence/report.md
-            ${{ runner.temp }}/fx-binary-size-evidence/base-file.txt
-            ${{ runner.temp }}/fx-binary-size-evidence/head-file.txt
-            ${{ runner.temp }}/fx-binary-size-evidence/base-sections.txt
-            ${{ runner.temp }}/fx-binary-size-evidence/head-sections.txt
+            ${{ runner.temp }}/y2-binary-size-evidence/report.json
+            ${{ runner.temp }}/y2-binary-size-evidence/report.md
+            ${{ runner.temp }}/y2-binary-size-evidence/base-file.txt
+            ${{ runner.temp }}/y2-binary-size-evidence/head-file.txt
+            ${{ runner.temp }}/y2-binary-size-evidence/base-sections.txt
+            ${{ runner.temp }}/y2-binary-size-evidence/head-sections.txt
           if-no-files-found: warn
           retention-days: 30
 
@@ -163,7 +163,7 @@ jobs:
         with:
           name: binary-size-binaries-${{ matrix.name }}-${{ github.event.pull_request.number }}
           path: |
-            ${{ runner.temp }}/fx-binary-size-evidence/base-fx
-            ${{ runner.temp }}/fx-binary-size-evidence/head-fx
+            ${{ runner.temp }}/y2-binary-size-evidence/base-y2
+            ${{ runner.temp }}/y2-binary-size-evidence/head-y2
           compression-level: 0
           retention-days: 7

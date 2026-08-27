@@ -55,7 +55,6 @@ const builtin_providers = @import("builtins/providers.zig");
 const gateway_provider = @import("core/gateway/gateway_provider.zig");
 const provider_set = @import("core/gateway/provider_set.zig");
 const provider_catalog = @import("core/auth/provider_catalog.zig");
-const vercel_model_policy = @import("gateway/vercel_model_policy.zig");
 const model_catalog = @import("core/gateway/model_catalog.zig");
 const agent_stream_provider = @import("core/agent/stream_provider.zig");
 const builtin_hooks = @import("builtins/hooks.zig");
@@ -128,7 +127,6 @@ const web_fetch_runtime = @import("core/tooling/web_fetch_runtime.zig");
 const web_search_runtime = @import("core/tooling/web_search_runtime.zig");
 const worker_runtime = @import("core/agent/worker_runtime.zig");
 const question_prompt = @import("core/agent/question_prompt.zig");
-const gateway_client = @import("gateway/client.zig");
 const js_host_stream_provider = @import("gateway/js_host_stream_provider.zig");
 const js_host_model_catalog = @import("gateway/js_host_model_catalog.zig");
 const url_opener = @import("core/hosts/url_opener.zig");
@@ -428,12 +426,6 @@ const App = struct {
             host.unavailable_url_opener;
     }
 
-    pub fn creditsProvider(self: *const Self) gateway_provider.CreditsProvider {
-        return self.providerSet()
-            .select(self.provider_selection.selection().provider)
-            .credits orelse gateway_provider.unavailable_credits_provider;
-    }
-
     pub fn agentStreamProvider(self: *const Self) agent_stream_provider.Provider {
         return self.providerSet()
             .select(self.provider_selection.selection().provider)
@@ -509,7 +501,7 @@ const App = struct {
     agent_step_limit: usize = default_max_agent_steps,
     web_fetch_runtime: web_fetch_runtime.Runtime = web_fetch_runtime.Runtime.init(.{}),
     web_search_runtime: web_search_runtime.Runtime = web_search_runtime.Runtime.init(.{
-        .provider = if (host_profile.web_search) builtin_providers.native.gateway.fx_search else null,
+        .provider = if (host_profile.web_search) builtin_providers.native.gateway.y2_search else null,
     }),
     web_search_models_path: []const u8 = builtin_gateway.models_path,
     lifecycle_runtime: hooks.Runtime = hooks.Runtime.init(std.heap.c_allocator),
@@ -652,7 +644,7 @@ const App = struct {
         if (comptime host_profile.durable_sessions) {
             SessionAppRuntime.primeSessionPicker(&app);
         }
-        const env_disabled = if (io_mod.getenv("FX_AUTO_UPGRADE")) |val|
+        const env_disabled = if (io_mod.getenv("Y2_AUTO_UPGRADE")) |val|
             std.mem.eql(u8, val, "0") or std.ascii.eqlIgnoreCase(val, "false")
         else
             false;
@@ -2534,7 +2526,7 @@ const App = struct {
         const now_ms = io_mod.milliTimestamp();
         self.terminal_input_runtime.terminal_theme_monitor.poll(now_ms);
 
-        // FX_THEME forces colors via detectTheme; keep owning protocol bytes
+        // Y2_THEME forces colors via detectTheme; keep owning protocol bytes
         // (monitor started) but never query or apply live theme updates.
         if (ui_render.explicitThemeOverride() != null) {
             _ = self.terminal_input_runtime.terminal_theme_monitor.takeSettledUpdate();
@@ -2575,7 +2567,7 @@ const App = struct {
         if (!try WorkerAppRuntime.authorizeInteractiveAdmission(self)) return;
         InputSubmitRuntime.collectPendingSubmissionFacts(self);
 
-        if (!self.terminal_takeover.blocksFxSurface(&self.terminal)) {
+        if (!self.terminal_takeover.blocksY2Surface(&self.terminal)) {
             try self.collectThemeFacts();
         } else {
             self.terminal_input_runtime.terminal_theme_monitor.poll(io_mod.milliTimestamp());
@@ -2609,7 +2601,7 @@ const App = struct {
         try self.processNextCooperativePrompt();
 
         const cols_before_resize = self.shell.layout.cols;
-        if (self.terminal_takeover.blocksFxSurface(&self.terminal)) {
+        if (self.terminal_takeover.blocksY2Surface(&self.terminal)) {
             self.shell.layout = self.terminal.queryLayout(footer_rows) catch
                 self.shell.layout;
         } else if (self.terminal_input_runtime.native_clear_probe.active() or
@@ -2646,7 +2638,7 @@ const App = struct {
         if (comptime !host_target.is_wasm) {
             try SessionAppRuntime.pollSessionPicker(self);
         }
-        if (!self.terminal_takeover.blocksFxSurface(&self.terminal)) {
+        if (!self.terminal_takeover.blocksY2Surface(&self.terminal)) {
             const input_now_ms = io_mod.milliTimestamp();
             InputAppRuntime.expireTerminalInputGestures(self, input_now_ms);
             const terminal_input = self.terminal_input_runtime.flushTerminalAction(
@@ -2804,7 +2796,7 @@ const App = struct {
                 std.debug.assert(routed);
                 return;
             },
-            .takeover, .fx_input => {},
+            .takeover, .y2_input => {},
         }
 
         if (try self.terminal_takeover.handleByte(App, self, byte)) return;
@@ -2826,7 +2818,7 @@ const App = struct {
 
     pub fn loopNextCollectedByte(ctx: *anyopaque) ?u8 {
         const self: *App = @ptrCast(@alignCast(ctx));
-        if (self.terminal_takeover.blocksFxSurface(&self.terminal)) {
+        if (self.terminal_takeover.blocksY2Surface(&self.terminal)) {
             return self.terminal_input_runtime.takeDeferredThemeMonitorByte();
         }
         return self.terminal_input_runtime.takeDeferredTerminalInputByte();
@@ -3076,9 +3068,9 @@ fn shouldRunBenchmarkNoArgRaw(raw_args: []const [*:0]const u8, raw_env: RawEnvir
 
 fn benchmarkEnvPresent(raw_env: RawEnviron) bool {
     if (comptime builtin.link_libc) {
-        if (std.c.getenv("FX_BENCH") != null) return true;
+        if (std.c.getenv("Y2_BENCH") != null) return true;
     }
-    return rawEnvHas(raw_env, "FX_BENCH");
+    return rawEnvHas(raw_env, "Y2_BENCH");
 }
 
 fn rawEnvHas(raw_env: RawEnviron, comptime key: []const u8) bool {
@@ -3231,8 +3223,7 @@ fn needsEarlyThreadedIo(args: []const [:0]const u8) bool {
         // Resolve a stored credential, which reads the platform key store out of process.
         std.mem.eql(u8, command, "status") or
         std.mem.eql(u8, command, "doctor") or
-        std.mem.eql(u8, command, "models") or
-        std.mem.eql(u8, command, "credits");
+        std.mem.eql(u8, command, "models");
 }
 
 test "auth and upgrade commands use early threaded io without full entry config" {
@@ -3247,7 +3238,7 @@ test "auth and upgrade commands use early threaded io without full entry config"
 }
 
 test "credential-reading commands use early threaded io without full entry config" {
-    for ([_][:0]const u8{ "status", "doctor", "models", "credits" }) |command| {
+    for ([_][:0]const u8{ "status", "doctor", "models" }) |command| {
         const args = &.{command};
         try std.testing.expect(!needsFullEntryConfig(args));
         try std.testing.expect(needsEarlyThreadedIo(args));
@@ -3502,10 +3493,10 @@ test "session reset traces and clears active paste state" {
     try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, trace, "decision prompt paste dropped bytes=4 reason=session_reset"));
 }
 
-test "raw benchmark preflight matches no-arg FX_BENCH presence" {
-    const no_args = [_][*:0]const u8{"fx"};
-    const help_args = [_][*:0]const u8{ "fx", "help" };
-    const bench_env = [_:null]?[*:0]const u8{"FX_BENCH=1"};
+test "raw benchmark preflight matches no-arg Y2_BENCH presence" {
+    const no_args = [_][*:0]const u8{"y2"};
+    const help_args = [_][*:0]const u8{ "y2", "help" };
+    const bench_env = [_:null]?[*:0]const u8{"Y2_BENCH=1"};
     const empty_env = [_:null]?[*:0]const u8{};
 
     try std.testing.expect(shouldRunBenchmarkNoArgRaw(no_args[0..], @ptrCast(&bench_env)));
@@ -4049,7 +4040,7 @@ test {
     _ = @import("ui/transcript/runtime.zig");
     _ = @import("ui/transcript/runtime_tests.zig");
     _ = @import("core/agent/worker_runtime.zig");
-    _ = @import("gateway/client.zig");
+    _ = @import("gateway/http_runtime.zig");
     _ = @import("gateway/host_stream_provider.zig");
     _ = @import("gateway/js_host_model_catalog.zig");
     _ = @import("gateway/openai_chat.zig");

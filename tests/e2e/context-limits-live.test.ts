@@ -2,9 +2,9 @@ import { describe, expect, test } from "bun:test";
 import { mkdirSync, mkdtempSync, realpathSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { HAS_API_KEY, runFx } from "../evals/eval-helpers";
+import { HAS_API_KEY, runY2 } from "../evals/eval-helpers";
 
-const LIVE_ENABLED = process.env.FX_E2E_REAL_API === "1";
+const LIVE_ENABLED = process.env.Y2_E2E_REAL_API === "1";
 const TIMEOUT = 180_000;
 const MODEL = "openai/gpt-5";
 
@@ -12,7 +12,7 @@ describe.skipIf(!LIVE_ENABLED || !HAS_API_KEY)("live source context limits", () 
   test(
     "fresh binary sends a bounded real Gateway request and returns normally",
     async () => {
-      const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-context-limits-live-")));
+      const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-context-limits-live-")));
       const home = join(root, "home");
       const workspace = join(root, "workspace");
       const skillDirectory = join(
@@ -22,10 +22,10 @@ describe.skipIf(!LIVE_ENABLED || !HAS_API_KEY)("live source context limits", () 
         "live-context-probe",
       );
       const tracePath = join(root, "trace.log");
-      mkdirSync(join(home, ".fx"), { recursive: true });
+      mkdirSync(join(home, ".y2"), { recursive: true });
       mkdirSync(skillDirectory, { recursive: true });
       writeFileSync(
-        join(home, ".fx", "settings.json"),
+        join(home, ".y2", "settings.json"),
         JSON.stringify({
           model: MODEL,
           context_limits: { skill_description_bytes: 16 },
@@ -41,7 +41,7 @@ describe.skipIf(!LIVE_ENABLED || !HAS_API_KEY)("live source context limits", () 
       );
 
       try {
-        const result = await runFx(
+        const result = await runY2(
           [
             "--context-limit",
             "project_instruction_file_bytes=32",
@@ -59,13 +59,13 @@ describe.skipIf(!LIVE_ENABLED || !HAS_API_KEY)("live source context limits", () 
             cwd: workspace,
             env: {
               HOME: home,
-              FX_MODEL: MODEL,
-              FX_AUTO_UPGRADE: "0",
-              FX_GATEWAY_BASE_URL: undefined,
-              FX_API_CHAT_URL: undefined,
-              FX_E2E_GATEWAY_CHAT_URL: undefined,
-              FX_TRACE_LOG: tracePath,
-              FX_TRACE_SCOPES: "agent,gateway,stream",
+              Y2_MODEL: MODEL,
+              Y2_AUTO_UPGRADE: "0",
+              Y2_GATEWAY_BASE_URL: undefined,
+              Y2_API_CHAT_URL: undefined,
+              Y2_API_CHAT_URL: undefined,
+              Y2_TRACE_LOG: tracePath,
+              Y2_TRACE_SCOPES: "agent,gateway,stream",
             },
             timeoutMs: TIMEOUT,
           },

@@ -168,11 +168,11 @@ function isCanonicalBuiltin(name: string): boolean {
   );
 }
 
-function isFxOwnedSystemText(text: string): boolean {
+function isY2OwnedSystemText(text: string): boolean {
   return text.startsWith("# Identity and context\n") ||
-    /^You are a (?:read-only )?(?:Explore|Plan|Verify|Web) subagent inside fx\./.test(text) ||
+    /^You are a (?:read-only )?(?:Explore|Plan|Verify|Web) subagent inside y2\./.test(text) ||
     text === WEB_SEARCH_GUIDANCE ||
-    text.startsWith("<fx-turn-context>") ||
+    text.startsWith("<y2-turn-context>") ||
     text.startsWith("Runtime context:");
 }
 
@@ -193,12 +193,12 @@ function collectDescriptions(value: unknown, result: string[] = []): string[] {
   return result;
 }
 
-export function fxOwnedGuidanceFragments(request: GatewayRequest): GuidanceFragment[] {
+export function y2OwnedGuidanceFragments(request: GatewayRequest): GuidanceFragment[] {
   const fragments: GuidanceFragment[] = [];
   for (const [index, message] of (request.prompt ?? []).entries()) {
     if (message.role !== "system") continue;
     const text = contentText(message.content);
-    if (isFxOwnedSystemText(text)) {
+    if (isY2OwnedSystemText(text)) {
       fragments.push({ source: `system[${index}]`, text });
     }
   }
@@ -228,7 +228,7 @@ export function findUnavailableCapabilityReferences(
   request: GatewayRequest,
 ): CapabilityReferenceFinding[] {
   const advertised = canonicalAdvertisedToolNames(request);
-  const fragments = fxOwnedGuidanceFragments(request);
+  const fragments = y2OwnedGuidanceFragments(request);
   const findings: CapabilityReferenceFinding[] = [];
 
   for (const name of CANONICAL_BUILTIN_NAMES) {

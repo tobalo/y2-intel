@@ -15,7 +15,7 @@ pub fn operationIdAlloc(alloc: Allocator, invocation_id: []const u8) ![]u8 {
     return alloc.dupe(u8, invocation_id);
 }
 
-/// Binds an untrusted invocation identifier to fx-owned issuance metadata.
+/// Binds an untrusted invocation identifier to y2-owned issuance metadata.
 /// Only the digest of the provider/UI identifier is retained in the durable
 /// operation identity.
 pub fn boundOperationIdAlloc(
@@ -29,14 +29,14 @@ pub fn boundOperationIdAlloc(
     const hex = std.fmt.bytesToHex(digest, .lower);
     return std.fmt.allocPrint(
         alloc,
-        "fxop:2:{s}:{d}:{s}",
+        "y2op:2:{s}:{d}:{s}",
         .{ operationSourceTag(source), epoch, &hex },
     );
 }
 
 pub fn parseBoundOperationId(value: []const u8) ?domain.BoundOperationIdentity {
     var parts = std.mem.splitScalar(u8, value, ':');
-    if (!std.mem.eql(u8, parts.next() orelse return null, "fxop")) return null;
+    if (!std.mem.eql(u8, parts.next() orelse return null, "y2op")) return null;
     const second = parts.next() orelse return null;
     const manager_issued = std.mem.eql(u8, second, "2");
     const source_raw = if (manager_issued)
@@ -174,11 +174,11 @@ test "bound operation IDs authenticate source epoch and invocation digest" {
     try std.testing.expect(boundOperationMatchesInvocation(first, "provider-controlled", .model));
     try std.testing.expect(!boundOperationMatchesInvocation(first, "changed", .model));
     try domain.validateOperationId(first);
-    try std.testing.expect(parseBoundOperationId("fxop:m:041:0000000000000000000000000000000000000000000000000000000000000000") == null);
+    try std.testing.expect(parseBoundOperationId("y2op:m:041:0000000000000000000000000000000000000000000000000000000000000000") == null);
 }
 
 test "process-local operation IDs remain parseable as legacy identities" {
-    const legacy = "fxop:h:7:0000000000000000000000000000000000000000000000000000000000000000";
+    const legacy = "y2op:h:7:0000000000000000000000000000000000000000000000000000000000000000";
     const identity = parseBoundOperationId(legacy).?;
     try std.testing.expectEqual(domain.OperationIdentitySource.human, identity.source);
     try std.testing.expectEqual(@as(u64, 7), identity.epoch);

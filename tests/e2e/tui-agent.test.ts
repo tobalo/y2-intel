@@ -18,7 +18,7 @@ describe.skipIf(SKIP)("tui: agent prompt", () => {
       session = await TmuxSession.create({
         env: {
           Y2_API_KEY: process.env.Y2_API_KEY,
-          VERCEL_OIDC_TOKEN: process.env.VERCEL_OIDC_TOKEN,
+          REMOVED_LEGACY_OIDC_TOKEN: process.env.REMOVED_LEGACY_OIDC_TOKEN,
         },
       });
       await session.waitForComposer(10_000);

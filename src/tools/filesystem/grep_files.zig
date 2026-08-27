@@ -925,7 +925,7 @@ test "grep_files reports stat failures after root resolution" {
 
 test "grep_files access denial returns structured recovery" {
     const alloc = std.testing.allocator;
-    const root = try std.fmt.allocPrint(alloc, "/tmp/fx-grep-files-access-{d}", .{io_mod.nanoTimestamp()});
+    const root = try std.fmt.allocPrint(alloc, "/tmp/y2-grep-files-access-{d}", .{io_mod.nanoTimestamp()});
     defer alloc.free(root);
     defer std.Io.Dir.cwd().deleteTree(io_mod.getIo(), root) catch {};
     try std.Io.Dir.cwd().createDirPath(io_mod.getIo(), root);

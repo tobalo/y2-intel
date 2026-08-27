@@ -48,19 +48,19 @@ jobs:
 
       - name: Package
         run: |
-          package_dir="$RUNNER_TEMP/fx-package-${{ matrix.name }}"
+          package_dir="$RUNNER_TEMP/y2-package-${{ matrix.name }}"
           mkdir -p "$package_dir"
-          cp zig-out/bin/fx LICENSE THIRD_PARTY_NOTICES.md "$package_dir/"
-          tar -czf fx-${{ matrix.name }}.tar.gz -C "$package_dir" fx LICENSE THIRD_PARTY_NOTICES.md
-          sha256sum fx-${{ matrix.name }}.tar.gz > fx-${{ matrix.name }}.tar.gz.sha256
+          cp zig-out/bin/y2 LICENSE THIRD_PARTY_NOTICES.md "$package_dir/"
+          tar -czf y2-${{ matrix.name }}.tar.gz -C "$package_dir" y2 LICENSE THIRD_PARTY_NOTICES.md
+          sha256sum y2-${{ matrix.name }}.tar.gz > y2-${{ matrix.name }}.tar.gz.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fx-${{ matrix.name }}
+          name: y2-${{ matrix.name }}
           path: |
-            fx-${{ matrix.name }}.tar.gz
-            fx-${{ matrix.name }}.tar.gz.sha256
+            y2-${{ matrix.name }}.tar.gz
+            y2-${{ matrix.name }}.tar.gz.sha256
 
   web:
     if: >-
@@ -84,17 +84,17 @@ jobs:
 
       - name: Package web artifacts
         run: |
-          cp sdk/fx-sdk.js fx-sdk.js
-          cp zig-out/bin/fx-term.wasm fx-term.wasm
-          sha256sum fx-sdk.js > fx-sdk.js.sha256
-          sha256sum fx-term.wasm > fx-term.wasm.sha256
+          cp sdk/y2-sdk.js y2-sdk.js
+          cp zig-out/bin/y2-term.wasm y2-term.wasm
+          sha256sum y2-sdk.js > y2-sdk.js.sha256
+          sha256sum y2-term.wasm > y2-term.wasm.sha256
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: fx-web
+          name: y2-web
           path: |
-            fx-sdk.js
-            fx-sdk.js.sha256
-            fx-term.wasm
-            fx-term.wasm.sha256
+            y2-sdk.js
+            y2-sdk.js.sha256
+            y2-term.wasm
+            y2-term.wasm.sha256

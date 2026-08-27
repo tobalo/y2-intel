@@ -520,8 +520,8 @@ test "processQueuedPrompt retains cancelled command replay in interrupted histor
     defer debug_trace.resetForTest();
     try debug_trace.configureForTestWithScopes(alloc, trace_path, "interrupt");
 
-    const artifact_path = "/tmp/session/logs/commands/fx-command-cancelled.log";
-    const artifact_handle = "fx-command-cancelled.log";
+    const artifact_path = "/tmp/session/logs/commands/y2-command-cancelled.log";
+    const artifact_handle = "y2-command-cancelled.log";
     const result_output = "RESULT-ONLY-OUTPUT-SENTINEL\nTERM-TAIL-SENTINEL\n";
     const result_json =
         "{\"kind\":\"foreground\",\"command\":\"sleep 5\",\"cwd\":\"/tmp/RESULT-JSON-ONLY-SENTINEL\",\"exit_code\":null,\"signal\":15,\"timed_out\":false,\"duration_ms\":7,\"stdout_bytes\":49,\"stderr_bytes\":0,\"truncated\":false,\"output_file\":\"" ++ artifact_path ++ "\",\"stdout_file\":null,\"stderr_file\":null}";

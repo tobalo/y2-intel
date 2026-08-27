@@ -799,7 +799,7 @@ test "read_file sparse oversized files use active byte cap" {
 }
 
 test "read_file materializes ENOENT like active tool error output" {
-    const result = try dispatchReadFile(std.testing.allocator, "{\"path\":\"/tmp/fx-core-read-file-missing\"}");
+    const result = try dispatchReadFile(std.testing.allocator, "{\"path\":\"/tmp/y2-core-read-file-missing\"}");
     defer result.deinit(std.testing.allocator);
 
     try std.testing.expectEqual(.failure, result.status);

@@ -10,10 +10,10 @@ const Allocator = std.mem.Allocator;
 const RootSpec = skill_contract.RootSpec;
 
 /// Roots scanned at the workspace root and each ancestor directory below
-/// home, in precedence order. `.fx/skills` and `skills/` belong to the product;
+/// home, in precedence order. `.y2/skills` and `skills/` belong to the product;
 /// the rest are compatibility roots for other agent installs.
 const workspace_roots = [_]RootSpec{
-    .{ .source = .workspace_fx, .path = ".fx/skills" },
+    .{ .source = .workspace_fx, .path = ".y2/skills" },
     .{ .source = .workspace_shared, .path = "skills" },
     .{ .source = .workspace_opencode, .path = ".opencode/skills" },
     .{ .source = .workspace_codex, .path = ".codex/skills" },
@@ -110,8 +110,8 @@ fn executeCommand(alloc: Allocator, command: Command, request: CommandRequest) !
         .remove => |name| removeCommandResult(alloc, request, name),
         .path => noticeFmt(
             alloc,
-            "fx workspace roots are auto-discovered from .fx/skills and skills/.\n" ++
-                "fx managed install root: {s}\n" ++
+            "y2 workspace roots are auto-discovered from .y2/skills and skills/.\n" ++
+                "y2 managed install root: {s}\n" ++
                 "compatibility roots are auto-discovered from workspace and home (.opencode/.codex/.claude/.agents/.claw).",
             .{request.skills_dir},
             false,
@@ -159,7 +159,7 @@ fn removeCommandResult(alloc: Allocator, request: CommandRequest, name: []const 
     };
 
     if (!skill.managed_install) {
-        return noticeFmt(alloc, "Skill '{s}' comes from {s}, not the fx managed install root. Remove it from {s}.", .{ name, skill.source_label, skill.path }, false);
+        return noticeFmt(alloc, "Skill '{s}' comes from {s}, not the y2 managed install root. Remove it from {s}.", .{ name, skill.source_label, skill.path }, false);
     }
 
     removeSkill(request.skills_dir, std.fs.path.basename(skill.path)) catch {
@@ -243,7 +243,7 @@ pub fn createSkillTemplate(alloc: Allocator, skills_dir: []const u8, name: []con
 fn installFromGitHub(alloc: Allocator, skills_dir: []const u8, url: []const u8, filter: ?[]const u8) !InstallResult {
     try ensureDir(skills_dir);
 
-    const tmp_dir = try std.fmt.allocPrint(alloc, "/tmp/fx-skill-install-{d}", .{io_mod.milliTimestamp()});
+    const tmp_dir = try std.fmt.allocPrint(alloc, "/tmp/y2-skill-install-{d}", .{io_mod.milliTimestamp()});
     defer alloc.free(tmp_dir);
     defer std.Io.Dir.cwd().deleteTree(io_mod.getIo(), tmp_dir) catch {};
 
@@ -1150,7 +1150,7 @@ test "copySkillDir preserves the installed skill across allocation failures" {
 
 test "workspace skill roots scan the product root before compatibility roots" {
     const expected = [_]RootSpec{
-        .{ .source = .workspace_fx, .path = ".fx/skills" },
+        .{ .source = .workspace_fx, .path = ".y2/skills" },
         .{ .source = .workspace_shared, .path = "skills" },
         .{ .source = .workspace_opencode, .path = ".opencode/skills" },
         .{ .source = .workspace_codex, .path = ".codex/skills" },
@@ -1669,16 +1669,16 @@ test "installFromDirectory propagates nested metadata allocation failures" {
 test "cloneUrlForSource preserves clone urls and expands owner repo shorthand" {
     const alloc = std.testing.allocator;
 
-    const http_url = try cloneUrlForSource(alloc, "https://github.com/vercel-labs/agent-skills.git");
+    const http_url = try cloneUrlForSource(alloc, "https://github.com/example-org/agent-skills.git");
     defer alloc.free(http_url);
-    const ssh_url = try cloneUrlForSource(alloc, "git@github.com:vercel-labs/agent-skills.git");
+    const ssh_url = try cloneUrlForSource(alloc, "git@github.com:example-org/agent-skills.git");
     defer alloc.free(ssh_url);
-    const shorthand_url = try cloneUrlForSource(alloc, "vercel-labs/agent-skills");
+    const shorthand_url = try cloneUrlForSource(alloc, "example-org/agent-skills");
     defer alloc.free(shorthand_url);
 
-    try std.testing.expectEqualStrings("https://github.com/vercel-labs/agent-skills.git", http_url);
-    try std.testing.expectEqualStrings("git@github.com:vercel-labs/agent-skills.git", ssh_url);
-    try std.testing.expectEqualStrings("https://github.com/vercel-labs/agent-skills.git", shorthand_url);
+    try std.testing.expectEqualStrings("https://github.com/example-org/agent-skills.git", http_url);
+    try std.testing.expectEqualStrings("git@github.com:example-org/agent-skills.git", ssh_url);
+    try std.testing.expectEqualStrings("https://github.com/example-org/agent-skills.git", shorthand_url);
 }
 
 test "install_skill clone output drain consumes stdout and stderr" {
@@ -1714,56 +1714,56 @@ test "normalizeInstallRequest rejects blank input" {
 }
 
 test "normalizeInstallRequest parses npx skills add with skill value" {
-    var request = try normalizeInstallRequest(std.testing.allocator, "npx skills add vercel-labs/agent-skills --skill review -g -y", null);
+    var request = try normalizeInstallRequest(std.testing.allocator, "npx skills add example-org/agent-skills --skill review -g -y", null);
     defer request.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("vercel-labs/agent-skills", request.source);
+    try std.testing.expectEqualStrings("example-org/agent-skills", request.source);
     try std.testing.expectEqualStrings("review", request.filter.?);
 }
 
 test "normalizeInstallRequest parses bunx skills add with skill equals" {
-    var request = try normalizeInstallRequest(std.testing.allocator, "bunx skills add vercel-labs/agent-skills --skill=review --yes", null);
+    var request = try normalizeInstallRequest(std.testing.allocator, "bunx skills add example-org/agent-skills --skill=review --yes", null);
     defer request.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("vercel-labs/agent-skills", request.source);
+    try std.testing.expectEqualStrings("example-org/agent-skills", request.source);
     try std.testing.expectEqualStrings("review", request.filter.?);
 }
 
 test "normalizeInstallRequest parses owner repo skill shorthand" {
-    var request = try normalizeInstallRequest(std.testing.allocator, "vercel-labs/agent-skills@vercel-react-best-practices", null);
+    var request = try normalizeInstallRequest(std.testing.allocator, "example-org/agent-skills@example-review-skill", null);
     defer request.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("vercel-labs/agent-skills", request.source);
-    try std.testing.expectEqualStrings("vercel-react-best-practices", request.filter.?);
+    try std.testing.expectEqualStrings("example-org/agent-skills", request.source);
+    try std.testing.expectEqualStrings("example-review-skill", request.filter.?);
 }
 
 test "normalizeInstallRequest parses skills dot sh urls" {
-    var request = try normalizeInstallRequest(std.testing.allocator, "https://skills.sh/vercel-labs/agent-skills/vercel-react-best-practices", null);
+    var request = try normalizeInstallRequest(std.testing.allocator, "https://skills.sh/example-org/agent-skills/example-review-skill", null);
     defer request.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("vercel-labs/agent-skills", request.source);
-    try std.testing.expectEqualStrings("vercel-react-best-practices", request.filter.?);
+    try std.testing.expectEqualStrings("example-org/agent-skills", request.source);
+    try std.testing.expectEqualStrings("example-review-skill", request.filter.?);
 }
 
 test "normalizeInstallRequest rejects conflicting filters" {
     try std.testing.expectError(
         error.ConflictingSkillInstallFilter,
-        normalizeInstallRequest(std.testing.allocator, "npx skills add vercel-labs/agent-skills@inline --skill command", "explicit"),
+        normalizeInstallRequest(std.testing.allocator, "npx skills add example-org/agent-skills@inline --skill command", "explicit"),
     );
 }
 
 test "normalizeInstallRequest ignores empty filters and allows identical duplicates" {
-    var request = try normalizeInstallRequest(std.testing.allocator, "npx skills add vercel-labs/agent-skills@same --skill=", "same");
+    var request = try normalizeInstallRequest(std.testing.allocator, "npx skills add example-org/agent-skills@same --skill=", "same");
     defer request.deinit(std.testing.allocator);
 
-    try std.testing.expectEqualStrings("vercel-labs/agent-skills", request.source);
+    try std.testing.expectEqualStrings("example-org/agent-skills", request.source);
     try std.testing.expectEqualStrings("same", request.filter.?);
 }
 
 test "looksLikeInstallCommand trims and rejects non npx bunx commands" {
-    try std.testing.expect(looksLikeInstallCommand(" \n\tnpx skills add vercel-labs/agent-skills\r\n"));
-    try std.testing.expect(looksLikeInstallCommand("bunx skills add vercel-labs/agent-skills"));
-    try std.testing.expect(!looksLikeInstallCommand("pnpm dlx skills add vercel-labs/agent-skills"));
+    try std.testing.expect(looksLikeInstallCommand(" \n\tnpx skills add example-org/agent-skills\r\n"));
+    try std.testing.expect(looksLikeInstallCommand("bunx skills add example-org/agent-skills"));
+    try std.testing.expect(!looksLikeInstallCommand("pnpm dlx skills add example-org/agent-skills"));
     try std.testing.expect(!looksLikeInstallCommand("npx skills list"));
 }
 
@@ -1929,19 +1929,19 @@ fn staticCommandRequest(skills_dir: []const u8, static_ctx: *StaticSkillCtx) Com
 }
 
 test "built-in skills command parses install aliases and filters" {
-    const add_command = parseCommand("add vercel-labs/agent-skills --skill review");
+    const add_command = parseCommand("add example-org/agent-skills --skill review");
     switch (add_command) {
         .install => |install| {
-            try std.testing.expectEqualStrings("vercel-labs/agent-skills", install.source);
+            try std.testing.expectEqualStrings("example-org/agent-skills", install.source);
             try std.testing.expectEqualStrings("review", install.filter.?);
         },
         else => return error.TestExpectedEqual,
     }
 
-    const install_command = parseCommand("install vercel-labs/agent-skills --skill=workflow");
+    const install_command = parseCommand("install example-org/agent-skills --skill=workflow");
     switch (install_command) {
         .install => |install| {
-            try std.testing.expectEqualStrings("vercel-labs/agent-skills", install.source);
+            try std.testing.expectEqualStrings("example-org/agent-skills", install.source);
             try std.testing.expectEqualStrings("workflow", install.filter.?);
         },
         else => return error.TestExpectedEqual,
@@ -1956,8 +1956,8 @@ test "built-in skills path reports native workspace roots" {
 
     switch (result) {
         .notice => |notice| try std.testing.expectEqualStrings(
-            "fx workspace roots are auto-discovered from .fx/skills and skills/.\n" ++
-                "fx managed install root: /tmp/skills\n" ++
+            "y2 workspace roots are auto-discovered from .y2/skills and skills/.\n" ++
+                "y2 managed install root: /tmp/skills\n" ++
                 "compatibility roots are auto-discovered from workspace and home (.opencode/.codex/.claude/.agents/.claw).",
             notice.text,
         ),
@@ -2094,7 +2094,7 @@ test "built-in skills command creates and removes managed skills" {
         .name = "exact-skill",
         .info = .{
             .path = skill_dir,
-            .source_label = "global ~/.fx/skills",
+            .source_label = "global ~/.y2/skills",
             .managed_install = true,
         },
     }};
@@ -2144,7 +2144,7 @@ test "built-in skills command creates a missing managed parent root" {
 
     const root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, ".");
     defer alloc.free(root);
-    const skills_dir = try std.fs.path.join(alloc, &.{ root, "home", ".fx", "skills" });
+    const skills_dir = try std.fs.path.join(alloc, &.{ root, "home", ".y2", "skills" });
     defer alloc.free(skills_dir);
 
     var empty_ctx = StaticSkillCtx{ .skills = &.{} };
@@ -2183,7 +2183,7 @@ test "built-in skills command refuses to remove compatibility roots" {
 
     switch (result) {
         .notice => |notice| {
-            try std.testing.expect(std.mem.find(u8, notice.text, "not the fx managed install root") != null);
+            try std.testing.expect(std.mem.find(u8, notice.text, "not the y2 managed install root") != null);
             try std.testing.expect(!notice.reload);
         },
         else => return error.TestExpectedEqual,

@@ -3925,7 +3925,7 @@ test "processQueuedPrompt denied registered run command compatibility never reac
     const calls = [_]ToolCall{toolCall(
         "call_1",
         "terminal",
-        "{\"action\":\"exec\",\"command\":\"npx skills add vercel-labs/agent-skills --skill workflow -g -y\"}",
+        "{\"action\":\"exec\",\"command\":\"npx skills add example-org/agent-skills --skill workflow -g -y\"}",
     )};
     const completions = [_]FakeCompletion{
         .{ .tool_calls = &calls },

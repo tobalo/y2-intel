@@ -8588,7 +8588,7 @@ fn renderAuthenticationRequired(
         try writeEncodedJsonScalar(alloc, &out.writer, server.config.name);
         switch (mode) {
             .oauth => try out.writer.writeAll(
-                ",\"interactive\":true,\"message\":\"Run /mcp auth for this server in an interactive Fx session.\"",
+                ",\"interactive\":true,\"message\":\"Run /mcp auth for this server in an interactive Y2 session.\"",
             ),
             .bearer_environment => {
                 try out.writer.writeAll(
@@ -8600,7 +8600,7 @@ fn renderAuthenticationRequired(
                     server.config.bearer_token_env.?,
                 );
                 try out.writer.writeAll(
-                    ",\"message\":\"Set this environment variable before starting Fx.\"",
+                    ",\"message\":\"Set this environment variable before starting Y2.\"",
                 );
             },
         }
@@ -9377,7 +9377,7 @@ test "scoped stdio recovery rejects revoked authority before state changes" {
     defer runtime.deinit();
     try runtime.addServer(.{
         .name = try alloc.dupe(u8, "fixture"),
-        .command = try alloc.dupe(u8, "/definitely/not/an/fx-mcp-fixture"),
+        .command = try alloc.dupe(u8, "/definitely/not/an/y2-mcp-fixture"),
     });
     const server = &runtime.servers.items[0];
     server.state = .ready;
@@ -9443,7 +9443,7 @@ test "failed recovery leaves its remaining generation budget reachable" {
     var runtime = McpRuntime.init(std.testing.allocator);
     var server = McpServer{ .config = .{
         .name = "fixture",
-        .command = "/definitely/not/an/fx-mcp-fixture",
+        .command = "/definitely/not/an/y2-mcp-fixture",
         .restart_limit = 2,
     } };
     defer if (server.last_error) |message| std.testing.allocator.free(message);
@@ -11682,7 +11682,7 @@ fn writeModernRequestMetadataWithProgress(
 ) !void {
     try writer.writeAll("{\"io.modelcontextprotocol/protocolVersion\":\"");
     try writer.writeAll(modern_protocol_version);
-    try writer.writeAll("\",\"io.modelcontextprotocol/clientInfo\":{\"name\":\"fx\",\"version\":");
+    try writer.writeAll("\",\"io.modelcontextprotocol/clientInfo\":{\"name\":\"y2\",\"version\":");
     try std.json.Stringify.value(build_options.app_version, .{}, writer);
     try writer.writeAll("},\"io.modelcontextprotocol/clientCapabilities\":{");
     if (capabilities.any()) {
@@ -12156,7 +12156,7 @@ fn advanceAuthGenerationLocked(server: *McpServer) void {
 
 fn automatedAuthorizationEnabled(endpoint: []const u8) bool {
     if (!mcp_auth.isLoopbackEndpoint(endpoint)) return false;
-    const value = io_mod.getenv("FX_E2E_MCP_AUTH_AUTOMATE") orelse return false;
+    const value = io_mod.getenv("Y2_E2E_MCP_AUTH_AUTOMATE") orelse return false;
     return std.mem.eql(u8, value, "1") or
         std.ascii.eqlIgnoreCase(value, "true");
 }
@@ -12517,7 +12517,7 @@ fn buildLegacyInitializeRequest(
     } else if (negotiated_wire == .legacy_mcp_2025_11 and elicitation_capabilities.url) {
         try out.writer.writeAll("\"elicitation\":{\"url\":{}}");
     }
-    try out.writer.writeAll("},\"clientInfo\":{\"name\":\"fx\",\"version\":");
+    try out.writer.writeAll("},\"clientInfo\":{\"name\":\"y2\",\"version\":");
     try std.json.Stringify.value(build_options.app_version, .{}, &out.writer);
     try out.writer.writeAll("}}}");
     return out.toOwnedSlice();
@@ -15927,7 +15927,7 @@ test "modern request builders share required request metadata" {
     const alloc = std.testing.allocator;
     const metadata = try std.fmt.allocPrint(
         alloc,
-        "\"_meta\":{{\"io.modelcontextprotocol/protocolVersion\":\"{s}\",\"io.modelcontextprotocol/clientInfo\":{{\"name\":\"fx\",\"version\":\"{s}\"}},\"io.modelcontextprotocol/clientCapabilities\":{{}}}}",
+        "\"_meta\":{{\"io.modelcontextprotocol/protocolVersion\":\"{s}\",\"io.modelcontextprotocol/clientInfo\":{{\"name\":\"y2\",\"version\":\"{s}\"}},\"io.modelcontextprotocol/clientCapabilities\":{{}}}}",
         .{ modern_protocol_version, build_options.app_version },
     );
     defer alloc.free(metadata);

@@ -12,7 +12,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFx } from "../evals/eval-helpers";
+import { runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -25,15 +25,15 @@ const RETRY_REFRESH_TOKEN = "retry-refresh-token";
 const SELECTED_API_KEY = "selected-api-key";
 const ISSUER_A_ACCESS_TOKEN = "issuer-a-access-token";
 
-function writeFxLogin(
+function writeRetiredLogin(
   home: string,
-  issuer = "https://vercel.com",
+  issuer = "https://identity.example",
   expiresAtMs = Date.now() - 60_000,
 ): void {
-  const fxDir = join(home, ".fx");
-  mkdirSync(fxDir, { recursive: true, mode: 0o700 });
-  chmodSync(fxDir, 0o700);
-  const authPath = join(fxDir, "auth.json");
+  const y2Dir = join(home, ".y2");
+  mkdirSync(y2Dir, { recursive: true, mode: 0o700 });
+  chmodSync(y2Dir, 0o700);
+  const authPath = join(y2Dir, "auth.json");
   writeFileSync(
     authPath,
     JSON.stringify({
@@ -43,7 +43,7 @@ function writeFxLogin(
       access_token: "expired-access-token",
       refresh_token: "seeded-refresh-token",
       expires_at_ms: expiresAtMs,
-      scope: "openid offline_access use:ai-gateway",
+      scope: "openid offline_access use:retired-gateway",
       token_type: "Bearer",
     }) + "\n",
     { mode: 0o600 },
@@ -91,13 +91,13 @@ function startFakeOAuth(
           access_token: accessToken,
           refresh_token: "rotated-refresh-token",
           expires_in: 3600,
-          scope: "openid offline_access use:ai-gateway",
+          scope: "openid offline_access use:retired-gateway",
           token_type: "Bearer",
         });
       }
       if (url.pathname === `${issuerPath}/v2/teams`) {
         return Response.json({
-          teams: [{ id: "team_1", slug: "vercel-labs", name: "Vercel Labs" }],
+          teams: [{ id: "team_1", slug: "example-org", name: "Retired credential Labs" }],
         });
       }
       if (url.pathname === `${issuerPath}/oauth/revoke`) {
@@ -125,7 +125,7 @@ async function waitForFileText(path: string, text: string): Promise<void> {
 }
 
 function sessionIdsFromHome(home: string): string[] {
-  return readdirSync(join(home, ".fx", "sessions"), {
+  return readdirSync(join(home, ".y2", "sessions"), {
     withFileTypes: true,
   })
     .filter((entry) => entry.isDirectory() && entry.name !== "latest")
@@ -136,8 +136,8 @@ function sessionIdsFromHome(home: string): string[] {
 test(
   "logout cannot be undone by an in-flight login refresh",
   async () => {
-    const home = mkdtempSync(join(tmpdir(), "fx-auth-refresh-logout-race-e2e-"));
-    const contentionPath = join(home, ".fx", "auth-lock-contention");
+    const home = mkdtempSync(join(tmpdir(), "y2-auth-refresh-logout-race-e2e-"));
+    const contentionPath = join(home, ".y2", "auth-lock-contention");
     let releaseRefresh = () => {};
     const refreshMayFinish = new Promise<void>((resolve) => {
       releaseRefresh = resolve;
@@ -156,33 +156,33 @@ test(
         await refreshMayFinish;
       },
     );
-    writeFxLogin(home, oauth.issuerUrl);
+    writeRetiredLogin(home, oauth.issuerUrl);
     const gateway = startFakeGateway([
       fakeGatewayFinalText("REFRESH_COMPLETED_BEFORE_LOGOUT"),
     ]);
     const env = {
       HOME: home,
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_AUTO_UPGRADE: "0",
-      FX_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_API_CHAT_URL: gateway.chatUrl,
-      FX_MODEL: FAKE_GATEWAY_MODEL,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_API_CHAT_URL: gateway.chatUrl,
+      Y2_MODEL: FAKE_GATEWAY_MODEL,
     };
 
     try {
-      const ask = runFx(
+      const ask = runY2(
         ["ask", "--json", "--no-save", "refresh while logout waits"],
         { env, timeoutMs: TIMEOUT },
       );
       await refreshStarted;
-      const logout = runFx(["logout"], {
+      const logout = runY2(["logout"], {
         env: {
           ...env,
-          FX_E2E_AUTH_LOCK_CONTENTION: "1",
+          Y2_E2E_AUTH_LOCK_CONTENTION: "1",
         },
         timeoutMs: TIMEOUT,
       });
@@ -198,9 +198,9 @@ test(
         logoutResult.code,
         `stdout: ${logoutResult.stdout}\nstderr: ${logoutResult.stderr}`,
       ).toBe(0);
-      expect(logoutResult.stdout).toBe("Signed out of fx.\n");
+      expect(logoutResult.stdout).toBe("Signed out of y2.\n");
       expect(tokenRequestCount).toBe(1);
-      expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
+      expect(existsSync(join(home, ".y2", "auth.json"))).toBe(false);
       const revocations = oauth.requests.filter(
         (request) => request.path === "/oauth/revoke",
       );
@@ -220,11 +220,11 @@ test(
 );
 
 test(
-  "fx ask refreshes an expired login then forces one refresh and retry after 401",
+  "y2 ask refreshes an expired login then forces one refresh and retry after 401",
   async () => {
-    const home = mkdtempSync(join(tmpdir(), "fx-auth-refresh-e2e-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-auth-refresh-e2e-"));
     const oauth = startFakeOAuth([EXPIRED_REFRESH_TOKEN, RETRY_REFRESH_TOKEN]);
-    writeFxLogin(home, oauth.issuerUrl);
+    writeRetiredLogin(home, oauth.issuerUrl);
     const gateway = startFakeGateway([
       new Response(JSON.stringify({ error: { message: "expired" } }), {
         status: 401,
@@ -234,20 +234,20 @@ test(
     ]);
 
     try {
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--no-save", "exercise the refreshed login"],
         {
           env: {
             HOME: home,
             Y2_API_KEY: undefined,
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_SKIP_ONBOARDING: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_API_CHAT_URL: gateway.chatUrl,
-            FX_MODEL: FAKE_GATEWAY_MODEL,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_SKIP_ONBOARDING: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_MODEL: FAKE_GATEWAY_MODEL,
           },
           timeoutMs: TIMEOUT,
         },
@@ -279,7 +279,7 @@ test(
       expect(oauth.requests[3].body).toContain("refresh_token=rotated-refresh-token");
 
       const persisted = JSON.parse(
-        readFileSync(join(home, ".fx", "auth.json"), "utf8"),
+        readFileSync(join(home, ".y2", "auth.json"), "utf8"),
       );
       expect(persisted.access_token).toBe(RETRY_REFRESH_TOKEN);
       expect(result.stdout).not.toContain(EXPIRED_REFRESH_TOKEN);
@@ -298,36 +298,36 @@ test(
 test(
   "status and doctor report an expired login instead of refreshing it",
   async () => {
-    const home = mkdtempSync(join(tmpdir(), "fx-auth-expired-report-e2e-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-auth-expired-report-e2e-"));
     const oauth = startFakeOAuth([EXPIRED_REFRESH_TOKEN]);
-    writeFxLogin(home, oauth.issuerUrl);
-    const authPath = join(home, ".fx", "auth.json");
+    writeRetiredLogin(home, oauth.issuerUrl);
+    const authPath = join(home, ".y2", "auth.json");
     const seededAuthFile = readFileSync(authPath, "utf8");
     const env = {
       HOME: home,
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_AUTO_UPGRADE: "0",
-      FX_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_E2E_OAUTH_ISSUER_URL: oauth.issuerUrl,
     };
 
     try {
-      const status = await runFx(["status", "--json"], { env, timeoutMs: TIMEOUT });
+      const status = await runY2(["status", "--json"], { env, timeoutMs: TIMEOUT });
       expect(
         status.code,
         `stdout: ${status.stdout}\nstderr: ${status.stderr}`,
       ).toBe(0);
       const statusJson = JSON.parse(status.stdout);
-      expect(statusJson.auth).toBe("fx login");
+      expect(statusJson.auth).toBe("y2 login");
       expect(statusJson.auth_expired).toBe(true);
       expect(statusJson.auth_refreshable).toBe(true);
 
-      const doctor = await runFx(["doctor", "--json"], { env, timeoutMs: TIMEOUT });
+      const doctor = await runY2(["doctor", "--json"], { env, timeoutMs: TIMEOUT });
       expect(doctor.code).toBe(0);
       const doctorJson = JSON.parse(doctor.stdout);
-      expect(doctorJson.auth).toBe("fx login");
+      expect(doctorJson.auth).toBe("y2 login");
       expect(doctorJson.auth_expired).toBe(true);
       const authCheck = doctorJson.checks.find(
         (check: { name: string }) => check.name === "auth",
@@ -349,12 +349,12 @@ test(
 );
 
 test(
-  "fx ask keeps a failed API key selected when login also exists",
+  "y2 ask keeps a failed API key selected when login also exists",
   async () => {
-    const home = mkdtempSync(join(tmpdir(), "fx-auth-source-failure-e2e-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-auth-source-failure-e2e-"));
     const tracePath = join(home, "trace.log");
     writeFileSync(tracePath, "");
-    writeFxLogin(home);
+    writeRetiredLogin(home);
     const gateway = startFakeGateway([
       new Response(JSON.stringify({
         error: {
@@ -367,20 +367,20 @@ test(
     ]);
 
     try {
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--no-save", "keep the selected API key"],
         {
           env: {
             HOME: home,
             Y2_API_KEY: SELECTED_API_KEY,
-            VERCEL_OIDC_TOKEN: undefined,
-            FX_DISABLE_KEYCHAIN: "1",
-            FX_SKIP_ONBOARDING: "1",
-            FX_AUTO_UPGRADE: "0",
-            FX_TRACE_LOG: tracePath,
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_API_CHAT_URL: gateway.chatUrl,
-            FX_MODEL: FAKE_GATEWAY_MODEL,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            Y2_DISABLE_KEYCHAIN: "1",
+            Y2_SKIP_ONBOARDING: "1",
+            Y2_AUTO_UPGRADE: "0",
+            Y2_TRACE_LOG: tracePath,
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_MODEL: FAKE_GATEWAY_MODEL,
           },
           timeoutMs: TIMEOUT,
         },
@@ -422,7 +422,7 @@ test(
 test(
   "saved API-key 401 discards only the new empty session and preserves resume last",
   async () => {
-    const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-auth-empty-session-e2e-")));
+    const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-auth-empty-session-e2e-")));
     const home = join(root, "home");
     const workspace = join(root, "workspace");
     mkdirSync(home);
@@ -438,17 +438,17 @@ test(
     const env = {
       HOME: home,
       Y2_API_KEY: SELECTED_API_KEY,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_AUTO_UPGRADE: "0",
-      FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_API_CHAT_URL: gateway.chatUrl,
-      FX_MODEL: FAKE_GATEWAY_MODEL,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_AUTO_UPGRADE: "0",
+      Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+      Y2_API_CHAT_URL: gateway.chatUrl,
+      Y2_MODEL: FAKE_GATEWAY_MODEL,
     };
 
     try {
-      const seed = await runFx(
+      const seed = await runY2(
         ["ask", "--json", "--auto", "Persist the seed session."],
         { cwd: workspace, env, timeoutMs: TIMEOUT },
       );
@@ -463,13 +463,13 @@ test(
       const seedSessionId = seedJson.session_id as string;
       expect(sessionIdsFromHome(home)).toEqual([seedSessionId]);
 
-      const rejected = await runFx(
+      const rejected = await runY2(
         ["ask", "--json", "--auto", "Reject this new saved session."],
         { cwd: workspace, env, timeoutMs: TIMEOUT },
       );
       expect(rejected.code).toBe(1);
       expect(rejected.stderr).toBe(
-        "fx ask: Y2_API_KEY authentication failed · HTTP 401\n",
+        "y2 ask: Y2_API_KEY authentication failed · HTTP 401\n",
       );
       const rejectedJson = JSON.parse(rejected.stdout);
       expect(rejectedJson).toMatchObject({
@@ -482,7 +482,7 @@ test(
       expect(sessionIdsFromHome(home)).toEqual([seedSessionId]);
       expect(gateway.requests).toHaveLength(2);
 
-      const sessionsResult = await runFx(
+      const sessionsResult = await runY2(
         ["sessions", "--json"],
         { cwd: workspace, env, timeoutMs: TIMEOUT },
       );
@@ -495,7 +495,7 @@ test(
       expect(sessions.sessions[0].history_len).toBe(1);
       expect(gateway.requests).toHaveLength(2);
 
-      const resumed = await runFx(
+      const resumed = await runY2(
         [
           "ask",
           "--json",
@@ -517,7 +517,7 @@ test(
       expect(sessionIdsFromHome(home)).toEqual([seedSessionId]);
       expect(gateway.requests).toHaveLength(3);
 
-      const detail = await runFx(
+      const detail = await runY2(
         ["session", "--id", seedSessionId, "--json"],
         { cwd: workspace, env, timeoutMs: TIMEOUT },
       );
@@ -542,44 +542,44 @@ test(
 test(
   "OAuth sessions keep using their saved issuer when configuration changes",
   async () => {
-    const home = mkdtempSync(join(tmpdir(), "fx-auth-saved-issuer-e2e-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-auth-saved-issuer-e2e-"));
     const issuerA = startFakeOAuth([ISSUER_A_ACCESS_TOKEN]);
     const issuerB = startFakeOAuth(["issuer-b-access-token"]);
-    writeFxLogin(home, issuerA.issuerUrl);
+    writeRetiredLogin(home, issuerA.issuerUrl);
 
     const env = {
       HOME: home,
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_E2E_OAUTH_ISSUER_URL: issuerB.issuerUrl,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_E2E_OAUTH_ISSUER_URL: issuerB.issuerUrl,
     };
 
     try {
-      const teams = await runFx(["teams"], { env, timeoutMs: TIMEOUT });
+      const teams = await runY2(["teams"], { env, timeoutMs: TIMEOUT });
       expect(
         teams.code,
         `stdout: ${teams.stdout}\nstderr: ${teams.stderr}`,
       ).toBe(0);
       expect(teams.stdout).toBe(
-        "Selected Vercel team: Vercel Labs (vercel-labs).\n",
+        "Selected Retired credential team: Retired credential Labs (example-org).\n",
       );
       expect(teams.stderr).toBe("");
 
       const persisted = JSON.parse(
-        readFileSync(join(home, ".fx", "auth.json"), "utf8"),
+        readFileSync(join(home, ".y2", "auth.json"), "utf8"),
       );
       expect(persisted).toMatchObject({
         issuer: issuerA.issuerUrl,
         access_token: ISSUER_A_ACCESS_TOKEN,
         refresh_token: "rotated-refresh-token",
         team_id: "team_1",
-        team_slug: "vercel-labs",
+        team_slug: "example-org",
       });
 
-      const logout = await runFx(["logout"], { env, timeoutMs: TIMEOUT });
+      const logout = await runY2(["logout"], { env, timeoutMs: TIMEOUT });
       expect(logout.code).toBe(0);
-      expect(logout.stdout).toBe("Signed out of fx.\n");
+      expect(logout.stdout).toBe("Signed out of y2.\n");
       expect(logout.stderr).toBe("");
 
       expect(
@@ -628,27 +628,27 @@ test(
 test(
   "invalid saved OAuth issuers receive no access or refresh token",
   async () => {
-    const home = mkdtempSync(join(tmpdir(), "fx-auth-invalid-issuer-e2e-"));
+    const home = mkdtempSync(join(tmpdir(), "y2-auth-invalid-issuer-e2e-"));
     const invalidIssuer = startFakeOAuth([], "/tenant");
-    writeFxLogin(
+    writeRetiredLogin(
       home,
       invalidIssuer.issuerUrl,
       Date.now() + 60 * 60 * 1000,
     );
 
     try {
-      const logout = await runFx(["logout"], {
+      const logout = await runY2(["logout"], {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_DISABLE_KEYCHAIN: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_DISABLE_KEYCHAIN: "1",
         },
         timeoutMs: TIMEOUT,
       });
 
       expect(logout.code).toBe(0);
-      expect(logout.stdout).toBe("Signed out of fx.\n");
+      expect(logout.stdout).toBe("Signed out of y2.\n");
       expect(logout.stderr).toBe("");
       expect(invalidIssuer.requests).toEqual([]);
       expect(logout.stdout).not.toContain("expired-access-token");

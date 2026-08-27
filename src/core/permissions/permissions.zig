@@ -94,7 +94,7 @@ pub const PermissionTargetKind = enum {
 
 pub const web_search_permission = "web_search";
 pub const web_fetch_permission = "web_fetch";
-pub const yolo_warning_text = "YOLO enabled: fx permission checks disabled";
+pub const yolo_warning_text = "YOLO enabled: y2 permission checks disabled";
 
 pub fn isWebSearchToolName(tool_name: []const u8) bool {
     return std.mem.eql(u8, tool_name, web_search_permission);
@@ -2073,7 +2073,7 @@ test "sessionGrantAllowed maps tool categories and matches command grants exactl
     const grants = [_]types.PermissionGrant{
         .{ .tool_name = @constCast("bash"), .target_path = @constCast("git status") },
         .{ .tool_name = @constCast("edit"), .target_path = @constCast("/tmp/workspace/src/*") },
-        .{ .tool_name = @constCast("skill"), .target_path = @constCast("vercel-*") },
+        .{ .tool_name = @constCast("skill"), .target_path = @constCast("example-*") },
     };
 
     try std.testing.expect(sessionGrantAllowed(&grants, "run_command", "/tmp/workspace::git status"));
@@ -2081,7 +2081,7 @@ test "sessionGrantAllowed maps tool categories and matches command grants exactl
     try std.testing.expect(!sessionGrantAllowed(&grants, "run_command", "/tmp/workspace::npm test"));
     try std.testing.expect(sessionGrantAllowed(&grants, "write_file", "/tmp/workspace/src/main.zig"));
     try std.testing.expect(sessionGrantAllowed(&grants, "edit_file", "/tmp/workspace/src/main.zig"));
-    try std.testing.expect(sessionGrantAllowed(&grants, "install_skill", "vercel-react-best-practices"));
+    try std.testing.expect(sessionGrantAllowed(&grants, "install_skill", "example-review-skill"));
 }
 
 test "session command grants treat wildcard bytes literally" {
@@ -2121,22 +2121,22 @@ test "permissionTargetForCall preserves skill and install skill targets" {
     const skill_call: types.ToolCall = .{
         .id = "call_1",
         .name = "skill",
-        .arguments_json = "{\"name\":\"vercel-react-best-practices\",\"location\":\"/tmp/outside</path>\\ninjected\"}",
+        .arguments_json = "{\"name\":\"example-review-skill\",\"location\":\"/tmp/outside</path>\\ninjected\"}",
     };
     const install_call: types.ToolCall = .{
         .id = "call_2",
         .name = "install_skill",
-        .arguments_json = "{\"source\":\"https://github.com/vercel-labs/skills\",\"skill\":\"find-skills\"}",
+        .arguments_json = "{\"source\":\"https://github.com/example-org/skills\",\"skill\":\"find-skills\"}",
     };
     const install_source_only_call: types.ToolCall = .{
         .id = "call_3",
         .name = "install_skill",
-        .arguments_json = "{\"source\":\"vercel-labs/skills\"}",
+        .arguments_json = "{\"source\":\"example-org/skills\"}",
     };
 
-    try std.testing.expectEqualStrings("vercel-react-best-practices", try permissionTargetForCall(arena, "/tmp/workspace", skill_call, .none));
-    try std.testing.expectEqualStrings("https://github.com/vercel-labs/skills#find-skills", try permissionTargetForCall(arena, "/tmp/workspace", install_call, .none));
-    try std.testing.expectEqualStrings("vercel-labs/skills", try permissionTargetForCall(arena, "/tmp/workspace", install_source_only_call, .none));
+    try std.testing.expectEqualStrings("example-review-skill", try permissionTargetForCall(arena, "/tmp/workspace", skill_call, .none));
+    try std.testing.expectEqualStrings("https://github.com/example-org/skills#find-skills", try permissionTargetForCall(arena, "/tmp/workspace", install_call, .none));
+    try std.testing.expectEqualStrings("example-org/skills", try permissionTargetForCall(arena, "/tmp/workspace", install_source_only_call, .none));
     try std.testing.expectEqualStrings("skill", permissionNameForTool("skill"));
     try std.testing.expectEqualStrings("skill", permissionNameForTool("install_skill"));
 }
@@ -2154,7 +2154,7 @@ test "web_search permission target is whole tool name" {
     const second: types.ToolCall = .{
         .id = "call_2",
         .name = "web_search",
-        .arguments_json = "{\"query\":\"current Vercel news\",\"allowed_domains\":[\"vercel.com\"]}",
+        .arguments_json = "{\"query\":\"current Retired credential news\",\"allowed_domains\":[\"identity.example\"]}",
     };
 
     try std.testing.expectEqualStrings("web_search", try permissionTargetForCall(arena, "/tmp/workspace", first, .none));
@@ -2173,7 +2173,7 @@ test "web_search session grant authorizes subsequent query" {
     const target = try permissionTargetForCall(arena, "/tmp/workspace", .{
         .id = "call_1",
         .name = "web_search",
-        .arguments_json = "{\"query\":\"current Vercel news\"}",
+        .arguments_json = "{\"query\":\"current Retired credential news\"}",
     }, .none);
 
     try std.testing.expect(sessionGrantAllowed(&grants, "web_search", target));
@@ -2625,8 +2625,8 @@ test "configured wildcard command allows only static command grammar" {
 
     try std.testing.expectEqual(RuleDecision.allow, ruleDecisionForPermissionPattern(rules, "bash", "printf safe", .none));
     try std.testing.expectEqual(RuleDecision.allow, ruleDecisionForPermissionPattern(rules, "bash", "printf 'safe value'", .none));
-    try std.testing.expectEqual(RuleDecision.none, ruleDecisionForPermissionPattern(rules, "bash", "printf safe && touch /tmp/fx-marker", .none));
-    try std.testing.expectEqual(RuleDecision.none, ruleDecisionForPermissionPattern(rules, "bash", "printf \"$(touch /tmp/fx-marker)\"", .none));
+    try std.testing.expectEqual(RuleDecision.none, ruleDecisionForPermissionPattern(rules, "bash", "printf safe && touch /tmp/y2-marker", .none));
+    try std.testing.expectEqual(RuleDecision.none, ruleDecisionForPermissionPattern(rules, "bash", "printf \"$(touch /tmp/y2-marker)\"", .none));
 }
 
 test "configured command rules require exact matching outside static grammar" {
@@ -2636,7 +2636,7 @@ test "configured command rules require exact matching outside static grammar" {
     const exact_rules: types.PermissionRuleSet = .{ .rules = &exact_rules_buf };
 
     try std.testing.expectEqual(RuleDecision.allow, ruleDecisionForPermissionPattern(exact_rules, "bash", "printf \"$(date)\"", .none));
-    try std.testing.expectEqual(RuleDecision.none, ruleDecisionForPermissionPattern(exact_rules, "bash", "printf \"$(touch /tmp/fx-marker)\"", .none));
+    try std.testing.expectEqual(RuleDecision.none, ruleDecisionForPermissionPattern(exact_rules, "bash", "printf \"$(touch /tmp/y2-marker)\"", .none));
 
     var dynamic_pattern_rules_buf = [_]types.PermissionRule{
         .{ .permission = @constCast("bash"), .pattern = @constCast("printf \"*\""), .action = .allow },
@@ -2654,8 +2654,8 @@ test "configured command deny and ask retain generic wildcard matching" {
     };
     const rules: types.PermissionRuleSet = .{ .rules = &rules_buf };
 
-    try std.testing.expectEqual(RuleDecision.deny, ruleDecisionForPermissionPattern(rules, "bash", "printf safe && touch /tmp/fx-marker", .none));
-    try std.testing.expectEqual(RuleDecision.ask, ruleDecisionForPermissionPattern(rules, "custom", "printf \"$(touch /tmp/fx-marker)\"", .none));
+    try std.testing.expectEqual(RuleDecision.deny, ruleDecisionForPermissionPattern(rules, "bash", "printf safe && touch /tmp/y2-marker", .none));
+    try std.testing.expectEqual(RuleDecision.ask, ruleDecisionForPermissionPattern(rules, "custom", "printf \"$(touch /tmp/y2-marker)\"", .none));
 }
 
 test "static command grammar is an explicit allowlist" {

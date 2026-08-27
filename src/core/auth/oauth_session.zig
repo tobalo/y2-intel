@@ -10,10 +10,10 @@ const secret = @import("secret.zig");
 
 const Allocator = std.mem.Allocator;
 
-pub const issuer = "https://vercel.com";
-pub const client_id_env = "FX_OAUTH_CLIENT_ID";
+pub const issuer = "https://identity.example";
+pub const client_id_env = "Y2_OAUTH_CLIENT_ID";
 pub const default_client_id = "cl_zzh5hiOZbwJ9bfqEcYqPIJv3TaPaEYL0";
-const e2e_issuer_url_env = "FX_E2E_OAUTH_ISSUER_URL";
+const e2e_issuer_url_env = "Y2_E2E_OAUTH_ISSUER_URL";
 pub const auth_file_name = profile_paths.auth_file_name;
 const schema_version: i64 = 1;
 const max_auth_file_bytes: usize = 64 * 1024;
@@ -104,24 +104,24 @@ pub fn refresh_deadline_ms(expires_at_ms: i64) i64 {
 }
 
 const MutationLockProbe = struct {
-    fx_dir: std.Io.Dir,
+    y2_dir: std.Io.Dir,
     signaled: bool = false,
 
     fn tryLock(raw_ctx: ?*anyopaque, file: std.Io.File) anyerror!bool {
         const locked = try file.tryLock(io_mod.getIo(), .exclusive);
         const self: *MutationLockProbe = @ptrCast(@alignCast(raw_ctx.?));
         if (!locked and !self.signaled) {
-            signalE2ELockContention(self.fx_dir);
+            signalE2ELockContention(self.y2_dir);
             self.signaled = true;
         }
         return locked;
     }
 };
 
-fn signalE2ELockContention(fx_dir: std.Io.Dir) void {
-    const enabled = io_mod.getenv("FX_E2E_AUTH_LOCK_CONTENTION") orelse return;
+fn signalE2ELockContention(y2_dir: std.Io.Dir) void {
+    const enabled = io_mod.getenv("Y2_E2E_AUTH_LOCK_CONTENTION") orelse return;
     if (!std.mem.eql(u8, enabled, "1")) return;
-    var file = fx_dir.createFile(io_mod.getIo(), e2e_lock_contention_file_name, .{
+    var file = y2_dir.createFile(io_mod.getIo(), e2e_lock_contention_file_name, .{
         .truncate = true,
         .permissions = std.Io.File.Permissions.fromMode(0o600),
     }) catch return;
@@ -245,8 +245,8 @@ const KeychainObservation = union(enum) {
     }
 };
 
-fn observeAuthFile(alloc: Allocator, fx_dir: *std.Io.Dir) !FileObservation {
-    var file = fx_dir.openFile(io_mod.getIo(), auth_file_name, .{
+fn observeAuthFile(alloc: Allocator, y2_dir: *std.Io.Dir) !FileObservation {
+    var file = y2_dir.openFile(io_mod.getIo(), auth_file_name, .{
         .mode = .read_only,
         .allow_directory = false,
         .follow_symlinks = false,
@@ -315,8 +315,8 @@ fn publishAndVerifyKeychain(alloc: Allocator, keychain: KeychainBackend, session
     if (!std.mem.eql(u8, bytes, persisted)) return error.OAuthSessionKeychainWriteMismatch;
 }
 
-fn authFileExists(fx_dir: *std.Io.Dir) !bool {
-    _ = fx_dir.statFile(io_mod.getIo(), auth_file_name, .{}) catch |err| switch (err) {
+fn authFileExists(y2_dir: *std.Io.Dir) !bool {
+    _ = y2_dir.statFile(io_mod.getIo(), auth_file_name, .{}) catch |err| switch (err) {
         error.FileNotFound => return false,
         else => return err,
     };
@@ -326,7 +326,7 @@ fn authFileExists(fx_dir: *std.Io.Dir) !bool {
 pub const Mutation = if (host_target.is_wasm) HostMutation else NativeMutation;
 
 const NativeMutation = struct {
-    fx_dir: io_mod.VerifiedDir,
+    y2_dir: io_mod.VerifiedDir,
     lock: io_mod.TimedAdvisoryLock,
     backend: StorageBackend,
     keychain: KeychainBackend,
@@ -334,14 +334,14 @@ const NativeMutation = struct {
 
     pub fn deinit(self: *Mutation) void {
         self.lock.release();
-        self.fx_dir.close();
+        self.y2_dir.close();
         self.* = undefined;
     }
 
     pub fn load(self: *Mutation, alloc: Allocator) !?Session {
         if (self.backend == .profile_file) {
             self.authority = .profile_file;
-            return loadFromDir(alloc, &self.fx_dir.dir, .report_open_failure);
+            return loadFromDir(alloc, &self.y2_dir.dir, .report_open_failure);
         }
         return self.loadKeychainResolved(alloc);
     }
@@ -357,7 +357,7 @@ const NativeMutation = struct {
     fn saveFile(self: *Mutation, alloc: Allocator, session: Session) !void {
         const text = try stringify(alloc, session);
         defer secret.zeroAndFree(alloc, text);
-        try io_mod.durableReplaceVerified(alloc, &self.fx_dir, auth_file_name, text);
+        try io_mod.durableReplaceVerified(alloc, &self.y2_dir, auth_file_name, text);
     }
 
     pub fn delete(self: *Mutation, alloc: Allocator) !DeleteResult {
@@ -370,7 +370,7 @@ const NativeMutation = struct {
             result.session_deleted = result.session_deleted or deleted;
         }
 
-        const file_outcome = deleteAuthFile(&self.fx_dir.dir, .{}) catch {
+        const file_outcome = deleteAuthFile(&self.y2_dir.dir, .{}) catch {
             result.local_cleanup_failed = true;
             return result;
         };
@@ -387,7 +387,7 @@ const NativeMutation = struct {
     }
 
     fn loadKeychainResolved(self: *Mutation, alloc: Allocator) !?Session {
-        var file = try observeAuthFile(alloc, &self.fx_dir.dir);
+        var file = try observeAuthFile(alloc, &self.y2_dir.dir);
         defer file.deinit(alloc);
         var keychain = try observeKeychain(alloc, self.keychain);
         defer keychain.deinit(alloc);
@@ -418,7 +418,7 @@ const NativeMutation = struct {
 
     fn saveKeychainResolved(self: *Mutation, alloc: Allocator, session: Session) !void {
         if (self.authority == .unresolved) {
-            self.authority = if (try authFileExists(&self.fx_dir.dir)) .profile_file else .keychain;
+            self.authority = if (try authFileExists(&self.y2_dir.dir)) .profile_file else .keychain;
         }
 
         switch (self.authority) {
@@ -441,8 +441,8 @@ const NativeMutation = struct {
             return false;
         };
 
-        const outcome = deleteAuthFile(&self.fx_dir.dir, .{}) catch |err| {
-            const stat = self.fx_dir.dir.statFile(io_mod.getIo(), auth_file_name, .{}) catch |stat_err| switch (stat_err) {
+        const outcome = deleteAuthFile(&self.y2_dir.dir, .{}) catch |err| {
+            const stat = self.y2_dir.dir.statFile(io_mod.getIo(), auth_file_name, .{}) catch |stat_err| switch (stat_err) {
                 error.FileNotFound => return error.OAuthSessionCleanupUncertain,
                 else => return stat_err,
             };
@@ -453,7 +453,7 @@ const NativeMutation = struct {
         return switch (outcome) {
             .deleted => true,
             .missing => blk: {
-                try io_mod.syncVerifiedDir(self.fx_dir.dir);
+                try io_mod.syncVerifiedDir(self.y2_dir.dir);
                 break :blk true;
             },
             .deleted_not_durable => error.OAuthSessionCleanupUncertain,
@@ -589,16 +589,16 @@ pub fn load(alloc: Allocator) !?Session {
     };
     defer home_dir.close(io_mod.getIo());
 
-    var fx_dir = home_dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
+    var y2_dir = home_dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
         .iterate = true,
         .follow_symlinks = false,
     }) catch |err| {
         debug_trace.logf("auth", "session load failed step=open_profile err={s}", .{@errorName(err)});
         return null;
     };
-    defer fx_dir.close(io_mod.getIo());
+    defer y2_dir.close(io_mod.getIo());
 
-    return loadFromDir(alloc, &fx_dir, .tolerate_open_failure);
+    return loadFromDir(alloc, &y2_dir, .tolerate_open_failure);
 }
 
 fn loadFromHost(alloc: Allocator, store: js_host_auth.SessionStore) !?Session {
@@ -613,8 +613,8 @@ fn loadFromHost(alloc: Allocator, store: js_host_auth.SessionStore) !?Session {
     };
 }
 
-fn loadFromDir(alloc: Allocator, fx_dir: *std.Io.Dir, mode: LoadMode) !?Session {
-    var file = fx_dir.openFile(io_mod.getIo(), auth_file_name, .{
+fn loadFromDir(alloc: Allocator, y2_dir: *std.Io.Dir, mode: LoadMode) !?Session {
+    var file = y2_dir.openFile(io_mod.getIo(), auth_file_name, .{
         .mode = .read_only,
         .allow_directory = false,
         .follow_symlinks = false,
@@ -674,11 +674,11 @@ fn beginExistingNativeMutation() !?Mutation {
     };
     defer home_dir.close();
 
-    const fx_dir = openExistingPrivateFxDir(&home_dir) catch |err| switch (err) {
+    const y2_dir = openExistingPrivateY2Dir(&home_dir) catch |err| switch (err) {
         error.FileNotFound => return null,
         else => return err,
     };
-    return @as(?Mutation, try lockMutation(fx_dir));
+    return @as(?Mutation, try lockMutation(y2_dir));
 }
 
 fn loadKeychainWithoutProfile(alloc: Allocator) !?Session {
@@ -706,25 +706,25 @@ fn beginMutation() !Mutation {
     };
     defer home_dir.close();
 
-    const fx_dir = try io_mod.openOrCreateVerifiedPrivateDir(&home_dir, profile_paths.root_dir_name);
-    return lockMutation(fx_dir);
+    const y2_dir = try io_mod.openOrCreateVerifiedPrivateDir(&home_dir, profile_paths.root_dir_name);
+    return lockMutation(y2_dir);
 }
 
-fn lockMutation(open_fx_dir: io_mod.VerifiedDir) !Mutation {
-    var probe = MutationLockProbe{ .fx_dir = open_fx_dir.dir };
-    return lockMutationWithOps(open_fx_dir, mutation_lock_deadline_ms, .{
+fn lockMutation(open_y2_dir: io_mod.VerifiedDir) !Mutation {
+    var probe = MutationLockProbe{ .y2_dir = open_y2_dir.dir };
+    return lockMutationWithOps(open_y2_dir, mutation_lock_deadline_ms, .{
         .ctx = &probe,
         .try_lock = MutationLockProbe.tryLock,
     });
 }
 
 fn lockMutationWithOps(
-    open_fx_dir: io_mod.VerifiedDir,
+    open_y2_dir: io_mod.VerifiedDir,
     deadline_ms: u64,
     ops: io_mod.LockOps,
 ) !Mutation {
     return lockMutationWithBackend(
-        open_fx_dir,
+        open_y2_dir,
         deadline_ms,
         ops,
         storageBackend(),
@@ -733,17 +733,17 @@ fn lockMutationWithOps(
 }
 
 fn lockMutationWithBackend(
-    open_fx_dir: io_mod.VerifiedDir,
+    open_y2_dir: io_mod.VerifiedDir,
     deadline_ms: u64,
     ops: io_mod.LockOps,
     backend: StorageBackend,
     keychain: KeychainBackend,
 ) !Mutation {
-    var fx_dir = open_fx_dir;
-    errdefer fx_dir.close();
+    var y2_dir = open_y2_dir;
+    errdefer y2_dir.close();
 
     var lock = try io_mod.acquireTimedAdvisoryLockWithOps(
-        &fx_dir,
+        &y2_dir,
         mutation_lock_file_name,
         deadline_ms,
         ops,
@@ -751,14 +751,14 @@ fn lockMutationWithBackend(
     errdefer lock.release();
 
     return .{
-        .fx_dir = fx_dir,
+        .y2_dir = y2_dir,
         .lock = lock,
         .backend = backend,
         .keychain = keychain,
     };
 }
 
-fn openExistingPrivateFxDir(home_dir: *io_mod.VerifiedDir) !io_mod.VerifiedDir {
+fn openExistingPrivateY2Dir(home_dir: *io_mod.VerifiedDir) !io_mod.VerifiedDir {
     var dir = try home_dir.dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
         .iterate = true,
         .follow_symlinks = false,
@@ -781,12 +781,12 @@ fn openExistingPrivateFxDir(home_dir: *io_mod.VerifiedDir) !io_mod.VerifiedDir {
     return .{ .dir = dir };
 }
 
-fn deleteAuthFile(fx_dir: *std.Io.Dir, ops: io_mod.DurableOps) !DeleteOutcome {
-    fx_dir.deleteFile(io_mod.getIo(), auth_file_name) catch |err| switch (err) {
+fn deleteAuthFile(y2_dir: *std.Io.Dir, ops: io_mod.DurableOps) !DeleteOutcome {
+    y2_dir.deleteFile(io_mod.getIo(), auth_file_name) catch |err| switch (err) {
         error.FileNotFound => return .missing,
         else => return err,
     };
-    ops.sync_dir(ops.ctx, fx_dir.*) catch return .deleted_not_durable;
+    ops.sync_dir(ops.ctx, y2_dir.*) catch return .deleted_not_durable;
     return .deleted;
 }
 
@@ -881,7 +881,7 @@ fn requiredInteger(object: std.json.ObjectMap, key: []const u8) !i64 {
     return value.integer;
 }
 
-const test_session_json = "{\"version\":1,\"issuer\":\"https://vercel.com\",\"client_id\":\"client\",\"access_token\":\"access\",\"refresh_token\":\"refresh\",\"expires_at_ms\":1,\"scope\":\"openid offline_access\",\"token_type\":\"Bearer\",\"team_slug\":\"team-slug\",\"team_id\":\"team-id\"}";
+const test_session_json = "{\"version\":1,\"issuer\":\"https://identity.example\",\"client_id\":\"client\",\"access_token\":\"access\",\"refresh_token\":\"refresh\",\"expires_at_ms\":1,\"scope\":\"openid offline_access\",\"token_type\":\"Bearer\",\"team_slug\":\"team-slug\",\"team_id\":\"team-id\"}";
 
 const HostStoreTestState = struct {
     record: ?[]const u8 = test_session_json,
@@ -964,7 +964,7 @@ test "oauth session stringifies and parses" {
         .expires_at_ms = 1234,
         .scope = try std.testing.allocator.dupe(u8, "openid offline_access"),
         .token_type = try std.testing.allocator.dupe(u8, "Bearer"),
-        .team_slug = try std.testing.allocator.dupe(u8, "vercel-labs"),
+        .team_slug = try std.testing.allocator.dupe(u8, "example-org"),
         .team_id = try std.testing.allocator.dupe(u8, "team_123"),
     };
     defer session.deinit(std.testing.allocator);
@@ -976,7 +976,7 @@ test "oauth session stringifies and parses" {
     try std.testing.expectEqualStrings(issuer, parsed.issuer);
     try std.testing.expectEqualStrings("client", parsed.client_id);
     try std.testing.expectEqualStrings("access", parsed.access_token);
-    try std.testing.expectEqualStrings("vercel-labs", parsed.team_slug.?);
+    try std.testing.expectEqualStrings("example-org", parsed.team_slug.?);
     try std.testing.expectEqualStrings("team_123", parsed.team_id.?);
 }
 
@@ -1012,7 +1012,7 @@ test "OAuth source resolution covers every file and Keychain state" {
     }
 }
 
-const alternate_test_session_json = "{\"version\":1,\"issuer\":\"https://vercel.com\",\"client_id\":\"client\",\"access_token\":\"keychain-access\",\"refresh_token\":\"keychain-refresh\",\"expires_at_ms\":2,\"scope\":\"openid offline_access\",\"token_type\":\"Bearer\"}";
+const alternate_test_session_json = "{\"version\":1,\"issuer\":\"https://identity.example\",\"client_id\":\"client\",\"access_token\":\"keychain-access\",\"refresh_token\":\"keychain-refresh\",\"expires_at_ms\":2,\"scope\":\"openid offline_access\",\"token_type\":\"Bearer\"}";
 
 const FakeOAuthKeychain = struct {
     alloc: Allocator,

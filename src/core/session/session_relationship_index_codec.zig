@@ -3,8 +3,8 @@ const domain = @import("../subagent/domain.zig");
 
 const Allocator = std.mem.Allocator;
 
-pub const header_magic = "FXRELH01";
-pub const page_magic = "FXRELP01";
+pub const header_magic = "Y2RELH01";
+pub const page_magic = "Y2RELP01";
 const legacy_schema_version: u32 = 1;
 const epoch_schema_version: u32 = 2;
 const header_schema_version: u32 = 3;

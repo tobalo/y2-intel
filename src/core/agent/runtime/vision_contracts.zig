@@ -8,7 +8,7 @@ const Allocator = std.mem.Allocator;
 const max_focus_bytes: usize = 4096;
 const max_provider_images_per_batch: usize = 8;
 pub const native_route_unavailable_message = "Vision is unavailable for this request.";
-pub const provider_response_format_name = "fx_vision_evidence";
+pub const provider_response_format_name = "y2_vision_evidence";
 pub const provider_response_format_description = "Factual evidence extracted from the requested images.";
 
 pub const VisionRequestError = error{
@@ -1144,7 +1144,7 @@ test "Vision provider parsing accepts one long evidence string within the total 
     try std.testing.expectEqual(@as(usize, 5000), parsed.images[0].outcome.ok.visible_text[0].len);
 }
 
-test "Vision result serialization emits the five Fx-owned diagnostics" {
+test "Vision result serialization emits the five Y2-owned diagnostics" {
     const Case = struct {
         failure: VisionFailure,
         expected: []const u8,
@@ -1201,7 +1201,7 @@ test "Vision provider diagnostic prose cannot cross the trust boundary" {
     );
 }
 
-test "Vision provider cannot mint Fx-owned local diagnostic codes" {
+test "Vision provider cannot mint Y2-owned local diagnostic codes" {
     inline for (.{
         "image_unavailable",
         "provider_response_invalid",

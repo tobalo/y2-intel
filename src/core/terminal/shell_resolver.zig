@@ -223,7 +223,7 @@ pub fn buildBootstrap(
 
     try output.appendSlice(alloc, "set +x; ");
     if (command_path) |path| {
-        try output.appendSlice(alloc, "fx_terminal_command=$(< ");
+        try output.appendSlice(alloc, "y2_terminal_command=$(< ");
         try appendShellWord(&output, alloc, path);
         try output.appendSlice(alloc, ") || exit 125; ");
     }
@@ -240,8 +240,8 @@ pub fn buildBootstrap(
         );
         try output.appendSlice(
             alloc,
-            " || exit 125; builtin eval -- \"$fx_terminal_command\"; " ++
-                "fx_terminal_status=$?; exit \"$fx_terminal_status\"\n",
+            " || exit 125; builtin eval -- \"$y2_terminal_command\"; " ++
+                "y2_terminal_status=$?; exit \"$y2_terminal_status\"\n",
         );
     } else {
         try output.appendSlice(alloc, " || exit 125\n");
@@ -271,7 +271,7 @@ fn appendMarker(
 ) Allocator.Error!void {
     try appendShellWord(output, alloc, executable);
     inline for (.{
-        "--fx-internal-terminal-control",
+        "--y2-internal-terminal-control",
         control_path,
         nonce,
         event,
@@ -457,21 +457,21 @@ test "unsupported login shell profiles fall back for captured and persistent exe
 test "bootstrap quotes private paths and separates command completion" {
     const commandless = try buildBootstrap(
         std.testing.allocator,
-        "/tmp/fx'bin",
+        "/tmp/y2'bin",
         "/tmp/control",
         "nonce",
         null,
     );
     defer std.testing.allocator.free(commandless);
     try std.testing.expectEqualStrings(
-        "set +x; '/tmp/fx'\"'\"'bin' '--fx-internal-terminal-control' " ++
+        "set +x; '/tmp/y2'\"'\"'bin' '--y2-internal-terminal-control' " ++
             "'/tmp/control' 'nonce' 'shell-ready' || exit 125\n",
         commandless,
     );
 
     const command = try buildBootstrap(
         std.testing.allocator,
-        "/tmp/fx",
+        "/tmp/y2",
         "/tmp/control",
         "nonce",
         "/tmp/command",
@@ -484,7 +484,7 @@ test "bootstrap quotes private paths and separates command completion" {
         std.mem.find(u8, command, "builtin eval --") != null,
     );
     try std.testing.expect(
-        std.mem.find(u8, command, "exit \"$fx_terminal_status\"") != null,
+        std.mem.find(u8, command, "exit \"$y2_terminal_status\"") != null,
     );
 
     const source = try buildSourceCommand(
@@ -501,7 +501,7 @@ test "bootstrap quotes private paths and separates command completion" {
 fn checkBootstrapAllocationFailures(alloc: Allocator) !void {
     const bootstrap = try buildBootstrap(
         alloc,
-        "/tmp/fx",
+        "/tmp/y2",
         "/tmp/control",
         "nonce",
         "/tmp/command",

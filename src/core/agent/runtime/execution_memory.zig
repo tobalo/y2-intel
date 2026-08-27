@@ -24,7 +24,7 @@ const ToolCall = types.ToolCall;
 const Config = runtime_config.Config;
 const ToolExecutionStatus = runtime_tool_contracts.ToolExecutionStatus;
 
-pub fn persistedStatusForCurrentFxLocalResult(
+pub fn persistedStatusForCurrentY2LocalResult(
     status: ToolExecutionStatus,
     output: []const u8,
 ) types.PersistedToolStatus {

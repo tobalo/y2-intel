@@ -180,7 +180,7 @@ fn testRecord(alloc: Allocator, log_path: []const u8) !background_store.Record {
     errdefer alloc.free(pid);
     const command = try alloc.dupe(u8, "npm run dev");
     errdefer alloc.free(command);
-    const cwd = try alloc.dupe(u8, "/tmp/fx");
+    const cwd = try alloc.dupe(u8, "/tmp/y2");
     errdefer alloc.free(cwd);
     const owned_log_path = try alloc.dupe(u8, log_path);
     errdefer alloc.free(owned_log_path);

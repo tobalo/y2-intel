@@ -11,7 +11,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { dirname, join } from "node:path";
-import { FX_BIN, REPO_ROOT } from "../../evals/eval-helpers";
+import { Y2_BIN, REPO_ROOT } from "../../evals/eval-helpers";
 import { analyzeRun } from "./analyzer";
 import {
   attachFrameEvidence,
@@ -27,9 +27,9 @@ import type {
   RenderLabManifest,
 } from "./types";
 
-export const NATIVE_GATE_ENV = "FX_RENDER_LAB_NATIVE";
-export const NATIVE_COMMAND_K_ENV = "FX_RENDER_LAB_NATIVE_COMMAND_K";
-export const NATIVE_CLIPBOARD_ENV = "FX_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD";
+export const NATIVE_GATE_ENV = "Y2_RENDER_LAB_NATIVE";
+export const NATIVE_COMMAND_K_ENV = "Y2_RENDER_LAB_NATIVE_COMMAND_K";
+export const NATIVE_CLIPBOARD_ENV = "Y2_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD";
 
 type NativeAdapterName = "terminal-app" | "ghostty" | "warp";
 type NativeCapture = "terminal-contents" | "clipboard";
@@ -72,7 +72,7 @@ type NativeController = {
   height: number;
 };
 
-const PROMPT_TEXT = "FX_RENDER_LAB%";
+const PROMPT_TEXT = "Y2_RENDER_LAB%";
 const TRACE_SCOPES =
   "render,paint,resize,scroll,footer.clean,input";
 
@@ -116,7 +116,7 @@ const NATIVE_SCENARIOS: NativeScenario[] = [
     requiresClipboard: false,
     notes: [
       "Triggers the real macOS Terminal Command-K UI action through System Events.",
-      "Requires the additional FX_RENDER_LAB_NATIVE_COMMAND_K=1 gate because it clears scrollback.",
+      "Requires the additional Y2_RENDER_LAB_NATIVE_COMMAND_K=1 gate because it clears scrollback.",
     ],
   },
   {
@@ -170,7 +170,7 @@ export async function runNativeRenderLab(
   const artifactDir = join(outRoot, `run-${timestampForPath(startedAt)}-${runNumber}`);
   mkdirSync(join(artifactDir, "replay", "frames"), { recursive: true });
 
-  const binarySha256 = sha256(FX_BIN);
+  const binarySha256 = sha256(Y2_BIN);
   const shellMarkers = scenario.commandK
     ? [`SHELL_B_BEFORE_CLEAR_${runId}`, `SHELL_B_AFTER_CLEAR_${runId}`]
     : [
@@ -186,10 +186,10 @@ export async function runNativeRenderLab(
     completedAt: null,
     repoRoot: REPO_ROOT,
     artifactDir,
-    binaryPath: FX_BIN,
+    binaryPath: Y2_BIN,
     binarySha256,
     traceLogPath: join(artifactDir, "trace.log"),
-    tapePath: join(artifactDir, "render.fxtape"),
+    tapePath: join(artifactDir, "render.y2tape"),
     finalGridPath: join(artifactDir, "final-grid.txt"),
     replaySummaryPath: join(artifactDir, "replay-summary.json"),
     runtimeEvidencePath: join(artifactDir, "runtime-evidence.json"),
@@ -287,9 +287,9 @@ async function runNativeRelaunchScenario(
     "native-shell-long-line-before-first",
   );
 
-  await launchFx(context, controller, "native-first");
+  await launchY2(context, controller, "native-first");
   await submitSlashCommand(context, controller, "/status", "permission_mode", "native-first-status-visible");
-  await quitFx(context, controller, "native-first");
+  await quitY2(context, controller, "native-first");
 
   await runShellCommand(
     context,
@@ -299,12 +299,12 @@ async function runNativeRelaunchScenario(
     "native-shell-between-launches",
   );
 
-  await launchFx(context, controller, "native-second");
+  await launchY2(context, controller, "native-second");
   await submitSlashCommand(context, controller, "/version", "● Version:", "native-second-version-visible");
   await resize(context, controller, 96, 32, "native-second-resize-medium");
   await resize(context, controller, 132, 42, "native-second-resize-wide");
   await resize(context, controller, 120, 40, "native-second-resize-restored");
-  await quitFx(context, controller, "native-second");
+  await quitY2(context, controller, "native-second");
 
   await runShellCommand(
     context,
@@ -313,11 +313,11 @@ async function runNativeRelaunchScenario(
     context.manifest.markers.shell[2]!,
     "native-shell-before-third",
   );
-  await launchFx(context, controller, "native-third");
+  await launchY2(context, controller, "native-third");
   await submitSlashCommand(context, controller, "/help", "/version", "native-third-help-visible");
   const finalFrame = await capture(context, controller, "native-final-third-launch-state");
   context.manifest.finalFrameIndex = finalFrame.index;
-  await quitFx(context, controller, "native-third-cleanup");
+  await quitY2(context, controller, "native-third-cleanup");
 }
 
 async function runCommandKScenario(context: NativeContext, controller: NativeController): Promise<void> {
@@ -329,7 +329,7 @@ async function runCommandKScenario(context: NativeContext, controller: NativeCon
     context.manifest.markers.shell[0]!,
     "native-command-k-before-clear-marker",
   );
-  await launchFx(context, controller, "native-command-k-before-clear");
+  await launchY2(context, controller, "native-command-k-before-clear");
   await submitSlashCommand(
     context,
     controller,
@@ -337,7 +337,7 @@ async function runCommandKScenario(context: NativeContext, controller: NativeCon
     "permission_mode",
     "native-command-k-status-visible",
   );
-  await quitFx(context, controller, "native-command-k-before-clear");
+  await quitY2(context, controller, "native-command-k-before-clear");
 
   await controller.triggerCommandK();
   await sleep(600);
@@ -350,24 +350,24 @@ async function runCommandKScenario(context: NativeContext, controller: NativeCon
     context.manifest.markers.shell[1]!,
     "native-command-k-after-clear-marker",
   );
-  await launchFx(context, controller, "native-command-k-after-clear");
+  await launchY2(context, controller, "native-command-k-after-clear");
   await submitSlashCommand(context, controller, "/version", "● Version:", "native-command-k-version-visible");
   const finalFrame = await capture(context, controller, "native-command-k-final-state");
   context.manifest.finalFrameIndex = finalFrame.index;
-  await quitFx(context, controller, "native-command-k-cleanup");
+  await quitY2(context, controller, "native-command-k-cleanup");
 }
 
-async function launchFx(
+async function launchY2(
   context: NativeContext,
   controller: NativeController,
   label: string,
 ): Promise<void> {
   await controller.sendText(
-    `FX_RECORD=${shQuote(context.manifest.tapePath)} FX_RECORD_INPUT=1 ${shQuote(FX_BIN)}`,
+    `Y2_RECORD=${shQuote(context.manifest.tapePath)} Y2_RECORD_INPUT=1 ${shQuote(Y2_BIN)}`,
   );
-  await capture(context, controller, `${label}-fx-launch-requested`);
+  await capture(context, controller, `${label}-y2-launch-requested`);
   await waitForText(controller, "Run /help for commands", 30_000);
-  await capture(context, controller, `${label}-fx-prompt-visible`);
+  await capture(context, controller, `${label}-y2-prompt-visible`);
 }
 
 async function submitSlashCommand(
@@ -382,9 +382,9 @@ async function submitSlashCommand(
   await capture(context, controller, event);
 }
 
-async function quitFx(context: NativeContext, controller: NativeController, label: string): Promise<void> {
+async function quitY2(context: NativeContext, controller: NativeController, label: string): Promise<void> {
   await controller.sendText("/quit");
-  await capture(context, controller, `${label}-fx-quit-requested`);
+  await capture(context, controller, `${label}-y2-quit-requested`);
   await waitForText(controller, PROMPT_TEXT, 20_000);
   await capture(context, controller, `${label}-post-quit-shell-prompt`);
 }
@@ -708,12 +708,12 @@ function preflightNative(scenario: NativeScenario): void {
   if (process.platform !== "darwin") {
     throw new Error(`${scenario.name} requires macOS native terminal automation`);
   }
-  if (!existsSync(FX_BIN)) {
-    throw new Error(`fx binary not found at ${FX_BIN}. Run zig build first.`);
+  if (!existsSync(Y2_BIN)) {
+    throw new Error(`y2 binary not found at ${Y2_BIN}. Run zig build first.`);
   }
-  const stat = statSync(FX_BIN);
+  const stat = statSync(Y2_BIN);
   if (!stat.isFile() || (stat.mode & 0o111) === 0) {
-    throw new Error(`fx binary is not executable at ${FX_BIN}`);
+    throw new Error(`y2 binary is not executable at ${Y2_BIN}`);
   }
   if (!existsSync(scenario.appPath)) {
     throw new Error(`${scenario.appName} app not found at ${scenario.appPath}`);
@@ -740,14 +740,14 @@ function startShellCommand(
     "-u",
     "Y2_API_KEY",
     "-u",
-    "VERCEL_OIDC_TOKEN",
+    "REMOVED_LEGACY_OIDC_TOKEN",
     `HOME=${shQuote(fixture.home)}`,
     `ZDOTDIR=${shQuote(fixture.zdotdir)}`,
     `HISTFILE=${shQuote(fixture.histfile)}`,
     `SHELL=${shQuote(zshPath())}`,
     `TERM_PROGRAM=${shQuote(scenario.termProgram)}`,
-    `FX_TRACE_LOG=${shQuote(manifest.traceLogPath)}`,
-    `FX_TRACE_SCOPES=${shQuote(TRACE_SCOPES)}`,
+    `Y2_TRACE_LOG=${shQuote(manifest.traceLogPath)}`,
+    `Y2_TRACE_SCOPES=${shQuote(TRACE_SCOPES)}`,
     ...markerEnv,
     shQuote(zshPath()),
     "-i",
@@ -756,7 +756,7 @@ function startShellCommand(
 }
 
 function createFixture(runId: string): Fixture {
-  const root = realpathSync(mkdtempSync(join(shortTempBase(), "fxrl-native-")));
+  const root = realpathSync(mkdtempSync(join(shortTempBase(), "y2rl-native-")));
   const fixture = {
     root,
     home: join(root, "h"),
@@ -770,7 +770,7 @@ function createFixture(runId: string): Fixture {
   writeFileSync(join(fixture.work, "run-id.txt"), `${runId}\n`);
   writeFileSync(
     join(fixture.zdotdir, ".zshrc"),
-    ["PROMPT='FX_RENDER_LAB%% '", "RPROMPT=''", "setopt NO_BEEP", ""].join("\n"),
+    ["PROMPT='Y2_RENDER_LAB%% '", "RPROMPT=''", "setopt NO_BEEP", ""].join("\n"),
   );
   return fixture;
 }
@@ -797,7 +797,7 @@ function writeFrame(manifest: RenderLabManifest, frame: RenderLabFrame): void {
 async function writeReplaySummary(manifest: RenderLabManifest): Promise<void> {
   try {
     const output = execFileSync(
-      FX_BIN,
+      Y2_BIN,
       ["replay", manifest.tapePath, "--json", "--golden", manifest.finalGridPath],
       { cwd: REPO_ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] },
     );

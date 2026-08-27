@@ -4,7 +4,7 @@ const contracts = @import("contracts.zig");
 const Allocator = std.mem.Allocator;
 
 pub const header_len: usize = 28;
-const magic = "FXTH";
+const magic = "Y2TH";
 
 pub const DecodeError = error{
     TruncatedFrame,

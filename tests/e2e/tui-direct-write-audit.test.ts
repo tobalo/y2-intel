@@ -38,7 +38,7 @@ ${"    _ = shell.stdout_file.writeStreaming(io, &.{}, &.{bytes}, 1);\n".repeat(w
 }
 
 function runFixture(fixture: Fixture): ReturnType<typeof spawnSync> {
-  const root = mkdtempSync(join(tmpdir(), "fx-direct-write-audit-"));
+  const root = mkdtempSync(join(tmpdir(), "y2-direct-write-audit-"));
   try {
     writeFrameCommit(root);
     writeSource(root, fixture.path, fixture.source);
@@ -244,7 +244,7 @@ describe("tui: direct-write audit", () => {
 
   test("requires exactly one normal interactive frame commit", () => {
     for (const writes of [0, 2]) {
-      const root = mkdtempSync(join(tmpdir(), "fx-direct-write-audit-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-direct-write-audit-"));
       try {
         if (writes > 0) writeFrameCommit(root, writes);
         const result = spawnSync("bun", [auditScript, "--repo-root", root], {

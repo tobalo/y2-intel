@@ -1295,10 +1295,10 @@ test "profile usage store leaves an incomplete tail intact when repair exceeds r
     defer tmp.cleanup();
     try tmp.dir.createDir(
         io_mod.getIo(),
-        ".fx",
+        ".y2",
         std.Io.Dir.Permissions.fromMode(0o700),
     );
-    var profile = try tmp.dir.openDir(io_mod.getIo(), ".fx", .{ .iterate = true });
+    var profile = try tmp.dir.openDir(io_mod.getIo(), ".y2", .{ .iterate = true });
     defer profile.close(io_mod.getIo());
     profile.setPermissions(io_mod.getIo(), .fromMode(0o700)) catch
         return error.SkipZigTest;
@@ -1349,10 +1349,10 @@ test "profile usage store repairs an existing profile directory to private mode"
     defer tmp.cleanup();
     try tmp.dir.createDir(
         io_mod.getIo(),
-        ".fx",
+        ".y2",
         std.Io.File.Permissions.fromMode(0o755),
     );
-    var profile = try tmp.dir.openDir(io_mod.getIo(), ".fx", .{ .iterate = true });
+    var profile = try tmp.dir.openDir(io_mod.getIo(), ".y2", .{ .iterate = true });
     defer profile.close(io_mod.getIo());
     profile.setPermissions(io_mod.getIo(), .fromMode(0o755)) catch
         return error.SkipZigTest;
@@ -1383,10 +1383,10 @@ test "profile usage reads reject an unsafe profile directory without repairing i
     defer tmp.cleanup();
     try tmp.dir.createDir(
         io_mod.getIo(),
-        ".fx",
+        ".y2",
         std.Io.File.Permissions.fromMode(0o755),
     );
-    var profile = try tmp.dir.openDir(io_mod.getIo(), ".fx", .{ .iterate = true });
+    var profile = try tmp.dir.openDir(io_mod.getIo(), ".y2", .{ .iterate = true });
     defer profile.close(io_mod.getIo());
     profile.setPermissions(io_mod.getIo(), .fromMode(0o755)) catch
         return error.SkipZigTest;
@@ -1430,10 +1430,10 @@ test "profile usage store decodes a large ledger with stable id indexing" {
     defer tmp.cleanup();
     try tmp.dir.createDir(
         io_mod.getIo(),
-        ".fx",
+        ".y2",
         std.Io.File.Permissions.fromMode(0o700),
     );
-    var profile = try tmp.dir.openDir(io_mod.getIo(), ".fx", .{ .iterate = true });
+    var profile = try tmp.dir.openDir(io_mod.getIo(), ".y2", .{ .iterate = true });
     defer profile.close(io_mod.getIo());
     profile.setPermissions(io_mod.getIo(), .fromMode(0o700)) catch
         return error.SkipZigTest;
@@ -1646,14 +1646,14 @@ test "profile usage store refuses a symlinked ledger leaf" {
         AppendOutcome.appended,
         try store.appendFact(alloc, first),
     );
-    try tmp.dir.deleteFile(io_mod.getIo(), ".fx/usage.jsonl");
+    try tmp.dir.deleteFile(io_mod.getIo(), ".y2/usage.jsonl");
     var outside = try tmp.dir.createFile(io_mod.getIo(), "outside-usage", .{});
     try outside.writeStreamingAll(io_mod.getIo(), "outside");
     outside.close(io_mod.getIo());
     tmp.dir.symLink(
         io_mod.getIo(),
         "../outside-usage",
-        ".fx/usage.jsonl",
+        ".y2/usage.jsonl",
         .{ .is_directory = false },
     ) catch |err| switch (err) {
         error.AccessDenied => return error.SkipZigTest,

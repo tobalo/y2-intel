@@ -437,9 +437,9 @@ fn composeEmptyRow(
 
 fn skillSourceScopeLabel(source: skill_runtime.SkillSource) []const u8 {
     return switch (source) {
-        .global_fx => "Fx · Global",
-        .workspace_fx => "fx · Workspace",
-        .workspace_shared => "Fx · Workspace",
+        .global_fx => "Y2 · Global",
+        .workspace_fx => "y2 · Workspace",
+        .workspace_shared => "Y2 · Workspace",
         .workspace_opencode => "OpenCode · Workspace",
         .global_opencode => "OpenCode · Global",
         .workspace_codex => "Codex · Workspace",
@@ -466,7 +466,7 @@ fn visibleSkillCount(projection: SkillsMenuProjection) usize {
 }
 
 test "skills menu labels native workspace skills with lowercase product name" {
-    try std.testing.expectEqualStrings("fx · Workspace", skillSourceScopeLabel(.workspace_fx));
+    try std.testing.expectEqualStrings("y2 · Workspace", skillSourceScopeLabel(.workspace_fx));
 }
 
 test "skills menu renders source tabs and single-line results" {
@@ -543,18 +543,18 @@ test "skills menu narrow header always shows the active source" {
             display_width.visibleWidthIgnoringAnsi(all_header.items) <= width,
         );
 
-        var fx_prepared = try prepareSkillsMenu(alloc, .{
+        var y2_prepared = try prepareSkillsMenu(alloc, .{
             .active = true,
             .items = &skills,
-            .source_filter = .fx,
+            .source_filter = .y2,
         }, 3);
-        defer fx_prepared.deinit(alloc);
-        var fx_header = try composeSkillsMenuRow(alloc, fx_prepared, 0, width);
-        defer fx_header.deinit(alloc);
-        try std.testing.expect(std.mem.find(u8, fx_header.items, "[fx]") != null);
-        try std.testing.expect(std.mem.find(u8, fx_header.items, "[Fx]") == null);
+        defer y2_prepared.deinit(alloc);
+        var y2_header = try composeSkillsMenuRow(alloc, y2_prepared, 0, width);
+        defer y2_header.deinit(alloc);
+        try std.testing.expect(std.mem.find(u8, y2_header.items, "[y2]") != null);
+        try std.testing.expect(std.mem.find(u8, y2_header.items, "[Y2]") == null);
         try std.testing.expect(
-            display_width.visibleWidthIgnoringAnsi(fx_header.items) <= width,
+            display_width.visibleWidthIgnoringAnsi(y2_header.items) <= width,
         );
     }
 }

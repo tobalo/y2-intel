@@ -9,7 +9,7 @@ import unittest
 from scripts.pgso.model import PgsoError, sha256_file
 from scripts.pgso.pipeline import (
     BENCHMARK_USE_FLAGS,
-    FX_MACHINE_OUTLINER_FLAGS,
+    Y2_MACHINE_OUTLINER_FLAGS,
     GENERATION_FLAGS,
     PROFILE_SECTION_ALIGNMENTS,
     USE_FLAGS,
@@ -41,7 +41,7 @@ from scripts.pgso.toolchain import Toolchain
 class PgsoPipelineTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="fx-pgso-pipeline-"
+            prefix="y2-pgso-pipeline-"
         )
         self.root = pathlib.Path(self.temporary_directory.name)
         self.paths = PipelinePaths.create(self.root / "run")
@@ -125,7 +125,7 @@ class PgsoPipelineTests(unittest.TestCase):
             (
                 "-machine-outliner-reruns=1",
             ),
-            FX_MACHINE_OUTLINER_FLAGS,
+            Y2_MACHINE_OUTLINER_FLAGS,
         )
         self.assertEqual(
             (
@@ -202,7 +202,7 @@ class PgsoPipelineTests(unittest.TestCase):
         self.assertIn("-Doptimize=ReleaseSafe", control)
         self.assertIn("-Dupdate-channel=stable", control)
         self.assertIn("pgso-ir", ir)
-        self.assertIn("-Dpgso-artifact=fx", ir)
+        self.assertIn("-Dpgso-artifact=y2", ir)
         self.assertNotEqual(
             control[control.index("--cache-dir") + 1],
             ir[ir.index("--cache-dir") + 1],
@@ -287,7 +287,7 @@ class PgsoPipelineTests(unittest.TestCase):
             ),
             candidate,
         )
-        for flag in FX_MACHINE_OUTLINER_FLAGS:
+        for flag in Y2_MACHINE_OUTLINER_FLAGS:
             self.assertIn(flag, candidate_object)
             self.assertNotIn(flag, benchmark_object)
 
@@ -350,7 +350,7 @@ with pathlib.Path({str(actions)!r}).open('a') as stream:
         )
 
     def test_bitcode_hash_must_match_the_original(self) -> None:
-        bitcode = self.root / "fx.bc"
+        bitcode = self.root / "y2.bc"
         bitcode.write_bytes(b"release-safe bitcode")
 
         validate_bitcode_hash(bitcode, sha256_file(bitcode))

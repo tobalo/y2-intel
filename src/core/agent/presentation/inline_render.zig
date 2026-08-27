@@ -328,7 +328,7 @@ fn emitInlineLink(
     const id = link_id.*;
     link_id.* +%= 1;
     var id_buf: [32]u8 = undefined;
-    const open = std.fmt.bufPrint(&id_buf, "\x1b]8;id=fx-{d};", .{id}) catch unreachable;
+    const open = std.fmt.bufPrint(&id_buf, "\x1b]8;id=y2-{d};", .{id}) catch unreachable;
     try out.appendSlice(alloc, open);
     try out.appendSlice(alloc, link.destination_prefix);
     try out.appendSlice(alloc, link.url);

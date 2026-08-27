@@ -3,22 +3,22 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>fx terminal WebAssembly demo</title>
+  <title>y2 terminal WebAssembly demo</title>
   <script>
     // The production packager replaces these defaults with content-addressed values.
-    const fxWasmAsset = "./fx-term.wasm";
-    const fxWasmIntegrity = "";
-    const fxWasmUrl = fxWasmAsset === "./fx-term.wasm" &&
+    const y2WasmAsset = "./y2-term.wasm";
+    const y2WasmIntegrity = "";
+    const y2WasmUrl = y2WasmAsset === "./y2-term.wasm" &&
       (location.hostname === "localhost" || location.hostname === "127.0.0.1")
-      ? "../zig-out/bin/fx-term.wasm"
-      : fxWasmAsset;
-    globalThis.__fxWasmModule = null;
+      ? "../zig-out/bin/y2-term.wasm"
+      : y2WasmAsset;
+    globalThis.__y2WasmModule = null;
     if (typeof WebAssembly.Suspending === "function" && typeof WebAssembly.promising === "function") {
-      const response = fetch(fxWasmUrl, fxWasmIntegrity ? { integrity: fxWasmIntegrity } : undefined);
-      globalThis.__fxWasmModule = typeof WebAssembly.compileStreaming === "function"
+      const response = fetch(y2WasmUrl, y2WasmIntegrity ? { integrity: y2WasmIntegrity } : undefined);
+      globalThis.__y2WasmModule = typeof WebAssembly.compileStreaming === "function"
         ? WebAssembly.compileStreaming(response)
         : response.then((value) => value.arrayBuffer()).then((bytes) => WebAssembly.compile(bytes));
-      globalThis.__fxWasmModule.catch(() => {});
+      globalThis.__y2WasmModule.catch(() => {});
     }
   </script>
   <link rel="modulepreload" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/+esm">
@@ -60,7 +60,7 @@
   <script type="module">
     import { Terminal } from "@xterm/xterm";
     import { FitAddon } from "@xterm/addon-fit";
-    import { createFxTerminal, supportsJspi, xtermAdapter } from "./browser.js";
+    import { createY2Terminal, supportsJspi, xtermAdapter } from "./browser.js";
 
     const terminal = new Terminal({
       cursorBlink: true,
@@ -99,39 +99,39 @@
     terminal.focus();
 
     const configStore = {
-      get(id) { return localStorage.getItem(`fx.core.config.${id}`); },
-      set(id, value) { localStorage.setItem(`fx.core.config.${id}`, value); },
+      get(id) { return localStorage.getItem(`y2.core.config.${id}`); },
+      set(id, value) { localStorage.setItem(`y2.core.config.${id}`, value); },
     };
     const promptHistoryStore = {
       load(workspaceRoot, limit) {
-        const values = JSON.parse(localStorage.getItem(`fx.term.history.${workspaceRoot}`) || "[]");
+        const values = JSON.parse(localStorage.getItem(`y2.term.history.${workspaceRoot}`) || "[]");
         return values.slice(-limit);
       },
       append(workspaceRoot, value) {
-        const key = `fx.term.history.${workspaceRoot}`;
+        const key = `y2.term.history.${workspaceRoot}`;
         const values = JSON.parse(localStorage.getItem(key) || "[]");
         if (values.at(-1) === value) return "duplicate";
         values.push(value);
         localStorage.setItem(key, JSON.stringify(values.slice(-100)));
       },
-      clear(workspaceRoot) { localStorage.removeItem(`fx.term.history.${workspaceRoot}`); },
+      clear(workspaceRoot) { localStorage.removeItem(`y2.term.history.${workspaceRoot}`); },
     };
 
     if (!supportsJspi()) {
-      terminal.write("fx requires Chrome or Edge 137+ with JSPI support.\r\n");
-      window.__fxTerminal = { terminal, fitAddon, resizeObserver, unsupported: true };
+      terminal.write("y2 requires Chrome or Edge 137+ with JSPI support.\r\n");
+      window.__y2Terminal = { terminal, fitAddon, resizeObserver, unsupported: true };
     } else {
-      const runtime = await createFxTerminal({
-        wasm: globalThis.__fxWasmModule,
+      const runtime = await createY2Terminal({
+        wasm: globalThis.__y2WasmModule,
         terminal: xtermAdapter(terminal),
         env: {
-          FX_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
+          Y2_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
           OPENAI_API_KEY: "browser-session",
         },
         configStore,
         promptHistoryStore,
       });
-      window.__fxTerminal = { runtime, terminal, fitAddon, resizeObserver };
+      window.__y2Terminal = { runtime, terminal, fitAddon, resizeObserver };
     }
   </script>
 </body>

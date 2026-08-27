@@ -3160,7 +3160,7 @@ test "staged soft-wrapped presentation resumes across committed projections" {
     const stable_flow = "base\n";
     const filler_row_count: usize = @as(usize, std.math.maxInt(u16)) - 3;
     const link_url = "https://staged.example";
-    const link_params = "id=fx-42";
+    const link_params = "id=y2-42";
     const presentation_open =
         "\x1b[1;31m\x1b[9m" ++
         "\x1b]8;" ++ link_params ++ ";" ++ link_url ++ "\x1b\\";
@@ -7684,8 +7684,8 @@ test "attempt source projections leave transcript runtime and commit state uncha
 
 fn checkPrepareTranscriptSourceAllocationFailures(alloc: Allocator) !void {
     const welcome =
-        "Fx welcome banner line one\n" ++
-        "Fx welcome banner line two\n";
+        "Y2 welcome banner line one\n" ++
+        "Y2 welcome banner line two\n";
     const summary = "● 2 command lines folded\n";
     var runtime = TranscriptRuntime{
         .layout = transcriptTestLayout(24, 10, 6),
@@ -10006,7 +10006,7 @@ test "replaceable line with ansi wrapper does not accumulate historical entries"
     try std.testing.expectEqualStrings("start\n\x1b[38;5;245mline two\n\x1b[0m", runtime.transcript.items);
 }
 
-test "updateExtraInputRows shrink preserves pre-fx scrollback" {
+test "updateExtraInputRows shrink preserves pre-y2 scrollback" {
     var sink = try std.Io.Dir.openFileAbsolute(io_mod.getIo(), "/dev/null", .{ .mode = .write_only });
     defer sink.close(io_mod.getIo());
 
@@ -12101,7 +12101,7 @@ test "command output retention preserves its artifact detail owner" {
         .entry_id = detail_entry_id,
         .tool_name = "run_command",
         .arguments_json = "{\"command\":\"generate output\"}",
-        .result = "output_file=/tmp/fx-command-retained.log\n",
+        .result = "output_file=/tmp/y2-command-retained.log\n",
         .result_handle = "result-run-command.txt",
         .turn_id = 1,
         .call_id = "retained-command",
@@ -14612,7 +14612,7 @@ test "transcript lifecycle terminal and finalization transitions stay batch safe
         const expected_line = if (case.kind == .cancelled)
             try std.fmt.bufPrint(
                 &expected,
-                "{s}{s}{s} {s}{s}{s} · What can fx do differently?\n",
+                "{s}{s}{s} {s}{s}{s} · What can y2 do differently?\n",
                 .{
                     case.marker_style,
                     case.marker,
@@ -14735,7 +14735,7 @@ test "transcript lifecycle terminal markers preserve ANSI summaries and normaliz
     try expectRawEntryBytes(&runtime, styled_cancelled_entry_id, try std.fmt.bufPrint(
         &styled_cancelled_expected,
         "{s}■{s}{s} Cancelled\x1b[0m \x1b[38;5;245msleep 30\x1b[0m{s}" ++
-            " · What can fx do differently?\n",
+            " · What can y2 do differently?\n",
         .{
             ui_render.warning_style,
             ui_render.reset_style,
@@ -14767,7 +14767,7 @@ test "transcript lifecycle terminal markers preserve ANSI summaries and normaliz
     var cancelled_expected: [128]u8 = undefined;
     try expectRawEntryBytes(&runtime, cancelled_entry_id, try std.fmt.bufPrint(
         &cancelled_expected,
-        "{s}■{s} {s}Tool cancelled{s} · What can fx do differently?\n",
+        "{s}■{s} {s}Tool cancelled{s} · What can y2 do differently?\n",
         .{
             ui_render.warning_style,
             ui_render.reset_style,

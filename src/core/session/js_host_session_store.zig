@@ -31,7 +31,7 @@ pub const Metadata = struct {
     }
 };
 
-extern "fx" fn fx_session_load(
+extern "y2" fn y2_session_load(
     id_ptr: [*]const u8,
     id_len: usize,
     bytes_ptr: [*]u8,
@@ -41,7 +41,7 @@ extern "fx" fn fx_session_load(
     revision_len_out: *usize,
 ) i32;
 
-extern "fx" fn fx_session_commit(
+extern "y2" fn y2_session_commit(
     id_ptr: [*]const u8,
     id_len: usize,
     bytes_ptr: [*]const u8,
@@ -53,12 +53,12 @@ extern "fx" fn fx_session_commit(
     revision_len_out: *usize,
 ) i32;
 
-extern "fx" fn fx_session_list(
+extern "y2" fn y2_session_list(
     response_ptr: [*]u8,
     response_cap: usize,
 ) i32;
 
-extern "fx" fn fx_session_remove(
+extern "y2" fn y2_session_remove(
     id_ptr: [*]const u8,
     id_len: usize,
 ) i32;
@@ -72,7 +72,7 @@ pub fn load(alloc: Allocator, id: []const u8) !?Loaded {
         const revision_buffer = try alloc.alloc(u8, revision_capacity);
         defer alloc.free(revision_buffer);
         var revision_len: usize = 0;
-        const encoded_len = fx_session_load(
+        const encoded_len = y2_session_load(
             id.ptr,
             id.len,
             encoded.ptr,
@@ -121,7 +121,7 @@ pub fn commit(
     defer alloc.free(revision_buffer);
     var revision_len: usize = 0;
     const expected = expected_revision orelse "";
-    const status = fx_session_commit(
+    const status = y2_session_commit(
         state.id.ptr,
         state.id.len,
         encoded.written().ptr,
@@ -142,7 +142,7 @@ pub fn list(alloc: Allocator) ![]Metadata {
     while (true) {
         const response = try alloc.alloc(u8, capacity);
         defer alloc.free(response);
-        const response_len = fx_session_list(response.ptr, response.len);
+        const response_len = y2_session_list(response.ptr, response.len);
         if (response_len == -2) {
             capacity = nextCapacity(capacity, max_list_bytes) orelse return error.SessionListTooLarge;
             continue;
@@ -174,7 +174,7 @@ pub fn list(alloc: Allocator) ![]Metadata {
 }
 
 pub fn remove(id: []const u8) !void {
-    const status = fx_session_remove(id.ptr, id.len);
+    const status = y2_session_remove(id.ptr, id.len);
     if (status < 0) return error.SessionStoreUnavailable;
 }
 

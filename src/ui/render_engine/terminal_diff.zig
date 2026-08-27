@@ -587,7 +587,7 @@ fn composeWireFrame(
     terminal_scroll_bytes: []const u8,
 ) !usize {
     if (input.surface.plan.reset_terminal and input.history_reset_uses_ris) {
-        // RIS clears modes that fx enables at startup, so restore them before repainting.
+        // RIS clears modes that y2 enables at startup, so restore them before repainting.
         try wire_frame.writer.writeAll("\x1bc");
         try wire_frame.writer.writeAll(ui_terminal.interactive_mode_enable_sequence);
     }

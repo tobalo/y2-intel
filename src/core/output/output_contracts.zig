@@ -759,8 +759,8 @@ pub const ModelListSnapshot = struct {
         const reason = self.public_only_reason orelse return "Using the public model catalog.";
         return switch (reason) {
             .no_credential => "Using the public model catalog; add an API key to load authenticated models.",
-            .fx_login_team_required => "The saved legacy account cannot load private models; add an API key.",
-            .fx_login_refresh_required => "The saved legacy account must refresh before private models can load.",
+            .retired_login_team_required => "The saved legacy account cannot load private models; add an API key.",
+            .retired_login_refresh_required => "The saved legacy account must refresh before private models can load.",
             .credential_refresh_failed => "The saved credential could not refresh; using the public model catalog.",
             .authenticated_credential_rejected => "Your API credential was rejected; using the public model catalog.",
             .chatgpt_subscription => "Codex models require an authenticated Codex catalog.",
@@ -808,13 +808,13 @@ pub const SessionListSnapshot = struct {
         }
         if (self.has_more) {
             try out.writer.print(
-                "[sessions] more saved sessions; continue with `fx sessions {s}--cursor {s}`\n",
+                "[sessions] more saved sessions; continue with `y2 sessions {s}--cursor {s}`\n",
                 .{ if (self.all_workspaces) "--all " else "", self.next_cursor orelse "" },
             );
         }
         if (self.skipped_invalid > 0) {
             try out.writer.print(
-                "[sessions] warning: skipped {d} unreadable saved session{s}; run `fx doctor` for recovery guidance\n",
+                "[sessions] warning: skipped {d} unreadable saved session{s}; run `y2 doctor` for recovery guidance\n",
                 .{ self.skipped_invalid, if (self.skipped_invalid == 1) "" else "s" },
             );
         }
@@ -1135,7 +1135,7 @@ pub const SessionRecoverySnapshot = struct {
         if (self.result.status == .indeterminate) {
             return std.fmt.allocPrint(
                 alloc,
-                "[session recovery] could not confirm target {s}\nsource: {s} (unchanged)\nresolve: fx --resume {s}\ninspect: fx doctor\n",
+                "[session recovery] could not confirm target {s}\nsource: {s} (unchanged)\nresolve: y2 --resume {s}\ninspect: y2 doctor\n",
                 .{
                     self.result.recovered_session_id,
                     self.result.source_session_id,
@@ -1146,7 +1146,7 @@ pub const SessionRecoverySnapshot = struct {
         if (self.result.status == .recovered_with_unverified_artifacts) {
             return std.fmt.allocPrint(
                 alloc,
-                "[session recovery] copied {s} to {s}\nhistory_turns: {d}\nwarning: legacy command artifacts could not be authenticated\nresume: fx --resume {s}\n",
+                "[session recovery] copied {s} to {s}\nhistory_turns: {d}\nwarning: legacy command artifacts could not be authenticated\nresume: y2 --resume {s}\n",
                 .{
                     self.result.source_session_id,
                     self.result.recovered_session_id,
@@ -1157,7 +1157,7 @@ pub const SessionRecoverySnapshot = struct {
         }
         return std.fmt.allocPrint(
             alloc,
-            "[session recovery] copied {s} to {s}\nhistory_turns: {d}\nresume: fx --resume {s}\n",
+            "[session recovery] copied {s} to {s}\nhistory_turns: {d}\nresume: y2 --resume {s}\n",
             .{
                 self.result.source_session_id,
                 self.result.recovered_session_id,
@@ -1604,9 +1604,9 @@ pub const UpgradeSnapshot = struct {
             },
             .up_to_date => {
                 if (std.mem.eql(u8, self.channel, "dev") and self.latest_revision.len > 0) {
-                    try out.writer.print("fx dev {s} is already up to date (", .{shortRevision(self.latest_revision)});
+                    try out.writer.print("y2 dev {s} is already up to date (", .{shortRevision(self.latest_revision)});
                 } else {
-                    try out.writer.writeAll("fx is already up to date (");
+                    try out.writer.writeAll("y2 is already up to date (");
                 }
                 try writeVersionWithPrefix(&out.writer, self.latest);
                 try out.writer.writeAll(")\n");
@@ -1959,9 +1959,9 @@ test "command failure snapshot renders stable escaped json" {
 test "core status snapshot text and json stay stable" {
     const snapshot = StatusSnapshot{
         .model = "alpha",
-        .auth_help = "Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.",
+        .auth_help = "Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.",
         .permission_mode = .ask,
-        .workspace_root = "/tmp/fx",
+        .workspace_root = "/tmp/y2",
         .history_turns = 3,
         .session_permission_grants = 1,
         .agent_step_limit = 24,
@@ -1970,14 +1970,14 @@ test "core status snapshot text and json stay stable" {
     const text = try snapshot.renderText(std.testing.allocator);
     defer std.testing.allocator.free(text);
     try std.testing.expectEqualStrings(
-        "[status] model=alpha\n[status] update_channel=stable\n[status] build_channel=stable\n[status] auth=missing\n[status] auth_refreshable=false\n[status] auth_help=Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\n[status] permission_mode=ask\n[status] workspace=/tmp/fx\n[status] history_turns=3\n[status] session_permission_grants=1\n[status] agent_step_limit=24\n",
+        "[status] model=alpha\n[status] update_channel=stable\n[status] build_channel=stable\n[status] auth=missing\n[status] auth_refreshable=false\n[status] auth_help=Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\n[status] permission_mode=ask\n[status] workspace=/tmp/y2\n[status] history_turns=3\n[status] session_permission_grants=1\n[status] agent_step_limit=24\n",
         text,
     );
 
     const json = try snapshot.renderJson(std.testing.allocator);
     defer std.testing.allocator.free(json);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"alpha\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/fx\",\"history_turns\":3,\"session_permission_grants\":1,\"agent_step_limit\":24}",
+        "{\"kind\":\"status\",\"model\":\"alpha\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/y2\",\"history_turns\":3,\"session_permission_grants\":1,\"agent_step_limit\":24}",
         json,
     );
 }
@@ -1985,9 +1985,9 @@ test "core status snapshot text and json stay stable" {
 test "core status snapshot includes selected team when present" {
     const snapshot = StatusSnapshot{
         .model = "alpha",
-        .auth = .{ .active_source = .fx_login, .team = "example-team" },
+        .auth = .{ .active_source = .retired_login, .team = "example-team" },
         .permission_mode = .ask,
-        .workspace_root = "/tmp/fx",
+        .workspace_root = "/tmp/y2",
         .history_turns = 0,
         .session_permission_grants = 0,
         .agent_step_limit = 24,
@@ -1996,14 +1996,14 @@ test "core status snapshot includes selected team when present" {
     const text = try snapshot.renderText(std.testing.allocator);
     defer std.testing.allocator.free(text);
     try std.testing.expectEqualStrings(
-        "[status] model=alpha\n[status] update_channel=stable\n[status] build_channel=stable\n[status] auth=fx login\n[status] auth_refreshable=true\n[status] team=example-team\n[status] permission_mode=ask\n[status] workspace=/tmp/fx\n[status] history_turns=0\n[status] session_permission_grants=0\n[status] agent_step_limit=24\n",
+        "[status] model=alpha\n[status] update_channel=stable\n[status] build_channel=stable\n[status] auth=y2 login\n[status] auth_refreshable=true\n[status] team=example-team\n[status] permission_mode=ask\n[status] workspace=/tmp/y2\n[status] history_turns=0\n[status] session_permission_grants=0\n[status] agent_step_limit=24\n",
         text,
     );
 
     const json = try snapshot.renderJson(std.testing.allocator);
     defer std.testing.allocator.free(json);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"alpha\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"fx login\",\"auth_refreshable\":true,\"team\":\"example-team\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":24}",
+        "{\"kind\":\"status\",\"model\":\"alpha\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"y2 login\",\"auth_refreshable\":true,\"team\":\"example-team\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/y2\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":24}",
         json,
     );
 }
@@ -2018,7 +2018,7 @@ test "status distinguishes the selected model route from connected providers" {
             .chatgpt_connected = true,
         },
         .permission_mode = .auto,
-        .workspace_root = "/tmp/fx",
+        .workspace_root = "/tmp/y2",
         .history_turns = 0,
         .session_permission_grants = 0,
         .agent_step_limit = 24,
@@ -2038,7 +2038,7 @@ test "MCP config diagnostic renders in status text and JSON but not interactive 
     const snapshot = StatusSnapshot{
         .model = "alpha",
         .permission_mode = .ask,
-        .workspace_root = "/tmp/fx",
+        .workspace_root = "/tmp/y2",
         .history_turns = 0,
         .session_permission_grants = 0,
         .agent_step_limit = 24,
@@ -2234,7 +2234,7 @@ test "core session list snapshot text and json stay stable" {
     defer std.testing.allocator.free(paged_text);
     try std.testing.expectEqualStrings(
         "[sessions] 1 saved\n - Session title\n   id=abc | 3 turns | Spanish | updated 1970-01-01 00:00:00.002 UTC\n" ++
-            "[sessions] more saved sessions; continue with `fx sessions --cursor v1:2:abc`\n",
+            "[sessions] more saved sessions; continue with `y2 sessions --cursor v1:2:abc`\n",
         paged_text,
     );
 
@@ -2399,7 +2399,7 @@ test "core empty session detail snapshot text and json stay stable" {
     const detail = session_store.ReadOnlyDetail{
         .summary = .{
             .id = @constCast("sess-empty"),
-            .workspace_root = @constCast("/tmp/fx"),
+            .workspace_root = @constCast("/tmp/y2"),
             .created_at_ms = 1,
             .updated_at_ms = 2,
             .conversation_language = types.ConversationLanguage.literal("en"),
@@ -2407,8 +2407,8 @@ test "core empty session detail snapshot text and json stay stable" {
         },
         .state = .{
             .id = @constCast("sess-empty"),
-            .origin_workspace_root = @constCast("/tmp/fx"),
-            .workspace_root = @constCast("/tmp/fx"),
+            .origin_workspace_root = @constCast("/tmp/y2"),
+            .workspace_root = @constCast("/tmp/y2"),
             .created_at_ms = 1,
             .updated_at_ms = 2,
             .conversation_language = types.ConversationLanguage.literal("en"),
@@ -2482,7 +2482,7 @@ test "core session detail snapshot preserves history variant shapes" {
     const detail = session_store.ReadOnlyDetail{
         .summary = .{
             .id = @constCast("sess-history"),
-            .workspace_root = @constCast("/tmp/fx"),
+            .workspace_root = @constCast("/tmp/y2"),
             .created_at_ms = 1,
             .updated_at_ms = 2,
             .conversation_language = types.ConversationLanguage.literal("es"),
@@ -2490,8 +2490,8 @@ test "core session detail snapshot preserves history variant shapes" {
         },
         .state = .{
             .id = @constCast("sess-history"),
-            .origin_workspace_root = @constCast("/tmp/fx"),
-            .workspace_root = @constCast("/tmp/fx"),
+            .origin_workspace_root = @constCast("/tmp/y2"),
+            .workspace_root = @constCast("/tmp/y2"),
             .created_at_ms = 1,
             .updated_at_ms = 2,
             .conversation_language = types.ConversationLanguage.literal("es"),
@@ -2542,7 +2542,7 @@ test "core session detail JSON includes assistant execution memory" {
         .output_bytes = 48,
         .stored_output_bytes = 48,
         .command_output_replay = .{ .available = .{
-            .handle = "fx-command-replay-private-sentinel.bin",
+            .handle = "y2-command-replay-private-sentinel.bin",
             .framed_bytes = 77,
         } },
         .command_process_presentation = .{ .exit_code = 9 },
@@ -2560,7 +2560,7 @@ test "core session detail JSON includes assistant execution memory" {
     const detail = session_store.ReadOnlyDetail{
         .summary = .{
             .id = @constCast("sess-exec"),
-            .workspace_root = @constCast("/tmp/fx"),
+            .workspace_root = @constCast("/tmp/y2"),
             .created_at_ms = 1,
             .updated_at_ms = 2,
             .conversation_language = types.ConversationLanguage.literal("en"),
@@ -2568,8 +2568,8 @@ test "core session detail JSON includes assistant execution memory" {
         },
         .state = .{
             .id = @constCast("sess-exec"),
-            .origin_workspace_root = @constCast("/tmp/fx"),
-            .workspace_root = @constCast("/tmp/fx"),
+            .origin_workspace_root = @constCast("/tmp/y2"),
+            .workspace_root = @constCast("/tmp/y2"),
             .created_at_ms = 1,
             .updated_at_ms = 2,
             .conversation_language = types.ConversationLanguage.literal("en"),
@@ -2592,7 +2592,7 @@ test "core session detail JSON includes assistant execution memory" {
     try std.testing.expect(std.mem.find(u8, json, "artifact-file.pdf") != null);
     try std.testing.expect(std.mem.find(u8, json, "command_output_replay") == null);
     try std.testing.expect(std.mem.find(u8, json, "command_process_presentation") == null);
-    try std.testing.expect(std.mem.find(u8, json, "fx-command-replay-private-sentinel.bin") == null);
+    try std.testing.expect(std.mem.find(u8, json, "y2-command-replay-private-sentinel.bin") == null);
 }
 
 test "core session migration snapshot text and json stay stable" {
@@ -2630,7 +2630,7 @@ test "core session recovery snapshot text and json stay stable" {
     );
     defer std.testing.allocator.free(text);
     try std.testing.expectEqualStrings(
-        "[session recovery] copied source-session to recovered-session\nhistory_turns: 4\nresume: fx --resume recovered-session\n",
+        "[session recovery] copied source-session to recovered-session\nhistory_turns: 4\nresume: y2 --resume recovered-session\n",
         text,
     );
 
@@ -2654,7 +2654,7 @@ test "core session recovery snapshot text and json stay stable" {
     }).renderText(std.testing.allocator);
     defer std.testing.allocator.free(partial_text);
     try std.testing.expectEqualStrings(
-        "[session recovery] copied source-session to partial-session\nhistory_turns: 4\nwarning: legacy command artifacts could not be authenticated\nresume: fx --resume partial-session\n",
+        "[session recovery] copied source-session to partial-session\nhistory_turns: 4\nwarning: legacy command artifacts could not be authenticated\nresume: y2 --resume partial-session\n",
         partial_text,
     );
     const partial_json = try (SessionRecoverySnapshot{
@@ -2677,7 +2677,7 @@ test "core session recovery snapshot text and json stay stable" {
     }).renderText(std.testing.allocator);
     defer std.testing.allocator.free(warning);
     try std.testing.expectEqualStrings(
-        "[session recovery] could not confirm target target-session\nsource: source-session (unchanged)\nresolve: fx --resume target-session\ninspect: fx doctor\n",
+        "[session recovery] could not confirm target target-session\nsource: source-session (unchanged)\nresolve: y2 --resume target-session\ninspect: y2 doctor\n",
         warning,
     );
 }
@@ -2688,7 +2688,7 @@ test "core doctor snapshot text and json stay stable" {
         .{ .name = @constCast("gh"), .status = .warn, .detail = @constCast("GitHub CLI not found in PATH") },
     };
     const snapshot = DoctorSnapshot{
-        .workspace_root = "/tmp/fx",
+        .workspace_root = "/tmp/y2",
         .model = "alpha",
         .auth = .{ .active_source = .api_key },
         .permission_mode = .ask,
@@ -2699,14 +2699,14 @@ test "core doctor snapshot text and json stay stable" {
     const text = try snapshot.renderText(std.testing.allocator);
     defer std.testing.allocator.free(text);
     try std.testing.expectEqualStrings(
-        "[doctor] ok=1 warn=1 fail=0\n[doctor] workspace=/tmp/fx\n[doctor] model=alpha\n[doctor] auth=API key\n[doctor] auth_refreshable=false\n[doctor] permission_mode=ask\n[doctor] agent_step_limit=24\n[ok] auth: Y2_API_KEY is configured\n[warn] gh: GitHub CLI not found in PATH\n",
+        "[doctor] ok=1 warn=1 fail=0\n[doctor] workspace=/tmp/y2\n[doctor] model=alpha\n[doctor] auth=API key\n[doctor] auth_refreshable=false\n[doctor] permission_mode=ask\n[doctor] agent_step_limit=24\n[ok] auth: Y2_API_KEY is configured\n[warn] gh: GitHub CLI not found in PATH\n",
         text,
     );
 
     const json = try snapshot.renderJson(std.testing.allocator);
     defer std.testing.allocator.free(json);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"doctor\",\"ok_count\":1,\"warn_count\":1,\"fail_count\":0,\"workspace\":\"/tmp/fx\",\"model\":\"alpha\",\"auth\":\"API key\",\"auth_refreshable\":false,\"permission_mode\":\"ask\",\"agent_step_limit\":24,\"checks\":[{\"name\":\"auth\",\"status\":\"ok\",\"detail\":\"Y2_API_KEY is configured\"},{\"name\":\"gh\",\"status\":\"warn\",\"detail\":\"GitHub CLI not found in PATH\"}]}",
+        "{\"kind\":\"doctor\",\"ok_count\":1,\"warn_count\":1,\"fail_count\":0,\"workspace\":\"/tmp/y2\",\"model\":\"alpha\",\"auth\":\"API key\",\"auth_refreshable\":false,\"permission_mode\":\"ask\",\"agent_step_limit\":24,\"checks\":[{\"name\":\"auth\",\"status\":\"ok\",\"detail\":\"Y2_API_KEY is configured\"},{\"name\":\"gh\",\"status\":\"warn\",\"detail\":\"GitHub CLI not found in PATH\"}]}",
         json,
     );
 }
@@ -2722,8 +2722,8 @@ test "core background list and detail snapshots preserve persisted fields" {
             .id = 7,
             .pid = @constCast("100"),
             .command = @constCast("npm run dev"),
-            .cwd = @constCast("/tmp/fx"),
-            .log_path = @constCast("/tmp/fx.log"),
+            .cwd = @constCast("/tmp/y2"),
+            .log_path = @constCast("/tmp/y2.log"),
             .expect_url = false,
             .server_url = @constCast("http://localhost:3000"),
             .started_at_ms = 1,
@@ -2735,7 +2735,7 @@ test "core background list and detail snapshots preserve persisted fields" {
     const list_json = try (BackgroundListSnapshot{ .records = &records }).renderJson(std.testing.allocator);
     defer std.testing.allocator.free(list_json);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"background\",\"count\":1,\"records\":[{\"id\":7,\"started_at_ms\":1,\"updated_at_ms\":2,\"pid\":\"100\",\"command\":\"npm run dev\",\"cwd\":\"/tmp/fx\",\"log_path\":\"/tmp/fx.log\",\"state\":\"running\",\"server_url\":\"http://localhost:3000\",\"diagnostic\":null}]}",
+        "{\"kind\":\"background\",\"count\":1,\"records\":[{\"id\":7,\"started_at_ms\":1,\"updated_at_ms\":2,\"pid\":\"100\",\"command\":\"npm run dev\",\"cwd\":\"/tmp/y2\",\"log_path\":\"/tmp/y2.log\",\"state\":\"running\",\"server_url\":\"http://localhost:3000\",\"diagnostic\":null}]}",
         list_json,
     );
 
@@ -2748,7 +2748,7 @@ test "core background list and detail snapshots preserve persisted fields" {
     const detail_json = try (BackgroundDetailSnapshot{ .record = records[0] }).renderJson(std.testing.allocator);
     defer std.testing.allocator.free(detail_json);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"background_detail\",\"id\":7,\"started_at_ms\":1,\"updated_at_ms\":2,\"pid\":\"100\",\"command\":\"npm run dev\",\"cwd\":\"/tmp/fx\",\"log_path\":\"/tmp/fx.log\",\"state\":\"running\",\"expect_url\":false,\"server_url\":\"http://localhost:3000\",\"diagnostic\":null,\"exit_code\":null}",
+        "{\"kind\":\"background_detail\",\"id\":7,\"started_at_ms\":1,\"updated_at_ms\":2,\"pid\":\"100\",\"command\":\"npm run dev\",\"cwd\":\"/tmp/y2\",\"log_path\":\"/tmp/y2.log\",\"state\":\"running\",\"expect_url\":false,\"server_url\":\"http://localhost:3000\",\"diagnostic\":null,\"exit_code\":null}",
         detail_json,
     );
 }
@@ -2858,7 +2858,7 @@ test "core upgrade snapshot renders errors and statuses" {
 
     const up_to_date_text = try up_to_date.renderText(std.testing.allocator);
     defer std.testing.allocator.free(up_to_date_text);
-    try std.testing.expectEqualStrings("fx is already up to date (v0.2.10)\n", up_to_date_text);
+    try std.testing.expectEqualStrings("y2 is already up to date (v0.2.10)\n", up_to_date_text);
 
     const failed_text = try (UpgradeSnapshot{
         .current = "0.2.9",

@@ -1033,7 +1033,7 @@ fn writeCompactJson(alloc: Allocator, writer: *std.Io.Writer, json: []const u8) 
 }
 
 fn writeMetadata(writer: *std.Io.Writer) !void {
-    try writer.writeAll("{\"io.modelcontextprotocol/related-task\":{\"taskId\":\"fx-test\"}}");
+    try writer.writeAll("{\"io.modelcontextprotocol/related-task\":{\"taskId\":\"y2-test\"}}");
 }
 
 test "resource and template pagination publishes complete sorted snapshots" {

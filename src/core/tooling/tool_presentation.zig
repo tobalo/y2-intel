@@ -633,7 +633,7 @@ test "run command presentation resolves registered compatibility" {
     const call = ToolCall{
         .id = "install",
         .name = "run_command",
-        .arguments_json = "{\"command\":\"npx skills add vercel-labs/agent-skills -g -y\"}",
+        .arguments_json = "{\"command\":\"npx skills add example-org/agent-skills -g -y\"}",
     };
     const activity = (try formatRunCommandActivity(alloc, test_tool_registry, "", call)) orelse
         return error.TestExpectedEqual;
@@ -644,11 +644,11 @@ test "run command presentation resolves registered compatibility" {
 
     const action = try formatPlainAction(alloc, .{ .tool_registry = test_tool_registry, .call = call });
     defer alloc.free(action);
-    try std.testing.expectEqualStrings("Installing skill npx skills add vercel-labs/agent-skills -g -y", action);
+    try std.testing.expectEqualStrings("Installing skill npx skills add example-org/agent-skills -g -y", action);
 
     const permission = try formatPermissionLabel(alloc, test_tool_registry, call);
     defer alloc.free(permission);
-    try std.testing.expectEqualStrings("install_skill npx skills add vercel-labs/agent-skills -g -y", permission);
+    try std.testing.expectEqualStrings("install_skill npx skills add example-org/agent-skills -g -y", permission);
 }
 
 test "run command activity projects line boundaries without changing other bytes" {
@@ -830,7 +830,7 @@ test "tool presentation formats permission labels" {
     const cwd = try formatPermissionLabel(alloc, test_tool_registry, .{
         .id = "command",
         .name = "run_command",
-        .arguments_json = "{\"command\":\"npm test\",\"cwd\":\"/tmp/fx\"}",
+        .arguments_json = "{\"command\":\"npm test\",\"cwd\":\"/tmp/y2\"}",
     });
     defer alloc.free(cwd);
     try std.testing.expectEqualStrings("terminal.exec npm test", cwd);
@@ -856,7 +856,7 @@ test "tool presentation preserves plain action fallbacks" {
         .{ .call = .{ .id = "ask", .name = "ask_user_question", .arguments_json = "{}" }, .expected = "Asking " },
         .{ .call = .{ .id = "memory", .name = "memory", .arguments_json = "{\"action\":\"save\"}" }, .expected = "Remembering save" },
         .{ .call = .{ .id = "skill", .name = "skill", .arguments_json = "{\"name\":\"workflow\"}" }, .expected = "Loading skill workflow" },
-        .{ .call = .{ .id = "install", .name = "install_skill", .arguments_json = "{\"source\":\"vercel-labs/agent-skills\",\"skill\":\"workflow\"}" }, .expected = "Installing skill vercel-labs/agent-skills" },
+        .{ .call = .{ .id = "install", .name = "install_skill", .arguments_json = "{\"source\":\"example-org/agent-skills\",\"skill\":\"workflow\"}" }, .expected = "Installing skill example-org/agent-skills" },
         .{ .call = .{ .id = "copy", .name = "copy_file", .arguments_json = "{\"source\":\"src/a.zig\",\"destination\":\"src/b.zig\"}" }, .expected = "Copying src/a.zig -> src/b.zig" },
         .{ .call = .{ .id = "rename", .name = "rename_file", .arguments_json = "{\"old_path\":\"src/a.zig\",\"new_path\":\"src/b.zig\"}" }, .expected = "Renaming src/a.zig -> src/b.zig" },
         .{ .call = .{ .id = "unknown", .name = "unknown_tool", .arguments_json = "{}" }, .expected = "Working: unknown_tool" },

@@ -1,4 +1,4 @@
-//! `fx replay <tape>` implementation.
+//! `y2 replay <tape>` implementation.
 //!
 //! This module keeps tape parsing and virtual-terminal replay isolated from
 //! the top-level CLI dispatch.
@@ -83,18 +83,18 @@ fn runWithOutput(alloc: Allocator, args: []const [:0]const u8, output: anytype) 
     });
 
     const file = std.Io.Dir.cwd().openFile(io_mod.getIo(), opts.path, .{}) catch |err| {
-        return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "fx replay: cannot open {s}: {s}\n", .{ opts.path, @errorName(err) }, "fx replay: open failed\n");
+        return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "y2 replay: cannot open {s}: {s}\n", .{ opts.path, @errorName(err) }, "y2 replay: open failed\n");
     };
     var file_mut = file;
     defer file_mut.close(io_mod.getIo());
 
     const bytes = io_mod.readFileToEnd(alloc, &file_mut, 64 * 1024 * 1024) catch |err| {
-        return replyFormattedError(alloc, output, opts.json, @errorName(err), 256, "fx replay: read failed: {s}\n", .{@errorName(err)}, "fx replay: read failed\n");
+        return replyFormattedError(alloc, output, opts.json, @errorName(err), 256, "y2 replay: read failed: {s}\n", .{@errorName(err)}, "y2 replay: read failed\n");
     };
     defer alloc.free(bytes);
 
     var parser = record_tape.Parser.init(bytes) catch |err| {
-        return replyFormattedError(alloc, output, opts.json, @errorName(err), 256, "fx replay: bad tape: {s}\n", .{@errorName(err)}, "fx replay: bad tape\n");
+        return replyFormattedError(alloc, output, opts.json, @errorName(err), 256, "y2 replay: bad tape: {s}\n", .{@errorName(err)}, "y2 replay: bad tape\n");
     };
     debug_trace.logf("render", "replay_header cols={d} rows={d} version_bytes={d}", .{
         parser.header.cols,
@@ -128,7 +128,7 @@ fn runWithOutput(alloc: Allocator, args: []const [:0]const u8, output: anytype) 
 
     if (opts.frames_dir) |dir| {
         prepareFramesDir(alloc, dir) catch |err| {
-            return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "fx replay: cannot prepare frames dir {s}: {s}\n", .{ dir, @errorName(err) }, "fx replay: cannot prepare frames dir\n");
+            return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "y2 replay: cannot prepare frames dir {s}: {s}\n", .{ dir, @errorName(err) }, "y2 replay: cannot prepare frames dir\n");
         };
     }
 
@@ -181,7 +181,7 @@ fn runWithOutput(alloc: Allocator, args: []const [:0]const u8, output: anytype) 
 
         if (opts.frames_dir) |dir| {
             writeFrameArtifacts(alloc, dir, frame_count, frame, elapsed_ms, grid, markers.items) catch |err| {
-                return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "fx replay: cannot write frame artifacts to {s}: {s}\n", .{ dir, @errorName(err) }, "fx replay: cannot write frame artifacts\n");
+                return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "y2 replay: cannot write frame artifacts to {s}: {s}\n", .{ dir, @errorName(err) }, "y2 replay: cannot write frame artifacts\n");
             };
         }
     }
@@ -199,12 +199,12 @@ fn runWithOutput(alloc: Allocator, args: []const [:0]const u8, output: anytype) 
         try output.writeStdout(summary.written());
     }
     if (ignored_incomplete_tail) {
-        try output.writeStderr("fx replay: ignored incomplete final tape frame\n");
+        try output.writeStderr("y2 replay: ignored incomplete final tape frame\n");
     }
 
     if (opts.frames_dir) |dir| {
         writeFramesManifest(alloc, dir, parser.header, frame_count, resize_count, stdout_bytes) catch |err| {
-            return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "fx replay: cannot write frames manifest to {s}: {s}\n", .{ dir, @errorName(err) }, "fx replay: cannot write frames manifest\n");
+            return replyFormattedError(alloc, output, opts.json, @errorName(err), 512, "y2 replay: cannot write frames manifest to {s}: {s}\n", .{ dir, @errorName(err) }, "y2 replay: cannot write frames manifest\n");
         };
     }
 
@@ -214,7 +214,7 @@ fn runWithOutput(alloc: Allocator, args: []const [:0]const u8, output: anytype) 
 
     if (opts.golden_path) |out_path| {
         var out_file = std.Io.Dir.cwd().createFile(io_mod.getIo(), out_path, .{ .truncate = true }) catch |err| {
-            return replyFormattedError(alloc, output, opts.json, @errorName(err), 256, "fx replay: cannot write {s}: {s}\n", .{ out_path, @errorName(err) }, "fx replay: write failed\n");
+            return replyFormattedError(alloc, output, opts.json, @errorName(err), 256, "y2 replay: cannot write {s}: {s}\n", .{ out_path, @errorName(err) }, "y2 replay: write failed\n");
         };
         defer out_file.close(io_mod.getIo());
         try out_file.writeStreamingAll(io_mod.getIo(), final.items);
@@ -433,12 +433,12 @@ fn replyParseError(
     json: bool,
 ) !u8 {
     const msg = switch (err) {
-        Error.MissingTapePath => "fx replay: missing tape path\nusage: fx replay <tape> [--frames] [--json] [--golden <path>] [--frames-dir <path>]\n",
-        Error.TooManyArgs => "fx replay: too many positional arguments\n",
-        Error.UnknownFlag => "fx replay: unknown flag\n",
-        Error.MissingGoldenPath => "fx replay: --golden requires a path\n",
-        Error.MissingFramesDirPath => "fx replay: --frames-dir requires a path\n",
-        else => "fx replay: argument error\n",
+        Error.MissingTapePath => "y2 replay: missing tape path\nusage: y2 replay <tape> [--frames] [--json] [--golden <path>] [--frames-dir <path>]\n",
+        Error.TooManyArgs => "y2 replay: too many positional arguments\n",
+        Error.UnknownFlag => "y2 replay: unknown flag\n",
+        Error.MissingGoldenPath => "y2 replay: --golden requires a path\n",
+        Error.MissingFramesDirPath => "y2 replay: --frames-dir requires a path\n",
+        else => "y2 replay: argument error\n",
     };
     return replyError(alloc, output, json, @errorName(err), msg);
 }
@@ -554,14 +554,14 @@ const testing = std.testing;
 test "parseArgs requires a positional tape path" {
     try testing.expectError(Error.MissingTapePath, parseArgs(&.{}));
     try testing.expectError(Error.MissingTapePath, parseArgs(&.{ "--frames", "--json" }));
-    const opts = try parseArgs(&.{"tape.fxtape"});
-    try testing.expectEqualStrings("tape.fxtape", opts.path);
+    const opts = try parseArgs(&.{"tape.y2tape"});
+    try testing.expectEqualStrings("tape.y2tape", opts.path);
     try testing.expect(!opts.frames);
 }
 
 test "parseArgs accepts supported flags" {
-    const opts = try parseArgs(&.{ "--frames", "t.fxtape", "--json", "--golden", "out.txt", "--frames-dir", "frames-out" });
-    try testing.expectEqualStrings("t.fxtape", opts.path);
+    const opts = try parseArgs(&.{ "--frames", "t.y2tape", "--json", "--golden", "out.txt", "--frames-dir", "frames-out" });
+    try testing.expectEqualStrings("t.y2tape", opts.path);
     try testing.expect(opts.frames);
     try testing.expect(opts.json);
     try testing.expectEqualStrings("out.txt", opts.golden_path.?);
@@ -569,10 +569,10 @@ test "parseArgs accepts supported flags" {
 }
 
 test "parseArgs rejects invalid forms" {
-    try testing.expectError(Error.TooManyArgs, parseArgs(&.{ "a.fxtape", "b.fxtape" }));
-    try testing.expectError(Error.UnknownFlag, parseArgs(&.{ "a.fxtape", "--unknown" }));
-    try testing.expectError(Error.MissingGoldenPath, parseArgs(&.{ "a.fxtape", "--golden" }));
-    try testing.expectError(Error.MissingFramesDirPath, parseArgs(&.{ "a.fxtape", "--frames-dir" }));
+    try testing.expectError(Error.TooManyArgs, parseArgs(&.{ "a.y2tape", "b.y2tape" }));
+    try testing.expectError(Error.UnknownFlag, parseArgs(&.{ "a.y2tape", "--unknown" }));
+    try testing.expectError(Error.MissingGoldenPath, parseArgs(&.{ "a.y2tape", "--golden" }));
+    try testing.expectError(Error.MissingFramesDirPath, parseArgs(&.{ "a.y2tape", "--frames-dir" }));
 }
 
 test "minimal stdout tape replays to final grid snapshot" {
@@ -580,7 +580,7 @@ test "minimal stdout tape replays to final grid snapshot" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "stdout.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "stdout.y2tape");
     defer alloc.free(tape_path);
 
     const tape = try buildTape(alloc, 5, 2, "vtest", &.{
@@ -605,7 +605,7 @@ test "frames mode prints non-marker frame snapshots only" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "frames.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "frames.y2tape");
     defer alloc.free(tape_path);
 
     const tape = try buildTape(alloc, 4, 1, "vtest", &.{
@@ -632,7 +632,7 @@ test "json summary reports frame resize and stdout metadata" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "summary.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "summary.y2tape");
     defer alloc.free(tape_path);
 
     const resize = resizePayload(2, 2);
@@ -660,7 +660,7 @@ test "json output escapes metadata strings" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "escape.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "escape.y2tape");
     defer alloc.free(tape_path);
 
     const version = "v\"\\\n\t" ++ [_]u8{1};
@@ -687,7 +687,7 @@ test "json output includes unknown frame metadata without altering grid" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "unknown-json.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "unknown-json.y2tape");
     defer alloc.free(tape_path);
 
     const tape = try buildTape(alloc, 3, 1, "vtest", &.{
@@ -717,7 +717,7 @@ test "json replay recovers an incomplete final frame through stderr" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "truncated-tail.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "truncated-tail.y2tape");
     defer alloc.free(tape_path);
     const tape = try buildTape(alloc, 4, 1, "vtest", &.{
         .{ .delta_ms = 0, .kind = .stdout, .payload = "ok" },
@@ -740,7 +740,7 @@ test "json replay recovers an incomplete final frame through stderr" {
     var parsed = try std.json.parseFromSlice(std.json.Value, alloc, std.mem.trim(u8, capture.stdout.written(), " \t\r\n"), .{});
     defer parsed.deinit();
     try testing.expectEqual(@as(i64, 1), parsed.value.object.get("frame_count").?.integer);
-    try testing.expectEqualStrings("fx replay: ignored incomplete final tape frame\n", capture.stderr.written());
+    try testing.expectEqualStrings("y2 replay: ignored incomplete final tape frame\n", capture.stderr.written());
 }
 
 test "frames mode prints unknown frame snapshots without trapping" {
@@ -748,7 +748,7 @@ test "frames mode prints unknown frame snapshots without trapping" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "unknown-frames.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "unknown-frames.y2tape");
     defer alloc.free(tape_path);
 
     const tape = try buildTape(alloc, 3, 1, "vtest", &.{
@@ -772,7 +772,7 @@ test "golden path writes final snapshot and suppresses final stdout" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "golden.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "golden.y2tape");
     defer alloc.free(tape_path);
     const golden_path = try testPath(alloc, tmp.dir, "golden.txt");
     defer alloc.free(golden_path);
@@ -804,7 +804,7 @@ test "frames-dir writes manifest and per-frame grid artifacts" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "frames-dir.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "frames-dir.y2tape");
     defer alloc.free(tape_path);
     const frames_dir = try testPath(alloc, tmp.dir, "frames-dir-out");
     defer alloc.free(frames_dir);
@@ -861,7 +861,7 @@ test "run missing tape path returns current stderr" {
 
     const exit_code = try runCaptured(alloc, &.{}, &capture);
     try testing.expectEqual(@as(u8, 1), exit_code);
-    try testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx replay: missing tape path\n"));
+    try testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "y2 replay: missing tape path\n"));
 }
 
 test "json failures use stdout for missing arguments files and malformed tapes" {
@@ -880,7 +880,7 @@ test "json failures use stdout for missing arguments files and malformed tapes" 
     defer missing_file.deinit();
     try testing.expectEqual(
         @as(u8, 1),
-        try runCaptured(alloc, &.{ "/definitely/missing/fx-replay.fxtape", "--json" }, &missing_file),
+        try runCaptured(alloc, &.{ "/definitely/missing/y2-replay.y2tape", "--json" }, &missing_file),
     );
     try testing.expectEqual(@as(usize, 0), missing_file.stderr.written().len);
     var missing_json = try std.json.parseFromSlice(
@@ -895,7 +895,7 @@ test "json failures use stdout for missing arguments files and malformed tapes" 
 
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
-    const path = try testPath(alloc, tmp.dir, "bad-json.fxtape");
+    const path = try testPath(alloc, tmp.dir, "bad-json.y2tape");
     defer alloc.free(path);
     try writeTestFile(path, "not a tape");
     const path_arg: [:0]u8 = try alloc.dupeZ(u8, path);
@@ -922,7 +922,7 @@ test "run malformed tape returns bad tape stderr" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const tape_path = try testPath(alloc, tmp.dir, "malformed.fxtape");
+    const tape_path = try testPath(alloc, tmp.dir, "malformed.y2tape");
     defer alloc.free(tape_path);
     try writeTestFile(tape_path, "not a tape");
     const tape_arg = try alloc.dupeZ(u8, tape_path);
@@ -933,5 +933,5 @@ test "run malformed tape returns bad tape stderr" {
 
     const exit_code = try runCaptured(alloc, &.{tape_arg}, &capture);
     try testing.expectEqual(@as(u8, 1), exit_code);
-    try testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx replay: bad tape"));
+    try testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "y2 replay: bad tape"));
 }

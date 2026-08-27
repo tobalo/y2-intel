@@ -388,7 +388,7 @@ fn composeUsageStatusRow(
     else if (snapshot.completeness != .complete)
         completenessMessage(snapshot)
     else
-        "Local Fx activity";
+        "Local Y2 activity";
     return composeStyledRow(alloc, status, width, ui_render.dim_style);
 }
 
@@ -1071,7 +1071,7 @@ fn testUsageTotals(tokens: u64, cost: f64) usage_report.Totals {
 
 test "workspace menu keeps paths and status on the same width-safe row" {
     var entries = [_]workspace_access.Entry{.{
-        .path = @constCast("/Users/example/Developer/Fx/docs"),
+        .path = @constCast("/Users/example/Developer/Y2/docs"),
         .saved = true,
         .command_line = false,
         .available = true,
@@ -1080,7 +1080,7 @@ test "workspace menu keeps paths and status on the same width-safe row" {
     const projection: CompactCommandMenuProjection = .{ .workspace = .{
         .active = true,
         .selected_row = 1,
-        .primary_directory = "/Users/example/Developer/Fx",
+        .primary_directory = "/Users/example/Developer/Y2",
         .entries = &entries,
     } };
 
@@ -1088,12 +1088,12 @@ test "workspace menu keeps paths and status on the same width-safe row" {
     var primary = try composeCompactCommandMenuRow(std.testing.allocator, projection, 2, 8, 120);
     defer primary.deinit(std.testing.allocator);
     try std.testing.expect(std.mem.find(u8, primary.items, "Primary") != null);
-    try std.testing.expect(std.mem.find(u8, primary.items, "/Users/example/Developer/Fx") != null);
+    try std.testing.expect(std.mem.find(u8, primary.items, "/Users/example/Developer/Y2") != null);
 
     var entry = try composeCompactCommandMenuRow(std.testing.allocator, projection, 6, 8, 120);
     defer entry.deinit(std.testing.allocator);
     try std.testing.expect(std.mem.findScalar(u8, entry.items, '\n') == null);
-    try std.testing.expect(std.mem.find(u8, entry.items, "/Users/example/Developer/Fx/docs") != null);
+    try std.testing.expect(std.mem.find(u8, entry.items, "/Users/example/Developer/Y2/docs") != null);
     try std.testing.expect(std.mem.find(u8, entry.items, "Active · Saved") != null);
     try std.testing.expect(display_width.visibleWidthIgnoringAnsi(entry.items) <= 120);
 }

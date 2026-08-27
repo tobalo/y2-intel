@@ -314,7 +314,7 @@ test "path completion reports bounded storage and unavailable parents" {
     try std.testing.expectError(error.NoSpaceLeft, complete("/", "./", &results, &spans, &too_small));
 
     var paths: [file_index.max_path_len]u8 = undefined;
-    try std.testing.expectError(error.PathUnavailable, complete("/", "/definitely/missing/fx-path/", &results, &spans, &paths));
+    try std.testing.expectError(error.PathUnavailable, complete("/", "/definitely/missing/y2-path/", &results, &spans, &paths));
 }
 
 test "path completion validates the current explicit candidate kind" {

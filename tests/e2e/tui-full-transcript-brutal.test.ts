@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN } from "../evals/eval-helpers";
+import { Y2_BIN } from "../evals/eval-helpers";
 import {
   composerContains,
   FAKE_GATEWAY_MODEL,
@@ -130,7 +130,7 @@ function countOccurrences(text: string, needle: string): number {
 }
 
 function committedAssistantOccurrences(home: string, assistant: string): number {
-  const sessionsRoot = join(home, ".fx", "sessions");
+  const sessionsRoot = join(home, ".y2", "sessions");
   let count = 0;
   for (const entry of readdirSync(sessionsRoot, { withFileTypes: true })) {
     if (!entry.isDirectory() || entry.name === "latest") continue;
@@ -195,24 +195,24 @@ function gatewayEnv(
   return {
     HOME: home,
     Y2_API_KEY: "fake-full-transcript-brutal-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: FAKE_GATEWAY_MODEL,
-    FX_AUTO_UPGRADE: "0",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_AUTO_UPGRADE: "0",
     NO_COLOR: "1",
   };
 }
 
 function makeRoot(label: string): StressRoot {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), `fx-ctrl-o-${label}-`)));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), `y2-ctrl-o-${label}-`)));
   return {
     root,
     home: join(root, "home"),
     workspace: join(root, "workspace"),
     stderrPath: join(root, "stderr.log"),
     resumedStderrPath: join(root, "resumed-stderr.log"),
-    tapePath: join(root, "ctrl-o-brutal.fxtape"),
+    tapePath: join(root, "ctrl-o-brutal.y2tape"),
     metricsPath: join(root, "ctrl-o-latency.json"),
     profilePath: join(root, "ctrl-o.sample.txt"),
     tracePath: join(root, "ctrl-o-cache-trace.log"),
@@ -340,14 +340,14 @@ function prepareFixture(config: StressConfig): {
   totalTools: number;
 } {
   const paths = makeRoot(config.label);
-  mkdirSync(join(paths.home, ".fx"), { recursive: true });
+  mkdirSync(join(paths.home, ".y2"), { recursive: true });
   mkdirSync(paths.workspace);
   writeFileSync(paths.stderrPath, "");
   writeFileSync(paths.resumedStderrPath, "");
   writeFileSync(paths.tracePath, "");
   writeFileSync(paths.resumedTracePath, "");
   writeFileSync(
-    join(paths.home, ".fx", "settings.json"),
+    join(paths.home, ".y2", "settings.json"),
     JSON.stringify({
       sandbox: "none",
       permission_mode: "auto",
@@ -523,7 +523,7 @@ async function timeTransition(
   }
 }
 
-function fxProcessId(session: TmuxSession): number {
+function y2ProcessId(session: TmuxSession): number {
   const tty = execFileSync(
     "tmux",
     ["display-message", "-t", session.name, "-p", "#{pane_tty}"],
@@ -532,26 +532,26 @@ function fxProcessId(session: TmuxSession): number {
   const rows = execFileSync("ps", ["-t", tty, "-o", "pid=,comm="], {
     encoding: "utf8",
   }).trim().split("\n");
-  const pid = findFxProcessId(rows);
+  const pid = findY2ProcessId(rows);
   if (pid !== undefined) return pid;
-  throw new Error(`Unable to find Fx on ${tty}. Processes:\n${rows.join("\n")}`);
+  throw new Error(`Unable to find Y2 on ${tty}. Processes:\n${rows.join("\n")}`);
 }
 
-function findFxProcessId(rows: readonly string[]): number | undefined {
+function findY2ProcessId(rows: readonly string[]): number | undefined {
   for (const row of rows) {
     const match = row.trim().match(/^(\d+)\s+(.+)$/);
     if (!match) continue;
     const command = match[2]!;
-    if (command === "fx" || command === FX_BIN || command.endsWith("/fx")) {
+    if (command === "y2" || command === Y2_BIN || command.endsWith("/y2")) {
       return Number(match[1]);
     }
   }
   return undefined;
 }
 
-test("Fx process discovery accepts basename and path process names", () => {
-  expect(findFxProcessId(["11361 fx"])).toBe(11361);
-  expect(findFxProcessId(["11362 /workspace/zig-out/bin/fx"])).toBe(11362);
+test("Y2 process discovery accepts basename and path process names", () => {
+  expect(findY2ProcessId(["11361 y2"])).toBe(11361);
+  expect(findY2ProcessId(["11362 /workspace/zig-out/bin/y2"])).toBe(11362);
 });
 
 function residentKib(pid: number): number {
@@ -844,14 +844,14 @@ async function runStress(config: StressConfig): Promise<StressRoot> {
   let passed = false;
   try {
     session = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       cwd: realpathSync(paths.workspace),
       env: {
         ...gatewayEnv(paths.home, gateway),
-        FX_RECORD: paths.tapePath,
-        FX_RECORD_INPUT: "1",
-        FX_TRACE_LOG: paths.tracePath,
-        FX_TRACE_SCOPES:
+        Y2_RECORD: paths.tapePath,
+        Y2_RECORD_INPUT: "1",
+        Y2_TRACE_LOG: paths.tracePath,
+        Y2_TRACE_SCOPES:
           "full_transcript_cache,full_transcript,scroll,frame_render,terminal_diff,frame_schedule",
       },
       stderrPath: paths.stderrPath,
@@ -887,7 +887,7 @@ async function runStress(config: StressConfig): Promise<StressRoot> {
     await session.waitForText("Running ./ctrl-o-live.sh", TIMEOUT);
     await session.sendLiteralText(DRAFT);
     await waitForMode(session, "main", DRAFT);
-    const pid = fxProcessId(session);
+    const pid = y2ProcessId(session);
     const rssBeforeThrash = residentKib(pid);
     primaryRssKib.push(rssBeforeThrash);
 
@@ -1076,12 +1076,12 @@ async function runStress(config: StressConfig): Promise<StressRoot> {
     if (config.resumeCycles > 0) {
       resumedGateway = startFakeGateway([]);
       session = await TmuxSession.create({
-        cmd: `${FX_BIN} --resume-last`,
+        cmd: `${Y2_BIN} --resume-last`,
         cwd: realpathSync(paths.workspace),
         env: {
           ...gatewayEnv(paths.home, resumedGateway),
-          FX_TRACE_LOG: paths.resumedTracePath,
-          FX_TRACE_SCOPES:
+          Y2_TRACE_LOG: paths.resumedTracePath,
+          Y2_TRACE_SCOPES:
             "full_transcript_cache,full_transcript,scroll,frame_render,terminal_diff",
         },
         stderrPath: paths.resumedStderrPath,
@@ -1120,7 +1120,7 @@ async function runStress(config: StressConfig): Promise<StressRoot> {
       expect(resumedScrollback).toContain(HISTORY_DONE);
       await session.sendLiteralText(RESUME_DRAFT);
       await waitForMode(session, "main", RESUME_DRAFT);
-      const resumedPid = fxProcessId(session);
+      const resumedPid = y2ProcessId(session);
       resumedRssKib.push(residentKib(resumedPid));
       await thrashViewer(
         session,
@@ -1178,7 +1178,7 @@ test.skipIf(!tmuxAvailable())(
   180_000,
 );
 
-test.skipIf(!tmuxAvailable() || process.env.FX_CTRL_O_BRUTAL !== "1")(
+test.skipIf(!tmuxAvailable() || process.env.Y2_CTRL_O_BRUTAL !== "1")(
   "Ctrl-O extended brutal soak holds under four thousand chat lines and ninety six tools",
   async () => {
     await runStress({
@@ -1197,7 +1197,7 @@ test.skipIf(!tmuxAvailable() || process.env.FX_CTRL_O_BRUTAL !== "1")(
 
 test.skipIf(
   !tmuxAvailable() ||
-    process.env.FX_CTRL_O_PROFILE !== "1" ||
+    process.env.Y2_CTRL_O_PROFILE !== "1" ||
     platform() !== "darwin" ||
     !existsSync("/usr/bin/sample"),
 )(
@@ -1220,10 +1220,10 @@ test.skipIf(
   600_000,
 );
 
-test.skipIf(!tmuxAvailable() || process.env.FX_CTRL_O_50K !== "1")(
+test.skipIf(!tmuxAvailable() || process.env.Y2_CTRL_O_50K !== "1")(
   "Ctrl-O load test survives a realistic fifty-thousand-line session with large tool sidecars",
   async () => {
-    const profileSeconds = process.env.FX_CTRL_O_PROFILE === "1" &&
+    const profileSeconds = process.env.Y2_CTRL_O_PROFILE === "1" &&
         platform() === "darwin" &&
         existsSync("/usr/bin/sample")
       ? 30

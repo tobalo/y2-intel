@@ -94,7 +94,7 @@ pub const ContextOmissionSummaryBuilder = struct {
     pub fn add(self: *ContextOmissionSummaryBuilder, source: []const u8, reason: OmissionReason) void {
         self.omitted_count += 1;
         self.reason_counts[@intFromEnum(reason)] += 1;
-        self.hasher.update("fx.context.omission-record\x00");
+        self.hasher.update("y2.context.omission-record\x00");
         self.hasher.update(&.{@intFromEnum(reason)});
         hashUsize(&self.hasher, source.len);
         self.hasher.update(source);
@@ -104,7 +104,7 @@ pub const ContextOmissionSummaryBuilder = struct {
         if (summary.omitted_count == 0) return;
         self.omitted_count += summary.omitted_count;
         for (&self.reason_counts, summary.reason_counts) |*count, additional| count.* += additional;
-        self.hasher.update("fx.context.omission-summary\x00");
+        self.hasher.update("y2.context.omission-summary\x00");
         hashUsize(&self.hasher, summary.omitted_count);
         for (summary.reason_counts) |count| hashUsize(&self.hasher, count);
         self.hasher.update(&summary.digest);
@@ -370,7 +370,7 @@ fn appendDupedStrings(alloc: Allocator, destination: *std.ArrayList([]u8), strin
     }
 }
 
-pub const contract_name = "fx.shared_model_context.v1";
+pub const contract_name = "y2.shared_model_context.v1";
 
 pub const Fragment = enum {
     workspace_identity,
@@ -415,7 +415,7 @@ pub const EntryPoint = enum {
     fn label(self: EntryPoint) []const u8 {
         return switch (self) {
             .interactive => "interactive",
-            .ask => "fx ask",
+            .ask => "y2 ask",
             .acp => "ACP",
             .subagent => "subagent",
         };
@@ -476,7 +476,7 @@ const current_inventory = [_]EntrypointInventory{
         .static_context = "builtins/context captures one global/root/ancestor/applicable AGENTS.md snapshot before the prompt, then adds scoped deltas from effective structured tool targets",
         .transient_context = "tool_runtime transient context each model step with captured permission mode, noninteractive output callbacks, and no live user question path",
         .tools = "mode-filtered paired tool advertisement and included custom-provider guidance with permission rules and deferred MCP discovery",
-        .permission = "ask, --auto, or --yolo mode; approval-required actions fail with a noninteractive blocker instead of prompting unless yolo bypasses Fx policy",
+        .permission = "ask, --auto, or --yolo mode; approval-required actions fail with a noninteractive blocker instead of prompting unless yolo bypasses Y2 policy",
         .session = "fresh headless SessionRuntime, optional persisted session id, empty prior history, no local approval grants",
         .drift_status = .intentional,
         .drift = "noninteractive permission blockers and absent live clarification UI differ from interactive by design",
@@ -548,7 +548,7 @@ pub fn writeEntrypointLayoutSnapshot(writer: *std.Io.Writer) !void {
         \\  per_step_overlay_order: explicit_skill_chunks, transient_runtime_context
         \\  user_prompt_position: after stable system context and history
         \\  intentional_difference: live terminal approvals and clarification UI
-        \\- entrypoint: fx ask
+        \\- entrypoint: y2 ask
         \\  static_context_refresh: one applicable snapshot before the prompt; scoped deltas attach before affected tool execution
         \\  stable_prefix_initial_order: system_prompt, effective_custom_tool_guidance, visible_skills, optional_model_prompt_overlay, optional_interruption_or_resume_intent_context, shared_project_context, mcp_server_catalog, optional_prepared_parent_turn_delivery_context
         \\  stable_prefix_later_additions: applicable_project_context_deltas committed mid-turn when a tool batch has applicable targets
@@ -628,7 +628,7 @@ test "minimum shared model context contract snapshot" {
     defer std.testing.allocator.free(snapshot);
 
     try std.testing.expectEqualStrings(
-        \\contract: fx.shared_model_context.v1
+        \\contract: y2.shared_model_context.v1
         \\required_fragments:
         \\- workspace_identity: workspace root and current directory
         \\- repo_identity: git branch, worktree state, and sanitized GitHub origin when known
@@ -648,7 +648,7 @@ test "entrypoint context inventory snapshot documents current deltas" {
     defer std.testing.allocator.free(snapshot);
 
     try std.testing.expectEqualStrings(
-        \\contract: fx.shared_model_context.v1
+        \\contract: y2.shared_model_context.v1
         \\entrypoints:
         \\- entrypoint: interactive
         \\  assembly_path: main.App.enqueuePrompt -> app_agent_runtime.processQueuedPrompt -> agent_runtime dependencies
@@ -659,12 +659,12 @@ test "entrypoint context inventory snapshot documents current deltas" {
         \\  session: live SessionRuntime history plus persisted session/log/artifact stores when enabled
         \\  drift_status: intentional
         \\  drift: live terminal approvals, clarification UI, and full interactive tool surface differ from headless entrypoints by design
-        \\- entrypoint: fx ask
+        \\- entrypoint: y2 ask
         \\  assembly_path: cli_ask.runPromptInternal -> agent_runtime dependencies
         \\  static_context: builtins/context captures one global/root/ancestor/applicable AGENTS.md snapshot before the prompt, then adds scoped deltas from effective structured tool targets
         \\  transient_context: tool_runtime transient context each model step with captured permission mode, noninteractive output callbacks, and no live user question path
         \\  tools: mode-filtered paired tool advertisement and included custom-provider guidance with permission rules and deferred MCP discovery
-        \\  permission: ask, --auto, or --yolo mode; approval-required actions fail with a noninteractive blocker instead of prompting unless yolo bypasses Fx policy
+        \\  permission: ask, --auto, or --yolo mode; approval-required actions fail with a noninteractive blocker instead of prompting unless yolo bypasses Y2 policy
         \\  session: fresh headless SessionRuntime, optional persisted session id, empty prior history, no local approval grants
         \\  drift_status: intentional
         \\  drift: noninteractive permission blockers and absent live clarification UI differ from interactive by design
@@ -697,7 +697,7 @@ test "entrypoint model-visible layout snapshot covers major entrypoints" {
     defer std.testing.allocator.free(snapshot);
 
     try std.testing.expectEqualStrings(
-        \\contract: fx.shared_model_context.v1
+        \\contract: y2.shared_model_context.v1
         \\model_visible_layout:
         \\- entrypoint: interactive
         \\  static_context_refresh: one applicable snapshot before enqueue; scoped deltas attach before affected tool execution
@@ -706,7 +706,7 @@ test "entrypoint model-visible layout snapshot covers major entrypoints" {
         \\  per_step_overlay_order: explicit_skill_chunks, transient_runtime_context
         \\  user_prompt_position: after stable system context and history
         \\  intentional_difference: live terminal approvals and clarification UI
-        \\- entrypoint: fx ask
+        \\- entrypoint: y2 ask
         \\  static_context_refresh: one applicable snapshot before the prompt; scoped deltas attach before affected tool execution
         \\  stable_prefix_initial_order: system_prompt, effective_custom_tool_guidance, visible_skills, optional_model_prompt_overlay, optional_interruption_or_resume_intent_context, shared_project_context, mcp_server_catalog, optional_prepared_parent_turn_delivery_context
         \\  stable_prefix_later_additions: applicable_project_context_deltas committed mid-turn when a tool batch has applicable targets

@@ -187,7 +187,7 @@ fn nonNegativeU64(alloc: Allocator, value: std.json.Value) Error!?u64 {
 }
 
 fn writeMetadata(writer: *std.Io.Writer) !void {
-    try writer.writeAll("{\"io.modelcontextprotocol/related-task\":{\"taskId\":\"fx-test\"}}");
+    try writer.writeAll("{\"io.modelcontextprotocol/related-task\":{\"taskId\":\"y2-test\"}}");
 }
 
 test "completion result enforces count bytes total and hasMore" {

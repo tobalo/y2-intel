@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFx } from "../evals/eval-helpers";
+import { runY2 } from "../evals/eval-helpers";
 import {
   LEGACY_REMOTE_TOOL_RESULT,
   LEGACY_SSE_TOOL_RESULT,
@@ -70,19 +70,19 @@ function createRoot(
   remoteOverrides: Record<string, unknown> = {},
 ) {
   const root = realpathSync(
-    mkdtempSync(join(tmpdir(), `fx-mcp-legacy-${label}-`)),
+    mkdtempSync(join(tmpdir(), `y2-mcp-legacy-${label}-`)),
   );
   cleanupRoot = root;
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({}),
   );
   writeFileSync(
-    join(home, ".fx", "mcp.json"),
+    join(home, ".y2", "mcp.json"),
     JSON.stringify({
       mcp: {
         fixture: {
@@ -96,7 +96,7 @@ function createRoot(
       },
     }),
   );
-  return { root, home, workspace, traceLogPath: join(root, "fx-trace.log") };
+  return { root, home, workspace, traceLogPath: join(root, "y2-trace.log") };
 }
 
 function fixtureEnv(
@@ -106,15 +106,15 @@ function fixtureEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-mcp-legacy-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_AUTO_UPGRADE: "0",
-    FX_PERMISSION_MODE: "auto",
-    FX_GATEWAY_BASE_URL: activeGateway.baseUrl,
-    FX_API_CHAT_URL: activeGateway.chatUrl,
-    FX_E2E_GATEWAY_CHAT_URL: activeGateway.chatUrl,
-    FX_MODEL: MODEL,
-    FX_TRACE_LOG: root.traceLogPath,
-    FX_TRACE_SCOPES: "mcp",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_AUTO_UPGRADE: "0",
+    Y2_PERMISSION_MODE: "auto",
+    Y2_GATEWAY_BASE_URL: activeGateway.baseUrl,
+    Y2_API_CHAT_URL: activeGateway.chatUrl,
+    Y2_API_CHAT_URL: activeGateway.chatUrl,
+    Y2_MODEL: MODEL,
+    Y2_TRACE_LOG: root.traceLogPath,
+    Y2_TRACE_SCOPES: "mcp",
   };
 }
 
@@ -134,7 +134,7 @@ async function runAsk(
   prompt: string,
   extraEnv: Record<string, string> = {},
 ) {
-  return runFx(
+  return runY2(
     ["ask", "--json", "--auto", "--no-save", prompt],
     {
       cwd: root.workspace,
@@ -155,8 +155,8 @@ function preserveLegacyFailure(
   activeGateway: ReturnType<typeof startFakeGateway>,
 ): void {
   cleanupRoot = null;
-  writeFileSync(join(root.root, "fx-stdout.log"), result.stdout);
-  writeFileSync(join(root.root, "fx-stderr.log"), result.stderr);
+  writeFileSync(join(root.root, "y2-stdout.log"), result.stdout);
+  writeFileSync(join(root.root, "y2-stderr.log"), result.stderr);
   writeFileSync(
     join(root.root, "failure.json"),
     JSON.stringify({
@@ -169,7 +169,7 @@ function preserveLegacyFailure(
       gatewayRequests: activeGateway.requests.map((request) => request.body),
     }, null, 2),
   );
-  throw new Error(`fx ${label} failed; retained artifacts: ${root.root}`);
+  throw new Error(`y2 ${label} failed; retained artifacts: ${root.root}`);
 }
 
 describe("version-scoped legacy MCP remote transports", () => {
@@ -411,7 +411,7 @@ describe("version-scoped legacy MCP remote transports", () => {
   }, 30_000);
 
   for (const version of VERSIONS) {
-    test(`fresh fx ask calls Streamable HTTP ${version} with its lifecycle headers`, async () => {
+    test(`fresh y2 ask calls Streamable HTTP ${version} with its lifecycle headers`, async () => {
       streamable = startLegacyStreamableHttpFixture(version);
       const root = createRoot(`ask-${version}`, "http", streamable.url);
       gateway = startToolGateway(`${version} complete.`);
@@ -595,7 +595,7 @@ describe("version-scoped legacy MCP remote transports", () => {
             const openPath = join(fakeBin, name);
             writeFileSync(
               openPath,
-              "#!/bin/sh\nprintf '%s\\n' \"$1\" >> \"$FX_E2E_OPEN_LOG\"\nexit 0\n",
+              "#!/bin/sh\nprintf '%s\\n' \"$1\" >> \"$Y2_E2E_OPEN_LOG\"\nexit 0\n",
             );
             chmodSync(openPath, 0o755);
           }
@@ -633,7 +633,7 @@ describe("version-scoped legacy MCP remote transports", () => {
           ], {
             models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
           });
-          const binary = join(REPO_ROOT, "zig-out", "bin", "fx");
+          const binary = join(REPO_ROOT, "zig-out", "bin", "y2");
           tui = await TmuxSession.create({
             isolated: true,
             cwd: root.workspace,
@@ -644,7 +644,7 @@ describe("version-scoped legacy MCP remote transports", () => {
             env: {
               ...fixtureEnv(root, gateway),
               PATH: `${fakeBin}:${process.env.PATH ?? ""}`,
-              FX_E2E_OPEN_LOG: openLog,
+              Y2_E2E_OPEN_LOG: openLog,
             },
           });
 
@@ -882,7 +882,7 @@ describe("version-scoped legacy MCP remote transports", () => {
     expect(gateway.requests[2]?.body).toContain("McpAuthenticationRequired");
   }, 30_000);
 
-  test("fresh fx ask uses explicit HTTP+SSE endpoint discovery and message routing", async () => {
+  test("fresh y2 ask uses explicit HTTP+SSE endpoint discovery and message routing", async () => {
     legacySse = startLegacyHttpSseFixture();
     const root = createRoot(
       "sse-ask",

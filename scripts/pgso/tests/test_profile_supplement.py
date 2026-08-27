@@ -70,10 +70,10 @@ attributes #3 = { nounwind }
             verify_supplement_functions(
                 ir,
                 (
-                    "fx;core.output.diff.hot",
-                    "fx;core.output.diff.inlined",
+                    "y2;core.output.diff.hot",
+                    "y2;core.output.diff.inlined",
                 ),
-                production_module="fx",
+                production_module="y2",
             ),
         )
 
@@ -88,15 +88,15 @@ attributes #4 = { cold minsize nounwind }
         with self.assertRaisesRegex(PgsoError, "remained size-shaped"):
             verify_supplement_functions(
                 ir,
-                ("fx;core.output.diff.cold",),
-                production_module="fx",
+                ("y2;core.output.diff.cold",),
+                production_module="y2",
             )
 
     def test_extracts_only_compatible_functions_in_the_workload_family(self) -> None:
         production = profile_text(
-            ("fx;core.workspace.file_index.scoreAsciiRange", 41, (1, 0)),
-            ("fx;core.workspace.file_index.findWorstSlot", 42, (1,)),
-            ("fx;mem.Allocator.alloc", 43, (1,)),
+            ("y2;core.workspace.file_index.scoreAsciiRange", 41, (1, 0)),
+            ("y2;core.workspace.file_index.findWorstSlot", 42, (1,)),
+            ("y2;mem.Allocator.alloc", 43, (1,)),
         )
         benchmark = profile_text(
             (
@@ -116,18 +116,18 @@ attributes #4 = { cold minsize nounwind }
             production,
             benchmark,
             source_module="file-index-bench",
-            destination_module="fx",
+            destination_module="y2",
             allowed_prefixes=("core.workspace.file_index.",),
             speed_functions=("core.workspace.file_index.scoreAsciiRange",),
         )
 
         self.assertEqual(
-            ("fx;core.workspace.file_index.scoreAsciiRange",),
+            ("y2;core.workspace.file_index.scoreAsciiRange",),
             supplement.function_names,
         )
         self.assertEqual(3, supplement.total_counter_value)
         self.assertIn(
-            "fx;core.workspace.file_index.scoreAsciiRange",
+            "y2;core.workspace.file_index.scoreAsciiRange",
             supplement.text,
         )
         self.assertNotIn("findWorstSlot", supplement.text)
@@ -135,7 +135,7 @@ attributes #4 = { cold minsize nounwind }
 
     def test_rejects_a_family_without_a_compatible_nonzero_profile(self) -> None:
         production = profile_text(
-            ("fx;core.output.diff.compute", 7, (1,)),
+            ("y2;core.output.diff.compute", 7, (1,)),
         )
         benchmark = profile_text(
             ("approval-review-bench;core.output.diff.compute", 8, (10,)),
@@ -146,7 +146,7 @@ attributes #4 = { cold minsize nounwind }
                 production,
                 benchmark,
                 source_module="approval-review-bench",
-                destination_module="fx",
+                destination_module="y2",
                 allowed_prefixes=("core.output.diff.",),
                 speed_functions=("core.output.diff.compute",),
             )
@@ -159,14 +159,14 @@ attributes #4 = { cold minsize nounwind }
                 production,
                 zero_benchmark,
                 source_module="approval-review-bench",
-                destination_module="fx",
+                destination_module="y2",
                 allowed_prefixes=("core.output.diff.",),
                 speed_functions=("core.output.diff.compute",),
             )
 
     def test_normalizes_workload_counts_relative_to_production_cold_cutoff(self) -> None:
         production = profile_text(
-            ("fx;core.output.diff.compute", 7, (100, 50, 25, 25)),
+            ("y2;core.output.diff.compute", 7, (100, 50, 25, 25)),
         )
         benchmark = profile_text(
             (
@@ -180,7 +180,7 @@ attributes #4 = { cold minsize nounwind }
             production,
             benchmark,
             source_module="approval-review-bench",
-            destination_module="fx",
+            destination_module="y2",
             allowed_prefixes=("core.output.diff.",),
             speed_functions=("core.output.diff.compute",),
         )
@@ -190,7 +190,7 @@ attributes #4 = { cold minsize nounwind }
 
     def test_raises_a_low_workload_count_above_the_production_cold_cutoff(self) -> None:
         production = profile_text(
-            ("fx;core.output.diff.compute", 7, (100, 50, 25, 25)),
+            ("y2;core.output.diff.compute", 7, (100, 50, 25, 25)),
         )
         benchmark = profile_text(
             ("approval-review-bench;core.output.diff.compute", 7, (10, 5, 0, 1)),
@@ -200,7 +200,7 @@ attributes #4 = { cold minsize nounwind }
             production,
             benchmark,
             source_module="approval-review-bench",
-            destination_module="fx",
+            destination_module="y2",
             allowed_prefixes=("core.output.diff.",),
             speed_functions=("core.output.diff.compute",),
         )
@@ -209,7 +209,7 @@ attributes #4 = { cold minsize nounwind }
         self.assertEqual(160, supplement.total_counter_value)
 
     def test_rejects_malformed_counter_count(self) -> None:
-        production = profile_text(("fx;core.output.diff.compute", 7, (1,)))
+        production = profile_text(("y2;core.output.diff.compute", 7, (1,)))
         benchmark = profile_text(
             ("approval-review-bench;core.output.diff.compute", 7, (10,))
         ).replace("# Num Counters:\n1", "# Num Counters:\n2")
@@ -219,16 +219,16 @@ attributes #4 = { cold minsize nounwind }
                 production,
                 benchmark,
                 source_module="approval-review-bench",
-                destination_module="fx",
+                destination_module="y2",
                 allowed_prefixes=("core.output.diff.",),
                 speed_functions=("core.output.diff.compute",),
             )
 
     def test_maps_the_complete_production_summary_to_a_benchmark_safely(self) -> None:
         production = profile_text(
-            ("fx;core.output.diff.same", 7, (100, 50)),
-            ("fx;core.output.diff.changed", 8, (25,)),
-            ("fx;core.sessions.unused", 9, (10,)),
+            ("y2;core.output.diff.same", 7, (100, 50)),
+            ("y2;core.output.diff.changed", 8, (25,)),
+            ("y2;core.sessions.unused", 9, (10,)),
         )
         benchmark = profile_text(
             ("approval-review-bench;core.output.diff.same", 7, (1, 1)),
@@ -239,7 +239,7 @@ attributes #4 = { cold minsize nounwind }
         mapped = map_production_profile(
             production,
             benchmark,
-            source_module="fx",
+            source_module="y2",
             destination_module="approval-review-bench",
         )
 

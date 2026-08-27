@@ -1006,7 +1006,7 @@ fn buildListenRequest(
     var out: std.Io.Writer.Allocating = .init(alloc);
     defer out.deinit();
     try out.writer.print(
-        "{{\"jsonrpc\":\"2.0\",\"id\":{d},\"method\":\"subscriptions/listen\",\"params\":{{\"_meta\":{{\"io.modelcontextprotocol/protocolVersion\":\"{s}\",\"io.modelcontextprotocol/clientInfo\":{{\"name\":\"fx\",\"version\":",
+        "{{\"jsonrpc\":\"2.0\",\"id\":{d},\"method\":\"subscriptions/listen\",\"params\":{{\"_meta\":{{\"io.modelcontextprotocol/protocolVersion\":\"{s}\",\"io.modelcontextprotocol/clientInfo\":{{\"name\":\"y2\",\"version\":",
         .{ request_id, streamable_http.protocol_version },
     );
     try std.json.Stringify.value(build_options.app_version, .{}, &out.writer);

@@ -13,7 +13,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   composerContains,
   FAKE_GATEWAY_MODEL,
@@ -28,8 +28,8 @@ import {
 const TIMEOUT = 20_000;
 const NO_AUTH = {
   Y2_API_KEY: "",
-  VERCEL_OIDC_TOKEN: "",
-  FX_MODEL: undefined,
+  REMOVED_LEGACY_OIDC_TOKEN: "",
+  Y2_MODEL: undefined,
   NO_COLOR: "1",
 };
 
@@ -98,7 +98,7 @@ function tree(root: string, relative = ""): string[] {
 }
 
 function migrationSnapshotPath(home: string, field: string): string {
-  const backups = join(home, ".fx", "backups");
+  const backups = join(home, ".y2", "backups");
   const name = `settings.json.preference-migration.${field}.json`;
   expect(readdirSync(backups)).toContain(name);
   return join(backups, name);
@@ -126,7 +126,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "user preferences migrate globally and load in another project",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-config-persistence-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-config-persistence-"));
       const gateway = startFakeGateway([], {
         models: [{
           id: "anthropic/claude-opus-4.7",
@@ -142,17 +142,17 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const workspaceB = join(root, "workspace-b");
         const stderrAPath = join(root, "stderr-a.log");
         const stderrBPath = join(root, "stderr-b.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspaceA);
         mkdirSync(workspaceB);
         const workspaceARoot = realpathSync(workspaceA);
         const workspaceBRoot = realpathSync(workspaceB);
         const projectABytes = "{\"project_future\":{\"name\":\"a\"}}\n";
         const projectBBytes = "{\"project_future\":{\"name\":\"b\"}}\n";
-        writeFileSync(join(workspaceA, ".fx.json"), projectABytes);
-        writeFileSync(join(workspaceB, ".fx.json"), projectBBytes);
+        writeFileSync(join(workspaceA, ".y2.json"), projectABytes);
+        writeFileSync(join(workspaceB, ".y2.json"), projectBBytes);
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             future_global: { nested: "preserve-me" },
             workspaces: {
@@ -195,7 +195,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const catalogEnv = {
           ...NO_AUTH,
           HOME: home,
-          FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         };
 
         session = await TmuxSession.create({
@@ -208,7 +208,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.waitForText("auto ·", TIMEOUT);
         await session.pasteText("/model anthropic/claude-opus-4.7 auto normal");
         const beforeModelCommit = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(beforeModelCommit).not.toHaveProperty("model");
         await session.sendKeys("Enter");
@@ -223,12 +223,12 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.waitForText("● Statusline: workspace:", TIMEOUT);
         await session.sendText("/settings startup-scrollback off");
         await session.waitForText("startup_scrollback: off", TIMEOUT);
-        await disablePromptHistory(session, join(home, ".fx", "settings.json"));
+        await disablePromptHistory(session, join(home, ".y2", "settings.json"));
         await session.sendText("/quit");
         await session.waitForSessionEnd(TIMEOUT);
         session = null;
 
-        const stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+        const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         expect(stored.models.gateway).toBe("anthropic/claude-opus-4.7");
         expect(stored.permission_mode).toBe("auto");
         expect(stored.effort).toBe("auto");
@@ -255,8 +255,8 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           expect(override.statusLine).toEqual({ sandbox: false, workspace: false, future: statusFuture });
           expect(override.future_workspace).toEqual({ nested: futureWorkspace });
         }
-        expect(readFileSync(join(workspaceA, ".fx.json"), "utf8")).toBe(projectABytes);
-        expect(readFileSync(join(workspaceB, ".fx.json"), "utf8")).toBe(projectBBytes);
+        expect(readFileSync(join(workspaceA, ".y2.json"), "utf8")).toBe(projectABytes);
+        expect(readFileSync(join(workspaceB, ".y2.json"), "utf8")).toBe(projectBBytes);
 
         const migrationSnapshots = [
           "model",
@@ -312,7 +312,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           cwd: workspaceBRoot,
           env: {
             ...catalogEnv,
-            FX_MODEL: "openai/gpt-5",
+            Y2_MODEL: "openai/gpt-5",
           },
           stderrPath: stderrBPath,
         });
@@ -322,7 +322,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         const afterOverride = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(afterOverride.models.gateway).toBe("anthropic/claude-opus-4.7");
         expect(readFileSync(stderrAPath, "utf8")).toBe("");
@@ -338,20 +338,20 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "unscoped allowlist stays local while explicit user rules cross projects",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-config-permission-scopes-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-config-permission-scopes-"));
       try {
         const home = join(root, "home");
         const workspaceA = join(root, "workspace-a");
         const workspaceB = join(root, "workspace-b");
         const stderrAPath = join(root, "stderr-a.log");
         const stderrBPath = join(root, "stderr-b.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspaceA);
         mkdirSync(workspaceB);
         const workspaceARoot = realpathSync(workspaceA);
         const workspaceBRoot = realpathSync(workspaceB);
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             permission: {
               " bash ": {
@@ -377,7 +377,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         const afterA = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(afterA.permission.bash["user *"]).toBe("allow");
         expect(afterA.workspaces[workspaceARoot].permission.bash["local-a *"]).toBe(
@@ -433,7 +433,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         const afterB = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(afterB.permission).toEqual({});
         expect(afterB.workspaces[workspaceARoot].permission.bash["local-a *"]).toBe(
@@ -454,17 +454,17 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "legacy output settings remain inert and output text follows prompt admission",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-config-output-shadow-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-config-output-shadow-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         const workspaceRoot = realpathSync(workspace);
         const projectBytes =
           "{\"output_level\":{\"legacy\":true},\"future\":{\"keep\":true}}\n";
-        writeFileSync(join(workspace, ".fx.json"), projectBytes);
+        writeFileSync(join(workspace, ".y2.json"), projectBytes);
         const unrelatedWorkspace = join(root, "unrelated-workspace");
         const settingsBytes =
           JSON.stringify({
@@ -482,7 +482,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             },
           }) + "\n";
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           settingsBytes,
           { mode: 0o600 },
         );
@@ -494,7 +494,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         });
         await session.waitForText("Run /help", TIMEOUT);
         await session.sendText("/output quiet");
-        await session.waitForText("Fx needs access to Vercel AI Gateway", TIMEOUT);
+        await session.waitForText("Y2 needs access to Retired credential retired gateway", TIMEOUT);
         expect(composerContains(await session.capturePane(), "/output quiet")).toBe(
           true,
         );
@@ -511,7 +511,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         const stored = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(stored.output_level).toEqual({ legacy: true });
         expect(stored.startup_scrollback).toBe(false);
@@ -523,7 +523,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           model: 123,
           future_workspace: { preserve: true },
         });
-        expect(readFileSync(join(workspace, ".fx.json"), "utf8")).toBe(projectBytes);
+        expect(readFileSync(join(workspace, ".y2.json"), "utf8")).toBe(projectBytes);
         expect(readFileSync(stderrPath, "utf8")).toBe("");
       } finally {
         rmSync(root, { recursive: true, force: true });
@@ -536,7 +536,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "Escape keeps the model picker dismissed until the model trigger restarts",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-model-picker-dismissal-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-model-picker-dismissal-"));
       const gateway = startFakeGateway([], {
         models: [{
           id: "xai/grok-build-1",
@@ -549,10 +549,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({ model: "openai/gpt-5" }) + "\n",
         );
 
@@ -561,7 +561,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -606,7 +606,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "configured effort and Fast are visible before model catalog resolves",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-startup-preferences-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-startup-preferences-"));
       let releaseCatalog: (() => void) | null = null;
       const catalogRelease = new Promise<void>((resolve) => {
         releaseCatalog = resolve;
@@ -630,10 +630,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             model: "anthropic/claude-opus-4.8",
             permission_mode: "auto",
@@ -648,8 +648,8 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            FX_AUTO_UPGRADE: "0",
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_AUTO_UPGRADE: "0",
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -674,7 +674,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "Fast command rejects a tag-only intrinsic Fast alias",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-fast-unsupported-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-fast-unsupported-"));
       const gateway = startFakeGateway([], {
         models: [{
           id: "anthropic/claude-opus-4.8-fast",
@@ -687,9 +687,9 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         const initialSettings = JSON.stringify({
           model: "anthropic/claude-opus-4.8-fast",
           fast_mode: false,
@@ -702,7 +702,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             ...NO_AUTH,
             Y2_API_KEY: "fake-standard-key",
             HOME: home,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -731,7 +731,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "settings reasoning effort changes without mutating the selected model",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-settings-effort-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-settings-effort-"));
       const gateway = startFakeGateway([], {
         models: [{
           id: "zai/glm-5.2",
@@ -745,8 +745,8 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        const settingsPath = join(home, ".fx", "settings.json");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        const settingsPath = join(home, ".y2", "settings.json");
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         writeFileSync(
           settingsPath,
@@ -759,7 +759,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -803,7 +803,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "Opus 4.8 Fast pricing drives picker request and persistence",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-anthropic-capabilities-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-anthropic-capabilities-"));
       const gateway = startFakeGateway(
         [fakeGatewayFinalText("Opus fast complete")],
         {
@@ -831,15 +831,15 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const opusWorkspace = join(root, "opus-workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(opusWorkspace);
         const opusRoot = realpathSync(opusWorkspace);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         const initialSettings = JSON.stringify({
           model: "anthropic/claude-opus-4.8",
           effort: "high",
           fast_mode: false,
-          credential_source: "fx_login",
+          credential_source: "retired_login",
         }) + "\n";
         writeFileSync(
           settingsPath,
@@ -847,13 +847,13 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           { mode: 0o600 },
         );
         writeFileSync(
-          join(home, ".fx", "auth.json"),
+          join(home, ".y2", "auth.json"),
           JSON.stringify({
             version: 1,
-            issuer: "https://vercel.com",
+            issuer: "https://identity.example",
             client_id: "test-client",
-            access_token: "fake-fx-login-token",
-            refresh_token: "fake-fx-login-refresh-token",
+            access_token: "fake-y2-login-token",
+            refresh_token: "fake-y2-login-refresh-token",
             expires_at_ms: Date.now() + 60 * 60 * 1000,
             scope: "openid",
             token_type: "Bearer",
@@ -865,12 +865,12 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const gatewayEnv = {
           ...NO_AUTH,
           Y2_API_KEY: undefined,
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_DISABLE_KEYCHAIN: "1",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_DISABLE_KEYCHAIN: "1",
           HOME: home,
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         };
 
         session = await TmuxSession.create({
@@ -893,7 +893,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.waitForText("anthropic/claude-opus-4.8", TIMEOUT);
         expect(readFileSync(settingsPath, "utf8")).toBe(initialSettings);
         await session.sendKeys("Enter");
-        // Gateway order is preserved after fx's default sentinel.
+        // Gateway order is preserved after y2's default sentinel.
         await session.waitForText("default", TIMEOUT);
         for (let i = 0; i < 2; i += 1) await session.sendKeys("Down");
         await session.waitForText("xhigh", TIMEOUT);
@@ -911,9 +911,9 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           "anthropic/claude-opus-4.8",
         );
         expect(gateway.requests[0]!.headers.get("authorization")).toBe(
-          "Bearer fake-fx-login-token",
+          "Bearer fake-y2-login-token",
         );
-        expect(gateway.requests[0]!.headers.get("x-vercel-ai-gateway-team")).toBe(
+        expect(gateway.requests[0]!.headers.get("x-retired_credential-retired-gateway-team")).toBe(
           "team_fast_test",
         );
         expect(JSON.parse(gateway.requests[0]!.body)).not.toHaveProperty("fast");
@@ -954,7 +954,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "GPT 5.6 Sol priority pricing drives the Fast request",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-openai-capabilities-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-openai-capabilities-"));
       const gateway = startFakeGateway(
         [
           fakeGatewayFinalText("GPT 5.6 stale effort filtered"),
@@ -985,10 +985,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         const workspaceRoot = realpathSync(workspace);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -1002,12 +1002,12 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           ...NO_AUTH,
           Y2_API_KEY: "fake-capability-key",
           HOME: home,
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         };
 
-        const staleResult = await runFx(
+        const staleResult = await runY2(
           ["ask", "--auto", "--json", "--no-save", "Use stale minimal fast."],
           {
             cwd: workspaceRoot,
@@ -1091,7 +1091,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "Fable 5 xhigh picker selection persists without fast mode",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-fable-capabilities-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-fable-capabilities-"));
       const gateway = startFakeGateway([], {
         models: [{
           id: "anthropic/claude-fable-5",
@@ -1107,7 +1107,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         const workspaceRoot = realpathSync(workspace);
 
@@ -1116,7 +1116,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -1133,7 +1133,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.waitForSessionEnd(TIMEOUT);
         session = null;
 
-        const stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+        const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         expect(stored).toMatchObject({
           models: { gateway: "anthropic/claude-fable-5" },
           effort: "xhigh",
@@ -1151,7 +1151,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "model picker selection persists when a matching skill exists",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-model-picker-skill-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-model-picker-skill-"));
       const gateway = startFakeGateway([], {
         models: [{
           id: "xai/grok-build-1",
@@ -1164,7 +1164,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        const skillRoot = join(home, ".fx", "skills", "model-helper");
+        const skillRoot = join(home, ".y2", "skills", "model-helper");
         mkdirSync(skillRoot, { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         writeFileSync(
@@ -1178,7 +1178,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -1197,7 +1197,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         );
         expect(await session.capturePane()).not.toContain("saved to user settings");
 
-        const stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+        const stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         expect(stored.models.gateway).toBe("xai/grok-build-1");
         expect(stored).not.toHaveProperty("effort");
         expect(stored).not.toHaveProperty("fast_mode");
@@ -1223,7 +1223,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   test(
     "Gateway catalog reasoning drives portable effort requests and persistence",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-gateway-capabilities-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-gateway-capabilities-"));
       const gateway = startFakeGateway(
         [
           fakeGatewayFinalText("portable auto complete"),
@@ -1248,7 +1248,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         const workspaceRoot = realpathSync(workspace);
 
@@ -1257,11 +1257,11 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             Y2_API_KEY: "fake-capability-key",
-            VERCEL_OIDC_TOKEN: undefined,
+            REMOVED_LEGACY_OIDC_TOKEN: undefined,
             HOME: home,
-            FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_API_CHAT_URL: gateway.chatUrl,
-            FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            Y2_API_CHAT_URL: gateway.chatUrl,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
         });
@@ -1277,7 +1277,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.sendKeys("Enter");
         await session.waitForText("● Switched to provider/new-reasoning-model", TIMEOUT);
 
-        let stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+        let stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         expect(stored.models.gateway).toBe("provider/new-reasoning-model");
         expect(stored).not.toHaveProperty("fast_mode");
 
@@ -1305,11 +1305,11 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.sendKeys("Enter");
         await session.waitForText("· future-tier", TIMEOUT);
 
-        stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+        stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         const persistenceDeadline = Date.now() + TIMEOUT;
         while (stored.effort !== "future-tier" && Date.now() < persistenceDeadline) {
           await Bun.sleep(25);
-          stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+          stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         }
         expect(stored).toMatchObject({
           models: { gateway: "provider/new-reasoning-model" },
@@ -1335,7 +1335,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.waitForSessionEnd(TIMEOUT);
         session = null;
 
-        stored = JSON.parse(readFileSync(join(home, ".fx", "settings.json"), "utf8"));
+        stored = JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8"));
         expect(stored).toMatchObject({
           models: { gateway: "provider/new-reasoning-model" },
           effort: "future-tier",
@@ -1353,13 +1353,13 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "settings persistence remains available when session storage is unavailable",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-config-first-write-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-config-first-write-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
-        writeFileSync(join(home, ".fx", "sessions"), "blocked\n", {
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
+        writeFileSync(join(home, ".y2", "sessions"), "blocked\n", {
           mode: 0o600,
         });
         mkdirSync(workspace);
@@ -1381,18 +1381,18 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         expect(tree(home)).toEqual([
-          ".fx",
-          ".fx/history.jsonl",
-          ".fx/history.lock",
-          ".fx/sessions",
-          ".fx/settings.json",
-          ".fx/settings.lock",
+          ".y2",
+          ".y2/history.jsonl",
+          ".y2/history.lock",
+          ".y2/sessions",
+          ".y2/settings.json",
+          ".y2/settings.lock",
         ]);
-        expect(statSync(join(home, ".fx")).mode & 0o777).toBe(0o700);
-        expect(statSync(join(home, ".fx", "history.jsonl")).mode & 0o777).toBe(0o600);
-        expect(statSync(join(home, ".fx", "history.lock")).mode & 0o777).toBe(0o600);
-        expect(statSync(join(home, ".fx", "settings.json")).mode & 0o777).toBe(0o600);
-        expect(statSync(join(home, ".fx", "settings.lock")).mode & 0o777).toBe(0o600);
+        expect(statSync(join(home, ".y2")).mode & 0o777).toBe(0o700);
+        expect(statSync(join(home, ".y2", "history.jsonl")).mode & 0o777).toBe(0o600);
+        expect(statSync(join(home, ".y2", "history.lock")).mode & 0o777).toBe(0o600);
+        expect(statSync(join(home, ".y2", "settings.json")).mode & 0o777).toBe(0o600);
+        expect(statSync(join(home, ".y2", "settings.lock")).mode & 0o777).toBe(0o600);
         expect(readFileSync(stderrPath, "utf8")).toBe("");
       } finally {
         rmSync(root, { recursive: true, force: true });
@@ -1404,14 +1404,14 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace statusline stays active when user settings cannot be saved",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-statusline-write-failure-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-statusline-write-failure-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace-write-failure-visible");
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         const externalSettings = join(root, "external-settings.json");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         writeFileSync(settingsPath, '{"statusLine":{"workspace":false}}\n', { mode: 0o600 });
         writeFileSync(externalSettings, '{"statusLine":{"workspace":false}}\n', { mode: 0o600 });
@@ -1446,18 +1446,18 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   );
 
   serialTest("config diagnostics preserve invalid, oversized, and unsafe primaries", async () => {
-    const root = mkdtempSync(join(tmpdir(), "fx-config-diagnostics-"));
+    const root = mkdtempSync(join(tmpdir(), "y2-config-diagnostics-"));
     try {
       const home = join(root, "home");
       const workspace = join(root, "workspace");
-      mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+      mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
       mkdirSync(workspace);
       const workspaceRoot = realpathSync(workspace);
-      const settingsPath = join(home, ".fx", "settings.json");
+      const settingsPath = join(home, ".y2", "settings.json");
 
       const malformed = "{bad\n";
       writeFileSync(settingsPath, malformed, { mode: 0o600 });
-      const malformedStatus = await runFx(["status", "--json"], {
+      const malformedStatus = await runY2(["status", "--json"], {
         cwd: workspaceRoot,
         env: { HOME: home },
       });
@@ -1467,7 +1467,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
 
       const malformedStatusLine = "{\"statusLine\":{\"context\":1}}\n";
       writeFileSync(settingsPath, malformedStatusLine, { mode: 0o600 });
-      const malformedStatusLineStatus = await runFx(["status", "--json"], {
+      const malformedStatusLineStatus = await runY2(["status", "--json"], {
         cwd: workspaceRoot,
         env: { HOME: home },
       });
@@ -1485,13 +1485,13 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           },
         }) + "\n";
       writeFileSync(settingsPath, inertOutputSettings, { mode: 0o600 });
-      const inertStatus = await runFx(["status", "--json"], {
+      const inertStatus = await runY2(["status", "--json"], {
         cwd: workspaceRoot,
         env: { HOME: home },
       });
       expect(inertStatus.code).toBe(0);
       expect(inertStatus.stderr).not.toContain("legacy_workspace_preferences");
-      const inertDoctor = await runFx(["doctor", "--json"], {
+      const inertDoctor = await runY2(["doctor", "--json"], {
         cwd: workspaceRoot,
         env: { HOME: home },
       });
@@ -1513,7 +1513,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
 
       const oversized = JSON.stringify({ padding: "x".repeat(65 * 1024) }) + "\n";
       writeFileSync(settingsPath, oversized, { mode: 0o600 });
-      const oversizedDoctor = await runFx(["doctor", "--json"], {
+      const oversizedDoctor = await runY2(["doctor", "--json"], {
         cwd: workspaceRoot,
         env: { HOME: home },
       });
@@ -1525,7 +1525,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
       writeFileSync(external, "{\"model\":\"external\"}\n", { mode: 0o600 });
       rmSync(settingsPath);
       symlinkSync(external, settingsPath);
-      const unsafeStatus = await runFx(["status", "--json"], {
+      const unsafeStatus = await runY2(["status", "--json"], {
         cwd: workspaceRoot,
         env: { HOME: home },
       });
@@ -1540,15 +1540,15 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "concurrent global mutations preserve both values and unknown keys",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-config-concurrent-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-config-concurrent-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         const workspaceRoot = realpathSync(workspace);
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             future_global: { nested: "keep-global" },
             workspaces: {
@@ -1561,7 +1561,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           }) + "\n",
           { mode: 0o600 },
         );
-        writeFileSync(join(home, ".fx", "sessions"), "blocked\n", {
+        writeFileSync(join(home, ".y2", "sessions"), "blocked\n", {
           mode: 0o600,
         });
         const env = {
@@ -1597,7 +1597,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         secondSession = null;
 
         const stored = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(stored.future_global).toEqual({ nested: "keep-global" });
         expect(stored.startup_scrollback).toBe(false);
@@ -1617,7 +1617,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "stale workspace mutations preserve an ordered remove and add",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-concurrent-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-concurrent-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -1625,7 +1625,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const launch = join(root, "launch");
         const stderrAPath = join(root, "stderr-a.log");
         const stderrBPath = join(root, "stderr-b.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(added);
         mkdirSync(launch);
@@ -1638,7 +1638,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           return realpathSync(path);
         });
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             workspaces: {
               [workspaceRoot]: {
@@ -1648,7 +1648,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           }) + "\n",
           { mode: 0o600 },
         );
-        writeFileSync(join(home, ".fx", "sessions"), "blocked\n", {
+        writeFileSync(join(home, ".y2", "sessions"), "blocked\n", {
           mode: 0o600,
         });
         const env = {
@@ -1663,7 +1663,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             stderrPath: stderrAPath,
           }),
           TmuxSession.create({
-            cmd: `${FX_BIN} --add-dir ${launchRoot}`,
+            cmd: `${Y2_BIN} --add-dir ${launchRoot}`,
             cwd: workspaceRoot,
             env,
             stderrPath: stderrBPath,
@@ -1693,7 +1693,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         secondSession = null;
 
         const stored = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(
           stored.workspaces[workspaceRoot].additional_directories,
@@ -1710,14 +1710,14 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace add rejects effective capacity without changing settings",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-capacity-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-capacity-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const added = join(root, "added");
         const launch = join(root, "launch");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(added);
         mkdirSync(launch);
@@ -1729,7 +1729,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           mkdirSync(path);
           return realpathSync(path);
         });
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         const originalSettings =
           JSON.stringify({
             workspaces: {
@@ -1739,12 +1739,12 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             },
           }) + "\n";
         writeFileSync(settingsPath, originalSettings, { mode: 0o600 });
-        writeFileSync(join(home, ".fx", "sessions"), "blocked\n", {
+        writeFileSync(join(home, ".y2", "sessions"), "blocked\n", {
           mode: 0o600,
         });
 
         session = await TmuxSession.create({
-          cmd: `${FX_BIN} --add-dir ${launchRoot}`,
+          cmd: `${Y2_BIN} --add-dir ${launchRoot}`,
           cwd: workspaceRoot,
           env: {
             ...NO_AUTH,
@@ -1774,19 +1774,19 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace removal persists after an observed source disappears",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-source-disappears-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-source-disappears-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const shared = join(root, "shared");
         const savedLink = join(root, "saved-link");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(shared);
         symlinkSync(shared, savedLink, "dir");
         const workspaceRoot = realpathSync(workspace);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -1828,7 +1828,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace removal persists after an observed source retargets",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-source-moves-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-source-moves-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -1836,14 +1836,14 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const second = join(root, "second");
         const savedLink = join(root, "saved-link");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(first);
         mkdirSync(second);
         symlinkSync(first, savedLink, "dir");
         const workspaceRoot = realpathSync(workspace);
         const firstRoot = realpathSync(first);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -1886,7 +1886,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace removal consumes a concurrent exact canonical replacement",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-target-replaced-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-target-replaced-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -1895,7 +1895,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const unseenAfter = join(root, "unseen-after");
         const targetLink = join(root, "target-link");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(target);
         mkdirSync(unseenBefore);
@@ -1905,7 +1905,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const targetRoot = realpathSync(target);
         const unseenBeforeRoot = realpathSync(unseenBefore);
         const unseenAfterRoot = realpathSync(unseenAfter);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -1974,7 +1974,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace removal prefers a concurrent canonical survivor before restart",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-survivor-moves-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-survivor-moves-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -1988,7 +1988,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const survivorLinkB = join(root, "survivor-link-b");
         const stderrAPath = join(root, "stderr-a.log");
         const stderrBPath = join(root, "stderr-b.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(removed);
         mkdirSync(survivor);
@@ -2004,7 +2004,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const retargetRoot = realpathSync(retarget);
         const unseenBeforeRoot = realpathSync(unseenBefore);
         const unseenAfterRoot = realpathSync(unseenAfter);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -2092,7 +2092,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace removal uses observed identity and preserves an unseen source",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-source-retarget-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-source-retarget-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -2101,14 +2101,14 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const savedLink = join(root, "saved-link");
         const unseenLink = join(root, "unseen-link");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(first);
         mkdirSync(second);
         symlinkSync(first, savedLink, "dir");
         const workspaceRoot = realpathSync(workspace);
         const firstRoot = realpathSync(first);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -2165,7 +2165,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace add canonicalizes observed aliases before restart",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-source-restart-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-source-restart-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -2175,7 +2175,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const savedLink = join(root, "saved-link");
         const stderrAPath = join(root, "stderr-a.log");
         const stderrBPath = join(root, "stderr-b.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(first);
         mkdirSync(second);
@@ -2185,7 +2185,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const firstRoot = realpathSync(first);
         const secondRoot = realpathSync(second);
         const addedRoot = realpathSync(added);
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -2250,14 +2250,14 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace slash mutations persist across restart and remove cleanly",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-slash-persistence-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-slash-persistence-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const shared = join(root, "shared project");
         const stderrAPath = join(root, "stderr-a.log");
         const stderrBPath = join(root, "stderr-b.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(shared);
         const workspaceRoot = realpathSync(workspace);
@@ -2286,7 +2286,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         session = null;
 
         const stored = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(stored.workspaces[workspaceRoot].additional_directories).toEqual([
           sharedRoot,
@@ -2311,7 +2311,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         secondSession = null;
 
         const cleared = JSON.parse(
-          readFileSync(join(home, ".fx", "settings.json"), "utf8"),
+          readFileSync(join(home, ".y2", "settings.json"), "utf8"),
         );
         expect(cleared.workspaces?.[workspaceRoot]?.additional_directories).toBeUndefined();
         expect(readFileSync(stderrAPath, "utf8")).toBe("");
@@ -2326,13 +2326,13 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace list marks a directory deleted during the session unavailable",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-live-availability-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-live-availability-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const shared = join(root, "shared");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(shared);
         const workspaceRoot = realpathSync(workspace);
@@ -2385,7 +2385,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace list restores canonical access through a new symlinked ancestor",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-restored-canonical-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-restored-canonical-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -2396,7 +2396,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const stderrPath = join(root, "stderr.log");
         const fixture = "RESTORED_CANONICAL_ROOT_FIXTURE";
         const instructionSentinel = "RESTORED_ROOT_AGENTS_MUST_NOT_LOAD";
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(shared, { recursive: true });
         writeFileSync(join(shared, "fixture.txt"), `${fixture}\n`);
@@ -2404,7 +2404,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const workspaceRoot = realpathSync(workspace);
         const sharedRoot = realpathSync(shared);
         writeFileSync(
-          join(home, ".fx", "settings.json"),
+          join(home, ".y2", "settings.json"),
           JSON.stringify({
             sandbox: "none",
             permission_mode: "auto",
@@ -2428,12 +2428,12 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             env: {
               HOME: home,
               Y2_API_KEY: "fake-restored-root-key",
-              VERCEL_OIDC_TOKEN: undefined,
-              FX_AUTO_UPGRADE: "0",
-              FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_API_CHAT_URL: gateway.chatUrl,
-              FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-              FX_MODEL: FAKE_GATEWAY_MODEL,
+              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              Y2_AUTO_UPGRADE: "0",
+              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              Y2_API_CHAT_URL: gateway.chatUrl,
+              Y2_API_CHAT_URL: gateway.chatUrl,
+              Y2_MODEL: FAKE_GATEWAY_MODEL,
             },
             stderrPath,
           });
@@ -2478,14 +2478,14 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
   serialTest(
     "workspace slash removal explains launch restoration and uses friendly errors",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-workspace-launch-removal-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-workspace-launch-removal-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
         const shared = join(root, "shared");
         const unknown = join(root, "unknown");
         const stderrPath = join(root, "stderr.log");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspace);
         mkdirSync(shared);
         mkdirSync(unknown);
@@ -2498,7 +2498,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         };
 
         session = await TmuxSession.create({
-          cmd: `${FX_BIN} --add-dir ${sharedRoot}`,
+          cmd: `${Y2_BIN} --add-dir ${sharedRoot}`,
           cwd: workspaceRoot,
           env,
           stderrPath,
@@ -2535,7 +2535,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         await session.waitForSessionEnd(TIMEOUT);
         session = null;
 
-        const settingsPath = join(home, ".fx", "settings.json");
+        const settingsPath = join(home, ".y2", "settings.json");
         if (statSync(settingsPath, { throwIfNoEntry: false })) {
           const stored = JSON.parse(readFileSync(settingsPath, "utf8"));
           expect(

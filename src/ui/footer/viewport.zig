@@ -11,7 +11,7 @@ const paint_plan = render_engine.paint_plan;
 const terminal_diff = render_engine.terminal_diff;
 
 pub const Geometry = struct {
-    /// Outer top of the fx-owned footer band. Every paint clears this
+    /// Outer top of the y2-owned footer band. Every paint clears this
     /// row and everything below it, so stale rows from a previous
     /// frame (collapsed banner, dismissed picker, footer that moved
     /// up after a scroll) are wiped before the new frame diffs in.
@@ -104,7 +104,7 @@ pub const FooterViewport = struct {
     cursor: Cursor = .{ .row = 1, .col = 1 },
     cursor_visible: bool = true,
     /// True after `beginFrame` establishes valid footer geometry. Erasing
-    /// earlier would start at row 1 and wipe pre-fx shell scrollback.
+    /// earlier would start at row 1 and wipe pre-y2 shell scrollback.
     has_frame: bool = false,
     /// Set when transcript/body rendering emits a clear that can touch
     /// the footer band. A later footer render must repaint even when

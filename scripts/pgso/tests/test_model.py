@@ -65,7 +65,7 @@ class PgsoModelTests(unittest.TestCase):
                     )
 
     def test_sha256_file_hashes_the_exact_contents(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-model-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-model-") as tmp:
             path = pathlib.Path(tmp) / "artifact"
             path.write_bytes(b"abc")
 
@@ -76,7 +76,7 @@ class PgsoModelTests(unittest.TestCase):
             )
 
     def test_profile_evidence_binds_hash_size_and_merged_count(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-model-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-model-") as tmp:
             path = pathlib.Path(tmp) / "profile.profdata"
             path.write_bytes(b"profile")
 

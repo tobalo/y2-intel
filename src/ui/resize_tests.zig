@@ -1261,7 +1261,7 @@ test "active hard-newline footer survives every valid tiny height" {
 }
 
 test "active soft-wrapped footer survives every valid tiny height" {
-    const input = "FX_SOFT_START " ++ ("filler " ** 16) ++ "FX_SOFT_END";
+    const input = "Y2_SOFT_START " ++ ("filler " ** 16) ++ "Y2_SOFT_END";
     for ([_]u16{ 5, 6, 7, 8 }) |target_height| {
         try expectActiveInputSurvivesResize(input, target_height, 1);
     }
@@ -4696,7 +4696,7 @@ test "reanchorTop preserves rows above launch-owned row" {
     defer h.deinit();
 
     try h.shell.initViewport(&h.metrics, 3);
-    try h.vt.feed("\x1b[2;1HPRE-FX");
+    try h.vt.feed("\x1b[2;1HPRE-Y2");
     try h.shell.writeTranscript(h.alloc, &h.metrics, "line one\nline two\n", true);
     try h.flush();
 
@@ -4704,7 +4704,7 @@ test "reanchorTop preserves rows above launch-owned row" {
     try h.renderTranscriptFrame();
     try h.flush();
 
-    try expectRowPrefix(&h, 2, "PRE-FX");
+    try expectRowPrefix(&h, 2, "PRE-Y2");
     try expectRowPrefix(&h, 3, "line one");
     try expectRowPrefix(&h, 4, "line two");
 }
@@ -4794,7 +4794,7 @@ test "clean footer frame does not spam trace on idle ticks" {
     try std.testing.expect(std.mem.find(u8, trace, "footer.clean") == null);
 }
 
-test "startup reservation scrolls to fit first paint without wiping pre-fx rows" {
+test "startup reservation scrolls to fit first paint without wiping pre-y2 rows" {
     const alloc = std.testing.allocator;
     var h = try Harness.init(alloc, 80, 24, 4);
     defer h.deinit();
@@ -4819,7 +4819,7 @@ test "startup reservation scrolls to fit first paint without wiping pre-fx rows"
     try h.vt.feed("PRE17\n");
     try h.vt.feed("PRE18\n");
     try h.vt.feed("PRE19\n");
-    try h.vt.feed("$ fx");
+    try h.vt.feed("$ y2");
 
     try h.initStartupViewport(24, 11);
     try std.testing.expectEqual(@as(u16, 10), h.shell.viewport_top_row);
@@ -4835,7 +4835,7 @@ test "startup reservation scrolls to fit first paint without wiping pre-fx rows"
     try h.flush();
 
     try expectRowPrefix(&h, 1, "PRE15");
-    try expectRowPrefix(&h, 6, "$ fx");
+    try expectRowPrefix(&h, 6, "$ y2");
     try expectRowPrefix(&h, 10, "FX01");
     try expectRowPrefix(&h, 19, "FX10");
 }
@@ -4987,7 +4987,7 @@ test "settled resize clears reflowed rows above the launch-owned viewport" {
     try h.flush();
 
     try h.vt.resize(80, 23);
-    try h.vt.feed("\x1b[9;1HPRE-FX-ROW");
+    try h.vt.feed("\x1b[9;1HPRE-Y2-ROW");
     try shell_runtime.applyResizeWithLayout(
         &h.shell,
         &h.metrics,
@@ -4997,7 +4997,7 @@ test "settled resize clears reflowed rows above the launch-owned viewport" {
     try h.renderTranscriptFrame();
     try h.flush();
 
-    try expectGridNotContains(&h, "PRE-FX-ROW");
+    try expectGridNotContains(&h, "PRE-Y2-ROW");
     try expectRowPrefix(&h, 1, "FX01");
     try expectRowPrefix(&h, 11, "FX11");
 }
@@ -5007,7 +5007,7 @@ test "recovering from collapsed resize scroll-compacts stale viewport rows" {
     var h = try Harness.init(alloc, 80, 24, 4);
     defer h.deinit();
 
-    try h.vt.feed("\x1b[1;1HPRE-FX");
+    try h.vt.feed("\x1b[1;1HPRE-Y2");
     try h.shell.initViewport(&h.metrics, 5);
 
     try h.shell.writeTranscript(
@@ -5019,7 +5019,7 @@ test "recovering from collapsed resize scroll-compacts stale viewport rows" {
     try h.renderTranscriptFrameIfDirty();
     try h.flush();
 
-    try expectRowPrefix(&h, 1, "PRE-FX");
+    try expectRowPrefix(&h, 1, "PRE-Y2");
     try expectRowPrefix(&h, 5, "FX01");
 
     try h.driveResize(80, 5, 4, true);
@@ -5027,7 +5027,7 @@ test "recovering from collapsed resize scroll-compacts stale viewport rows" {
 
     try std.testing.expectEqual(@as(u16, 1), h.shell.owned_top_row);
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
-    try expectGridNotContains(&h, "PRE-FX");
+    try expectGridNotContains(&h, "PRE-Y2");
     try expectRowPrefix(&h, 1, "FX01");
     try expectRowPrefix(&h, 9, "FX09");
 }
@@ -5057,7 +5057,7 @@ test "empty pre-paint defers scrolling until first content frame" {
     try h.vt.feed("PRE17\n");
     try h.vt.feed("PRE18\n");
     try h.vt.feed("PRE19\n");
-    try h.vt.feed("$ fx");
+    try h.vt.feed("$ y2");
 
     try h.shell.initViewport(&h.metrics, 24);
     try h.renderTranscriptFrame();
@@ -5427,7 +5427,7 @@ test "compact picker dismissal preserves committed history floor" {
                 "auth=Y2_API_KEY\n" ++
                 "auth_refreshable=false\n" ++
                 "permission_mode=auto\n" ++
-                "workspace=/tmp/fx\n" ++
+                "workspace=/tmp/y2\n" ++
                 "history_turns=0\n" ++
                 "session_permission_grants=0\n" ++
                 "agent_step_limit=0",
@@ -5581,14 +5581,14 @@ test "long transcript picker filtering keeps footer anchored and close releases 
         .{
             .topic = "auth",
             .tone = .information,
-            .body = "Starting Vercel sign-in",
+            .body = "Starting Retired credential sign-in",
         },
         true,
     );
     h.frame_redraw = true;
     try renderTestFooter(&h, &input, &approval, &h.frame_redraw);
     try h.flush();
-    try expectGridContains(&h, "Starting Vercel sign-in");
+    try expectGridContains(&h, "Starting Retired credential sign-in");
 }
 
 test "picker growth advances history while shrink and dismissal do not" {
@@ -6435,7 +6435,7 @@ test "settled resize reanchors viewport_top_row at row one" {
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
 }
 
-test "grow after shrink-overflow restores transcript inside fx's viewport band" {
+test "grow after shrink-overflow restores transcript inside y2's viewport band" {
     var h = try Harness.init(std.testing.allocator, 80, 30, 4);
     defer h.deinit();
 
@@ -6653,17 +6653,17 @@ test "rapid settled resizes retain the four-skill transcript" {
     );
 }
 
-test "settled resize clears pre-fx shell history and reanchors at row one" {
+test "settled resize clears pre-y2 shell history and reanchors at row one" {
     var h = try Harness.init(std.testing.allocator, 40, 20, 4);
     defer h.deinit();
 
     try h.vt.feed("\x1b[1;1H");
     try h.vt.feed("$ ls\n");
     try h.vt.feed("README.md  src  tests\n");
-    try h.vt.feed("$ fx\n");
+    try h.vt.feed("$ y2\n");
 
     try h.shell.initViewport(&h.metrics, 4);
-    try h.shell.writeTranscript(h.alloc, &h.metrics, "first fx line\nsecond fx line\n", true);
+    try h.shell.writeTranscript(h.alloc, &h.metrics, "first y2 line\nsecond y2 line\n", true);
     try h.flush();
 
     try h.driveResize(40, 24, 4, true);
@@ -6671,14 +6671,14 @@ test "settled resize clears pre-fx shell history and reanchors at row one" {
 
     try expectGridNotContains(&h, "$ ls");
     try expectGridNotContains(&h, "README.md  src  tests");
-    try expectGridNotContains(&h, "$ fx");
+    try expectGridNotContains(&h, "$ y2");
     try std.testing.expectEqual(@as(u16, 1), h.shell.owned_top_row);
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
-    try expectRowPrefix(&h, 1, "first fx line");
-    try expectRowPrefix(&h, 2, "second fx line");
+    try expectRowPrefix(&h, 1, "first y2 line");
+    try expectRowPrefix(&h, 2, "second y2 line");
 }
 
-test "settled width resize clears pre-fx shell rows and reanchors at row one" {
+test "settled width resize clears pre-y2 shell rows and reanchors at row one" {
     const alloc = std.testing.allocator;
     var h = try Harness.init(alloc, 80, 24, 4);
     defer h.deinit();
@@ -6686,10 +6686,10 @@ test "settled width resize clears pre-fx shell rows and reanchors at row one" {
     try h.vt.feed("\x1b[1;1H");
     try h.vt.feed("$ git status\n");
     try h.vt.feed("On branch feature\n");
-    try h.vt.feed("$ fx\n");
+    try h.vt.feed("$ y2\n");
 
     try h.shell.initViewport(&h.metrics, 4);
-    try h.shell.writeTranscript(alloc, &h.metrics, "first fx line\nsecond fx line\n", true);
+    try h.shell.writeTranscript(alloc, &h.metrics, "first y2 line\nsecond y2 line\n", true);
     try h.flush();
 
     const before = try h.file.length(io_mod.getIo());
@@ -6699,7 +6699,7 @@ test "settled width resize clears pre-fx shell rows and reanchors at row one" {
 
     try expectGridNotContains(&h, "$ git status");
     try expectGridNotContains(&h, "On branch feature");
-    try expectGridNotContains(&h, "$ fx");
+    try expectGridNotContains(&h, "$ y2");
     try std.testing.expectEqual(@as(u16, 1), h.shell.owned_top_row);
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
     try std.testing.expect(std.mem.find(u8, emitted, "\x1b[3J") != null);
@@ -6868,7 +6868,7 @@ test "large tabbed user turn keeps frame scroll plan aligned" {
     try std.testing.expectEqual(@as(usize, 21), std.mem.count(u8, raw_prompt, "\t"));
 
     try h.shell.initViewport(&h.metrics, 12);
-    try h.shell.writeTranscript(alloc, &h.metrics, "What would you like fx to do?\n", true);
+    try h.shell.writeTranscript(alloc, &h.metrics, "What would you like y2 to do?\n", true);
     h.frame_redraw = true;
     try renderTestFooter(&h, &input, &approval, &h.frame_redraw);
     try h.flush();
@@ -7031,7 +7031,7 @@ test "settled resize with rows-only change resets terminal scrollback" {
     try std.testing.expect(std.mem.find(u8, emitted, "\x1b[3J") != null);
 }
 
-test "theme reset retints fx entries and replays the retained transcript once" {
+test "theme reset retints y2 entries and replays the retained transcript once" {
     const alloc = std.testing.allocator;
     var h = try Harness.init(alloc, 80, 24, 4);
     defer h.deinit();
@@ -7042,12 +7042,12 @@ test "theme reset retints fx entries and replays the retained transcript once" {
     try h.shell.initViewportWithReservedRows(&h.metrics, 8, 5);
     _ = try h.shell.appendRawTranscriptEntryClassified(
         alloc,
-        "\x1b[1;38;5;255mFX THEME HEADER\x1b[0m\n",
+        "\x1b[1;38;5;255mY2 THEME HEADER\x1b[0m\n",
         .welcome,
     );
     _ = try h.shell.appendRawTranscriptEntryClassified(
         alloc,
-        "\x1b[38;5;252mFX THEME TOOL\x1b[0m\n",
+        "\x1b[38;5;252mY2 THEME TOOL\x1b[0m\n",
         .tool_status,
     );
     _ = try h.shell.appendRawTranscriptEntryClassified(
@@ -7057,7 +7057,7 @@ test "theme reset retints fx entries and replays the retained transcript once" {
     );
     const assistant_id = try h.shell.appendAssistantTurnEntry(alloc);
     const assistant = h.shell.lookupAssistantSegments(assistant_id) orelse unreachable;
-    try assistant.text.appendSlice(alloc, "\x1b[38;5;245mFX THEME INLINE CODE\x1b[39m\n");
+    try assistant.text.appendSlice(alloc, "\x1b[38;5;245mY2 THEME INLINE CODE\x1b[39m\n");
 
     try h.renderTranscriptFrame();
     try h.flush();
@@ -7079,7 +7079,7 @@ test "theme reset retints fx entries and replays the retained transcript once" {
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
     try std.testing.expectEqual(min_visible_rows, h.shell.min_visible_viewport_rows);
     try std.testing.expectEqualStrings(
-        "\x1b[38;5;238mFX THEME TOOL\x1b[0m\n",
+        "\x1b[38;5;238mY2 THEME TOOL\x1b[0m\n",
         h.shell.entries.items[1].raw_bytes.bytes,
     );
     try std.testing.expectEqualStrings(
@@ -7087,15 +7087,15 @@ test "theme reset retints fx entries and replays the retained transcript once" {
         h.shell.entries.items[2].raw_bytes.bytes,
     );
     try std.testing.expectEqualStrings(
-        "\x1b[38;5;247mFX THEME INLINE CODE\x1b[39m\n",
+        "\x1b[38;5;247mY2 THEME INLINE CODE\x1b[39m\n",
         h.shell.lookupAssistantSegments(assistant_id).?.text.items,
     );
-    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, h.shell.transcript.items, "FX THEME HEADER"));
-    try std.testing.expectEqual(@as(usize, 0), std.mem.count(u8, h.shell.transcript.items, "FX THEME TOOL"));
-    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, h.shell.transcript.items, "FX THEME INLINE CODE"));
-    try expectGridContains(&h, "FX THEME HEADER");
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, h.shell.transcript.items, "Y2 THEME HEADER"));
+    try std.testing.expectEqual(@as(usize, 0), std.mem.count(u8, h.shell.transcript.items, "Y2 THEME TOOL"));
+    try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, h.shell.transcript.items, "Y2 THEME INLINE CODE"));
+    try expectGridContains(&h, "Y2 THEME HEADER");
     try expectGridContains(&h, "tool activity");
-    try expectGridContains(&h, "FX THEME INLINE CODE");
+    try expectGridContains(&h, "Y2 THEME INLINE CODE");
 }
 
 pub fn testReconstructiveFullTranscriptReplay() !void {

@@ -1,25 +1,25 @@
 import { appendFileSync, existsSync, writeFileSync } from "node:fs";
 
 const protocolVersion = "2026-07-28";
-const wireLogPath = process.env.FX_MCP_WIRE_LOG;
-const pidPath = process.env.FX_MCP_PID_PATH;
-const resultText = process.env.FX_MCP_RESULT_TEXT ?? "MODERN_MCP_TOOL_RESULT";
-const mode = process.env.FX_MCP_MODE ?? "normal";
-const crashMarkerPath = process.env.FX_MCP_CRASH_MARKER;
+const wireLogPath = process.env.Y2_MCP_WIRE_LOG;
+const pidPath = process.env.Y2_MCP_PID_PATH;
+const resultText = process.env.Y2_MCP_RESULT_TEXT ?? "MODERN_MCP_TOOL_RESULT";
+const mode = process.env.Y2_MCP_MODE ?? "normal";
+const crashMarkerPath = process.env.Y2_MCP_CRASH_MARKER;
 const recoveryFailureMarkerPath = crashMarkerPath
   ? `${crashMarkerPath}.recovery-failed`
   : undefined;
-const recoveryReadyPath = process.env.FX_MCP_RECOVERY_READY_PATH;
-const recoveryReleasePath = process.env.FX_MCP_RECOVERY_RELEASE_PATH;
-const initialToolName = process.env.FX_MCP_INITIAL_TOOL_NAME ?? "echo";
-const recoveredToolName = process.env.FX_MCP_RECOVERED_TOOL_NAME ?? initialToolName;
-const expectedElicitation = process.env.FX_MCP_EXPECT_ELICITATION ?? "none";
-const environmentCapturePath = process.env.FX_MCP_ENV_CAPTURE;
-const resourcesSubscribe = process.env.FX_MCP_RESOURCES_SUBSCRIBE !== "0";
-const resourceTtlMs = process.env.FX_MCP_RESOURCE_TTL_MS === undefined
+const recoveryReadyPath = process.env.Y2_MCP_RECOVERY_READY_PATH;
+const recoveryReleasePath = process.env.Y2_MCP_RECOVERY_RELEASE_PATH;
+const initialToolName = process.env.Y2_MCP_INITIAL_TOOL_NAME ?? "echo";
+const recoveredToolName = process.env.Y2_MCP_RECOVERED_TOOL_NAME ?? initialToolName;
+const expectedElicitation = process.env.Y2_MCP_EXPECT_ELICITATION ?? "none";
+const environmentCapturePath = process.env.Y2_MCP_ENV_CAPTURE;
+const resourcesSubscribe = process.env.Y2_MCP_RESOURCES_SUBSCRIBE !== "0";
+const resourceTtlMs = process.env.Y2_MCP_RESOURCE_TTL_MS === undefined
   ? null
-  : Number(process.env.FX_MCP_RESOURCE_TTL_MS);
-const elicitationUrl = process.env.FX_MCP_ELICITATION_URL ?? "https://example.test/connect";
+  : Number(process.env.Y2_MCP_RESOURCE_TTL_MS);
+const elicitationUrl = process.env.Y2_MCP_ELICITATION_URL ?? "https://example.test/connect";
 const collidingChoices = [
   { const: "Skip", title: "Skip" },
   { const: "Use default", title: "Use default" },
@@ -38,8 +38,8 @@ let buffer = Buffer.alloc(0);
 if (pidPath) writeFileSync(pidPath, String(process.pid));
 if (environmentCapturePath) {
   writeFileSync(environmentCapturePath, JSON.stringify({
-    configured: process.env.FX_MCP_ENV_SENTINEL,
-    inherited: process.env.FX_MCP_INHERITED_SENTINEL,
+    configured: process.env.Y2_MCP_ENV_SENTINEL,
+    inherited: process.env.Y2_MCP_INHERITED_SENTINEL,
     path: process.env.PATH,
     home: process.env.HOME,
     httpsProxy: process.env.HTTPS_PROXY,
@@ -73,7 +73,7 @@ function hasModernMetadata(message) {
         ? { elicitation: { form: {}, url: {} } }
         : {};
   return meta?.["io.modelcontextprotocol/protocolVersion"] === protocolVersion &&
-    meta?.["io.modelcontextprotocol/clientInfo"]?.name === "fx" &&
+    meta?.["io.modelcontextprotocol/clientInfo"]?.name === "y2" &&
     typeof meta?.["io.modelcontextprotocol/clientInfo"]?.version === "string" &&
     JSON.stringify(capabilities) === JSON.stringify(expectedCapabilities);
 }

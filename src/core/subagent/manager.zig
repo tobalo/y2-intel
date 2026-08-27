@@ -3337,7 +3337,7 @@ fn relationshipRequestFingerprint(
     authorization: RelationshipAuthorization,
 ) [32]u8 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.subagent.relationship-request.v1\x00");
+    hash.update("y2.subagent.relationship-request.v1\x00");
     hash.update(&command_fingerprint);
     switch (authorization) {
         .none => hash.update("none\x00"),
@@ -4842,7 +4842,7 @@ const TestEnvironment = struct {
     fn init(alloc: Allocator) !TestEnvironment {
         var tmp = std.testing.tmpDir(.{});
         errdefer tmp.cleanup();
-        try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+        try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
         try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
         const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
         errdefer alloc.free(home);

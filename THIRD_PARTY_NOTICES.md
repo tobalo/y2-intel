@@ -1,6 +1,6 @@
 # Third-party notices
 
-fx includes material from the following projects and data sources.
+y2 includes material from the following projects and data sources.
 
 ## cuelume
 
@@ -31,7 +31,7 @@ SOFTWARE.
 
 ## Unicode
 
-The generated Unicode lookup tables in fx use data published by the Unicode
+The generated Unicode lookup tables in y2 use data published by the Unicode
 Consortium.
 
 UNICODE LICENSE V3

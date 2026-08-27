@@ -5,15 +5,15 @@ import { fileURLToPath } from "node:url";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
 const repoRoot = resolve(scriptDir, "../..");
-const outputDir = resolve(process.argv[2] || resolve(repoRoot, "sdk/dist/libfx"));
+const outputDir = resolve(process.argv[2] || resolve(repoRoot, "sdk/dist/liby2"));
 const requestedNativeAddons = process.argv.slice(3).map((path) => resolve(path));
-const defaultNativeAddon = resolve(repoRoot, "zig-out/lib/libfx.node");
+const defaultNativeAddon = resolve(repoRoot, "zig-out/lib/liby2.node");
 const nativeAddons = requestedNativeAddons.length ? requestedNativeAddons : [defaultNativeAddon];
 const requiredNativeNames = new Set([
-  "libfx.linux-x64.node",
-  "libfx.linux-arm64.node",
-  "libfx.darwin-x64.node",
-  "libfx.darwin-arm64.node",
+  "liby2.linux-x64.node",
+  "liby2.linux-arm64.node",
+  "liby2.darwin-x64.node",
+  "liby2.darwin-arm64.node",
 ]);
 const files = [
   ["sdk/package.json", "package.json"],
@@ -21,9 +21,9 @@ const files = [
   ["LICENSE", "LICENSE"],
   ["sdk/browser.js", "browser.js"],
   ["sdk/node.js", "node.js"],
-  ["sdk/fx-sdk.js", "fx-sdk.js"],
-  ["zig-out/bin/fx-core.wasm", "fx-core.wasm"],
-  ["zig-out/bin/fx-term.wasm", "fx-term.wasm"],
+  ["sdk/y2-sdk.js", "y2-sdk.js"],
+  ["zig-out/bin/y2-core.wasm", "y2-core.wasm"],
+  ["zig-out/bin/y2-term.wasm", "y2-term.wasm"],
 ];
 
 if (requestedNativeAddons.length) {

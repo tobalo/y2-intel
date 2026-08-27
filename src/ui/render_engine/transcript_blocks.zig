@@ -3797,13 +3797,13 @@ test "renderEntriesToBytes keeps the assistant gutter outside an OSC 8 link" {
         &entries,
         alloc,
         1,
-        "\x1b]8;id=fx-1;https://example.com\x1b\\\x1b[4mabcdef\x1b[24m\x1b]8;;\x1b\\",
+        "\x1b]8;id=y2-1;https://example.com\x1b\\\x1b[4mabcdef\x1b[24m\x1b]8;;\x1b\\",
     );
 
     const out = try renderEntriesToBytes(alloc, entries.items, 5, .{});
     defer alloc.free(out);
-    try std.testing.expect(std.mem.startsWith(u8, out, "  \x1b[4m\x1b]8;id=fx-1;https://example.com\x1b\\abc"));
-    try std.testing.expect(std.mem.find(u8, out, "\x1b[0m\x1b]8;;\x1b\\\n  \x1b[4m\x1b]8;id=fx-1") != null);
+    try std.testing.expect(std.mem.startsWith(u8, out, "  \x1b[4m\x1b]8;id=y2-1;https://example.com\x1b\\abc"));
+    try std.testing.expect(std.mem.find(u8, out, "\x1b[0m\x1b]8;;\x1b\\\n  \x1b[4m\x1b]8;id=y2-1") != null);
 }
 
 test "renderEntriesToBytes reflows an inline image label at narrow widths" {

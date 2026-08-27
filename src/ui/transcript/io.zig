@@ -1,6 +1,6 @@
 // Host contract:
 // - fields: stdout_file, shadow_vt, shadow_vt_alloc, layout,
-//   viewport_top_row, installed pre-fx document state
+//   viewport_top_row, installed pre-y2 document state
 // This module owns the normal frame sink. Exact probes, lifecycle controls,
 // titles, crash recovery, and noninteractive output stay with their domain
 // owners.
@@ -120,7 +120,7 @@ test "standalone presentation bell is written without changing the shadow grid" 
     try std.testing.expectEqual(@as(u21, ' '), shadow.cellAt(1, 1).?.codepoint);
 }
 
-test "enableShadowVt matches Fx's no-autowrap terminal mode" {
+test "enableShadowVt matches Y2's no-autowrap terminal mode" {
     const FakeShell = struct {
         layout: types.Layout,
         shadow_vt: ?*vt_emulator.Grid = null,

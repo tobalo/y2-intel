@@ -50,7 +50,7 @@ class PgsoRunnerTests(unittest.TestCase):
                     self.marker_seen.set()
                 return written
 
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             stdout = LiveOutput()
             errors: list[Exception] = []
@@ -88,7 +88,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertEqual([], errors)
 
     def test_silent_command_emits_periodic_heartbeats(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             stdout = io.StringIO()
 
@@ -116,7 +116,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertIn("heartbeat.json", output)
 
     def test_success_streams_command_lifecycle_and_child_output(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             stdout = io.StringIO()
             stderr = io.StringIO()
@@ -147,7 +147,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertIn("live stderr\n", stderr.getvalue())
 
     def test_failure_streams_terminal_status_after_child_output(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             stdout = io.StringIO()
 
@@ -173,7 +173,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertLess(output.index("failure detail"), output.index("command failed"))
 
     def test_success_captures_output_and_writes_a_bounded_log(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             log_path = pathlib.Path(tmp) / "stage.json"
             env = os.environ.copy()
             env["PGSO_TEST_SECRET"] = "must-not-be-logged"
@@ -201,7 +201,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertNotIn("must-not-be-logged", log_path.read_text())
 
     def test_noisy_output_is_truncated_in_memory_and_in_the_json_log(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             log_path = root / "bounded.json"
             with (
@@ -235,7 +235,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertLess(len(log["stderr"]), 256)
 
     def test_interruption_terminates_the_process_group_and_logs_cancellation(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             process = mock.Mock()
             process.stdout = io.StringIO("partial stdout\n")
@@ -264,7 +264,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertEqual("partial stdout\n", log["stdout"])
 
     def test_nonzero_exit_raises_after_logging_output(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             log_path = pathlib.Path(tmp) / "stage.json"
 
             with self.assertRaisesRegex(
@@ -289,7 +289,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertEqual("failed", log["status"])
 
     def test_empty_stderr_policy_fails_closed(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             log_path = pathlib.Path(tmp) / "stage.json"
 
             with self.assertRaisesRegex(PgsoError, "wrote unexpected stderr"):
@@ -311,7 +311,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertEqual("optimizer warning\n", log["stderr"])
 
     def test_missing_executable_fails_closed_and_writes_a_log(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             log_path = pathlib.Path(tmp) / "stage.json"
 
             with self.assertRaisesRegex(PgsoError, "executable not found"):
@@ -328,7 +328,7 @@ class PgsoRunnerTests(unittest.TestCase):
             self.assertIsNone(log["returncode"])
 
     def test_timeout_terminates_the_whole_process_group(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="fx-pgso-runner-") as tmp:
+        with tempfile.TemporaryDirectory(prefix="y2-pgso-runner-") as tmp:
             root = pathlib.Path(tmp)
             marker = root / "child-survived"
             log_path = root / "stage.json"

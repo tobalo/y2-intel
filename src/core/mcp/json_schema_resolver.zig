@@ -2,7 +2,7 @@ const std = @import("std");
 
 const Allocator = std.mem.Allocator;
 
-const synthetic_root_uri = "fx-schema:/root";
+const synthetic_root_uri = "y2-schema:/root";
 
 pub const Dialect = enum {
     draft_2020_12,

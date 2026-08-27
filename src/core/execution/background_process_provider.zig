@@ -4,7 +4,7 @@ const process_supervisor = @import("../background/process_supervisor.zig");
 
 const Allocator = std.mem.Allocator;
 
-pub const exit_marker = "__FX_EXIT_CODE__=";
+pub const exit_marker = "__Y2_EXIT_CODE__=";
 
 pub fn isValidPidText(pid: []const u8) bool {
     if (pid.len == 0) return false;

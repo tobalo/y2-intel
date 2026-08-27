@@ -36,8 +36,8 @@ jobs:
       Y2_API_KEY: ""
       OPENAI_API_KEY: ""
       OPENAI_BASE_URL: ""
-      FX_API_CHAT_URL: ""
-      FX_MODEL: ""
+      Y2_API_CHAT_URL: ""
+      Y2_MODEL: ""
       VERCEL_OIDC_TOKEN: ""
     steps:
       - uses: actions/checkout@v4
@@ -69,11 +69,11 @@ jobs:
           status_stderr="$(mktemp)"
           trap 'rm -f "$help_stdout" "$help_stderr" "$status_stdout" "$status_stderr"' EXIT
 
-          ./zig-out/bin/fx help >"$help_stdout" 2>"$help_stderr"
+          ./zig-out/bin/y2 help >"$help_stdout" 2>"$help_stderr"
           test -s "$help_stdout"
           test ! -s "$help_stderr"
 
-          ./zig-out/bin/fx status --json >"$status_stdout" 2>"$status_stderr"
+          ./zig-out/bin/y2 status --json >"$status_stdout" 2>"$status_stderr"
           test -s "$status_stdout"
           test ! -s "$status_stderr"
 
@@ -115,10 +115,10 @@ jobs:
       Y2_API_KEY: ""
       OPENAI_API_KEY: ""
       OPENAI_BASE_URL: ""
-      FX_API_CHAT_URL: ""
-      FX_MODEL: ""
+      Y2_API_CHAT_URL: ""
+      Y2_MODEL: ""
       VERCEL_OIDC_TOKEN: ""
-      FX_REQUIRE_TMUX: "1"
+      Y2_REQUIRE_TMUX: "1"
       SHARD_INDEX: ${{ matrix.shard.index }}
       SHARD_COUNT: ${{ matrix.shard.shard_count }}
     steps:
@@ -203,7 +203,7 @@ jobs:
         working-directory: tests/e2e
         run: |
           selected=()
-          selection_file="$RUNNER_TEMP/fx-e2e-shard-${SHARD_INDEX}.txt"
+          selection_file="$RUNNER_TEMP/y2-e2e-shard-${SHARD_INDEX}.txt"
           bun ci-shards.ts \
             --shard-count "$SHARD_COUNT" \
             --shard-index "$SHARD_INDEX" > "$selection_file"
@@ -218,7 +218,7 @@ jobs:
           shard_status=0
           test_number=0
           for test_file in "${selected[@]}"; do
-            tmux_tmp_dir="$RUNNER_TEMP/fx-e2e-tmux-${SHARD_INDEX}-${test_number}"
+            tmux_tmp_dir="$RUNNER_TEMP/y2-e2e-tmux-${SHARD_INDEX}-${test_number}"
             mkdir -p "$tmux_tmp_dir"
             if ! TMUX_TMPDIR="$tmux_tmp_dir" bun test --max-concurrency 1 "./$test_file"; then
               printf 'Retrying failed E2E file after resetting tmux: %s\n' "$test_file"

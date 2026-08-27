@@ -3,7 +3,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN } from "../evals/eval-helpers";
+import { Y2_BIN } from "../evals/eval-helpers";
 import { composerContains, TmuxSession, tmuxAvailable } from "./tmux-helpers";
 
 const tmuxTest = test.skipIf(!tmuxAvailable());
@@ -45,24 +45,24 @@ function textHex(text: string): string[] {
 }
 
 tmuxTest("direct native-clear recovery resets the view and replays the held draft", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "fx-native-clear-"));
+  const dir = mkdtempSync(join(tmpdir(), "y2-native-clear-"));
   temp_dirs.push(dir);
   const trace_path = join(dir, "trace.log");
   const stderr_path = join(dir, "stderr.log");
   const old_marker = "PRE_NATIVE_CLEAR_MARKER_8213";
 
   session = await TmuxSession.create({
-    cmd: `sh -c "printf '${old_marker}\\n'; exec '${FX_BIN}'"`,
+    cmd: `sh -c "printf '${old_marker}\\n'; exec '${Y2_BIN}'"`,
     width: 100,
     height: 30,
     stderrPath: stderr_path,
     env: {
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_THEME: undefined,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_THEME: undefined,
       TMUX: undefined,
-      FX_TRACE_LOG: trace_path,
-      FX_TRACE_SCOPES: "native_clear,frame_schedule",
+      Y2_TRACE_LOG: trace_path,
+      Y2_TRACE_SCOPES: "native_clear,frame_schedule",
     },
   });
   await session.waitForComposer(10_000);
@@ -79,24 +79,24 @@ tmuxTest("direct native-clear recovery resets the view and replays the held draf
 }, 30_000);
 
 tmuxTest("direct healthy screens retain an ordinary burst without resetting", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "fx-native-clear-match-"));
+  const dir = mkdtempSync(join(tmpdir(), "y2-native-clear-match-"));
   temp_dirs.push(dir);
   const trace_path = join(dir, "trace.log");
   const stderr_path = join(dir, "stderr.log");
   const old_marker = "PRE_NATIVE_MATCH_MARKER_4051";
 
   session = await TmuxSession.create({
-    cmd: `sh -c "printf '${old_marker}\\n'; exec '${FX_BIN}'"`,
+    cmd: `sh -c "printf '${old_marker}\\n'; exec '${Y2_BIN}'"`,
     width: 100,
     height: 30,
     stderrPath: stderr_path,
     env: {
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_THEME: undefined,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_THEME: undefined,
       TMUX: undefined,
-      FX_TRACE_LOG: trace_path,
-      FX_TRACE_SCOPES: "native_clear",
+      Y2_TRACE_LOG: trace_path,
+      Y2_TRACE_SCOPES: "native_clear",
     },
   });
   await session.waitForComposer(10_000);
@@ -112,7 +112,7 @@ tmuxTest("direct healthy screens retain an ordinary burst without resetting", as
 }, 30_000);
 
 tmuxTest("native-clear replay settles a complete paste before the next key", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "fx-native-clear-paste-"));
+  const dir = mkdtempSync(join(tmpdir(), "y2-native-clear-paste-"));
   temp_dirs.push(dir);
   const trace_path = join(dir, "trace.log");
   const stderr_path = join(dir, "stderr.log");
@@ -123,11 +123,11 @@ tmuxTest("native-clear replay settles a complete paste before the next key", asy
     stderrPath: stderr_path,
     env: {
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_THEME: undefined,
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_THEME: undefined,
       TMUX: undefined,
-      FX_TRACE_LOG: trace_path,
-      FX_TRACE_SCOPES: "native_clear,input",
+      Y2_TRACE_LOG: trace_path,
+      Y2_TRACE_SCOPES: "native_clear,input",
     },
   });
   await session.waitForComposer(10_000);
@@ -147,7 +147,7 @@ tmuxTest("native-clear replay settles a complete paste before the next key", asy
 }, 30_000);
 
 tmuxTest("tmux leaves native-clear probing disabled and preserves ordinary input", async () => {
-  const dir = mkdtempSync(join(tmpdir(), "fx-native-clear-tmux-"));
+  const dir = mkdtempSync(join(tmpdir(), "y2-native-clear-tmux-"));
   temp_dirs.push(dir);
   const trace_path = join(dir, "trace.log");
   const stderr_path = join(dir, "stderr.log");
@@ -158,9 +158,9 @@ tmuxTest("tmux leaves native-clear probing disabled and preserves ordinary input
     stderrPath: stderr_path,
     env: {
       Y2_API_KEY: undefined,
-      VERCEL_OIDC_TOKEN: undefined,
-      FX_TRACE_LOG: trace_path,
-      FX_TRACE_SCOPES: "native_clear",
+      REMOVED_LEGACY_OIDC_TOKEN: undefined,
+      Y2_TRACE_LOG: trace_path,
+      Y2_TRACE_SCOPES: "native_clear",
     },
   });
   await session.waitForComposer(10_000);

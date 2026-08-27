@@ -14,13 +14,9 @@ const test_builtin_gateway = if (@import("builtin").is_test)
     @import("../../builtins/gateway.zig")
 else
     struct {};
-const test_gateway_client = if (@import("builtin").is_test)
-    @import("../../gateway/client.zig")
-else
-    struct {};
 
 const Allocator = std.mem.Allocator;
-const e2e_gateway_models_url_env = "FX_E2E_GATEWAY_MODELS_URL";
+const e2e_gateway_models_url_env = "Y2_E2E_GATEWAY_MODELS_URL";
 
 const ModelCacheState = enum {
     idle,
@@ -1057,12 +1053,12 @@ test "model cache refetches effective access across auth and team changes" {
     const public_access: credentials.CatalogAccess = .{ .public_only = .no_credential };
     const team_a_access = authenticatedCatalogAccess("team-key", "team_a");
     const team_b_access = authenticatedCatalogAccess("team-key", "team_b");
-    const fx_login_access = credentials.catalogAccessForCredential(.fx_login, "login-token", "ignored-team");
+    const retired_login_access = credentials.catalogAccessForCredential(.retired_login, "login-token", "ignored-team");
     const cases = [_]struct { access: credentials.CatalogAccess, model_id: []const u8 }{
         .{ .access = public_access, .model_id = "public/original" },
         .{ .access = team_a_access, .model_id = "private/team-a" },
         .{ .access = team_b_access, .model_id = "private/team-b" },
-        .{ .access = fx_login_access, .model_id = "public/login" },
+        .{ .access = retired_login_access, .model_id = "public/login" },
     };
 
     var provider = AuthChangeCatalog{};
@@ -1087,17 +1083,17 @@ test "model cache refetches effective access across auth and team changes" {
     try std.testing.expectEqual(@as(usize, cases.len), provider.calls);
 }
 
-test "model cache reloads a ready authenticated catalog after Fx login access downgrades" {
+test "model cache reloads a ready authenticated catalog after Y2 login access downgrades" {
     const cases = [_]struct {
         access: credentials.CatalogAccess,
         reason: credentials.CatalogPublicOnlyReason,
     }{
         .{
-            .access = .{ .public_only = .fx_login_refresh_required },
-            .reason = .fx_login_refresh_required,
+            .access = .{ .public_only = .retired_login_refresh_required },
+            .reason = .retired_login_refresh_required,
         },
         .{
-            .access = credentials.catalogAccessAfterRefreshFailure(.fx_login),
+            .access = credentials.catalogAccessAfterRefreshFailure(.retired_login),
             .reason = .credential_refresh_failed,
         },
     };
@@ -1108,7 +1104,7 @@ test "model cache reloads a ready authenticated catalog after Fx login access do
         var private_provider = AuthChangeCatalog{ .model_id = "private/team-model" };
         runtime.startWarmup(
             private_provider.provider(),
-            credentials.catalogAccessForCredential(.fx_login, "login-token", "team_123"),
+            credentials.catalogAccessForCredential(.retired_login, "login-token", "team_123"),
         );
         try waitForWarmup(&runtime);
 
@@ -1129,13 +1125,13 @@ test "model cache reuses a ready public catalog when only its public reason chan
     var runtime = Runtime.init(std.testing.allocator, "/v1/models");
     defer runtime.deinit();
     var initial_provider = AuthChangeCatalog{ .model_id = "public/base-model" };
-    runtime.startWarmup(initial_provider.provider(), .{ .public_only = .fx_login_refresh_required });
+    runtime.startWarmup(initial_provider.provider(), .{ .public_only = .retired_login_refresh_required });
     try waitForWarmup(&runtime);
 
     var unused_provider = AuthChangeCatalog{ .model_id = "public/redundant-model" };
     runtime.startWarmup(
         unused_provider.provider(),
-        credentials.catalogAccessAfterRefreshFailure(.fx_login),
+        credentials.catalogAccessAfterRefreshFailure(.retired_login),
     );
 
     try std.testing.expectEqual(@as(usize, 0), unused_provider.calls);

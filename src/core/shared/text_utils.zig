@@ -564,8 +564,8 @@ pub fn sanitizeAssistantText(text: []const u8) []const u8 {
     const first_break = std.mem.findScalar(u8, trimmed, '\n') orelse return trimmed;
     const first_line = std.mem.trim(u8, trimmed[0..first_break], " \r\n\t");
 
-    const is_intro = containsIgnoreCase(first_line, "i'm fx") or
-        containsIgnoreCase(first_line, "i am fx") or
+    const is_intro = containsIgnoreCase(first_line, "i'm y2") or
+        containsIgnoreCase(first_line, "i am y2") or
         containsIgnoreCase(first_line, "local coding assistant");
     if (!is_intro) return trimmed;
 
@@ -656,7 +656,7 @@ const secret_prefixes = [_][]const u8{
     "OPENAI_API_KEY=",
     "ANTHROPIC_API_KEY=",
     "Y2_API_KEY=",
-    "VERCEL_OIDC_TOKEN=",
+    "REMOVED_LEGACY_OIDC_TOKEN=",
     "GITHUB_TOKEN=",
     "AWS_SECRET_ACCESS_KEY=",
     "DATABASE_URL=",
@@ -1054,11 +1054,11 @@ test "redactUrlForDisplay preserves benign keys containing sig" {
 }
 
 test "sanitizeAssistantText strips first-line assistant intro" {
-    const cleaned = sanitizeAssistantText(" \tI'm Fx, your local coding assistant.\n\n  Here is the answer.\n");
+    const cleaned = sanitizeAssistantText(" \tI'm Y2, your local coding assistant.\n\n  Here is the answer.\n");
     try std.testing.expectEqualStrings("Here is the answer.", cleaned);
 
-    const unchanged = sanitizeAssistantText("I'm Fx, your local coding assistant.");
-    try std.testing.expectEqualStrings("I'm Fx, your local coding assistant.", unchanged);
+    const unchanged = sanitizeAssistantText("I'm Y2, your local coding assistant.");
+    try std.testing.expectEqualStrings("I'm Y2, your local coding assistant.", unchanged);
 }
 
 test "clippedLabel clips by display width with an ellipsis" {

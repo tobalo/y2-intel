@@ -146,13 +146,13 @@ fn formatMcpIssuerMismatch(
             try std.json.Stringify.value(returned.bytes, .{}, &out.writer);
             try out.writer.writeAll(". Add \"oauth\":{\"issuer\":");
             try std.json.Stringify.value(returned.bytes, .{}, &out.writer);
-            try out.writer.writeAll("} to this server's entry in ~/.fx/mcp.json and retry.");
+            try out.writer.writeAll("} to this server's entry in ~/.y2/mcp.json and retry.");
         },
         .authorization_response => {
             try out.writer.writeAll(" but the authorization response returned issuer ");
             try std.json.Stringify.value(returned.bytes, .{}, &out.writer);
             try out.writer.writeAll(
-                ". fx stopped before token exchange. Contact the MCP server provider; changing oauth.issuer is not a safe workaround.",
+                ". y2 stopped before token exchange. Contact the MCP server provider; changing oauth.issuer is not a safe workaround.",
             );
         },
     }
@@ -376,7 +376,6 @@ pub fn Handlers(comptime App: type) type {
                 .compact_history = commandCompactHistory,
                 .handle_settings = commandHandleSettings,
                 .handle_alias = commandHandleAlias,
-                .show_credits = commandShowCredits,
                 .paste_clipboard = commandPasteClipboard,
                 .toggle_fast = commandToggleFast,
                 .handle_statusline = commandHandleStatusline,
@@ -1700,33 +1699,6 @@ pub fn Handlers(comptime App: type) type {
             }, true);
         }
 
-        fn commandShowCredits(ctx: *anyopaque) !void {
-            const app: *App = @ptrCast(@alignCast(ctx));
-            var snapshot = app.creditsProvider().fetch(app.alloc, .{
-                .credential = app.auth.apiKey(),
-                .credential_source = if (comptime @hasDecl(@TypeOf(app.auth), "credentialSource"))
-                    app.auth.credentialSource()
-                else
-                    null,
-                .tenant = app.auth.gatewayTeam(),
-            });
-            defer snapshot.deinit(app.alloc);
-            const text = snapshot.renderInteractiveBody(app.alloc) catch {
-                try app.writeDomainNotice(.{
-                    .topic = "credits",
-                    .tone = .@"error",
-                    .body = "Failed to render credits.",
-                }, true);
-                return;
-            };
-            defer app.alloc.free(text);
-            try app.writeDomainNotice(.{
-                .topic = "credits",
-                .tone = if (snapshot.err_message == null) .neutral else .@"error",
-                .body = text,
-            }, true);
-        }
-
         fn commandPasteClipboard(ctx: *anyopaque) !void {
             const app: *App = @ptrCast(@alignCast(ctx));
             try image_commands.Commands(App).attachClipboard(app);
@@ -1835,7 +1807,7 @@ fn writeTraceReportFile(alloc: std.mem.Allocator, contents: []const u8) ![]u8 {
         var random_bytes: [6]u8 = undefined;
         io_mod.getIo().random(&random_bytes);
         const random_hex = std.fmt.bytesToHex(random_bytes, .lower);
-        const path = try std.fmt.allocPrint(alloc, "{s}/fx-trace-{d}-{d:0>2}-{d:0>2}-{d:0>2}{d:0>2}{d:0>2}-{s}.md", .{
+        const path = try std.fmt.allocPrint(alloc, "{s}/y2-trace-{d}-{d:0>2}-{d:0>2}-{d:0>2}{d:0>2}{d:0>2}-{s}.md", .{
             trimmed,
             year_day.year,
             month_day.month.numeric(),
@@ -1874,7 +1846,7 @@ fn buildTraceReport(app: anytype) ![]u8 {
     var out: std.Io.Writer.Allocating = .init(app.alloc);
     defer out.deinit();
 
-    try out.writer.writeAll("# fx trace\n\n");
+    try out.writer.writeAll("# y2 trace\n\n");
     try out.writer.writeAll("Private diagnostic report. It may include prompts, file paths, command output, and file snippets.\n\n");
 
     try out.writer.writeAll("## Summary\n");
@@ -1921,7 +1893,7 @@ fn buildTraceReport(app: anytype) ![]u8 {
         try out.writer.writeAll("\n## Transcript Timeline\n(empty)\n");
     }
 
-    const trace_path: ?[]const u8 = debug_trace.activeLogPath() orelse io_mod.getenv("FX_TRACE_LOG");
+    const trace_path: ?[]const u8 = debug_trace.activeLogPath() orelse io_mod.getenv("Y2_TRACE_LOG");
     if (trace_path) |path| {
         try writeTraceLogTail(&out.writer, app.alloc, path);
     }
@@ -2098,8 +2070,8 @@ fn processMemorySnapshot(alloc: std.mem.Allocator, pid: std.c.pid_t) ![]u8 {
 }
 
 fn writeDebugEnvSummary(writer: *std.Io.Writer, alloc: std.mem.Allocator) !void {
-    try writer.print("FX_TRACE: {s}\n", .{if (envTruthy("FX_TRACE")) "on" else "off"});
-    if (debug_trace.activeLogPath() orelse io_mod.getenv("FX_TRACE_LOG")) |path| {
+    try writer.print("Y2_TRACE: {s}\n", .{if (envTruthy("Y2_TRACE")) "on" else "off"});
+    if (debug_trace.activeLogPath() orelse io_mod.getenv("Y2_TRACE_LOG")) |path| {
         try writer.writeAll("trace_log: ");
         try writeMaskedInline(writer, alloc, path);
         try writer.writeByte('\n');
@@ -3359,60 +3331,6 @@ fn parseOnOff(value: []const u8) ?bool {
 
 const SurfaceOnlyApp = struct {};
 
-const CreditsCommandFakeApp = struct {
-    const FakeAuth = struct {
-        fn apiKey(_: *const FakeAuth) ?[]const u8 {
-            return "credential";
-        }
-
-        fn gatewayTeam(_: *const FakeAuth) ?[]const u8 {
-            return "tenant";
-        }
-    };
-
-    alloc: std.mem.Allocator,
-    auth: FakeAuth = .{},
-    calls: usize = 0,
-    saw_expected_input: bool = false,
-    notice_body: std.ArrayList(u8) = .empty,
-    notice_topic: ?[]const u8 = null,
-    notice_tone: ?types.NoticeTone = null,
-
-    fn deinit(self: *CreditsCommandFakeApp) void {
-        self.notice_body.deinit(self.alloc);
-    }
-
-    fn creditsProvider(self: *CreditsCommandFakeApp) gateway_provider.CreditsProvider {
-        return .{
-            .context = self,
-            .fetch_fn = fetchCredits,
-        };
-    }
-
-    fn fetchCredits(
-        raw: ?*anyopaque,
-        alloc: std.mem.Allocator,
-        input: gateway_provider.CreditsLookupInput,
-    ) output_contracts.CreditsSnapshot {
-        const self: *CreditsCommandFakeApp = @ptrCast(@alignCast(raw.?));
-        self.calls += 1;
-        self.saw_expected_input =
-            std.mem.eql(u8, input.credential orelse "", "credential") and
-            std.mem.eql(u8, input.tenant orelse "", "tenant");
-        return .{ .balance = alloc.dupe(u8, "10") catch null };
-    }
-
-    noinline fn writeDomainNotice(
-        self: *CreditsCommandFakeApp,
-        notice: types.SemanticNotice,
-        _: bool,
-    ) !void {
-        self.notice_topic = notice.topic;
-        self.notice_tone = notice.tone;
-        try self.notice_body.appendSlice(self.alloc, notice.body);
-    }
-};
-
 const McpCommandFakeApp = struct {
     const ReloadBehavior = enum {
         published_empty,
@@ -3463,7 +3381,7 @@ const McpCommandFakeApp = struct {
             .display = .{
                 .line = try alloc.dupe(
                     u8,
-                    "Waiting for MCP authentication for 'fixture'. You can continue using fx while the browser flow completes.",
+                    "Waiting for MCP authentication for 'fixture'. You can continue using y2 while the browser flow completes.",
                 ),
             },
         };
@@ -3781,7 +3699,7 @@ test "trace report file uses private randomized markdown path" {
     defer alloc.free(path);
     defer std.Io.Dir.deleteFileAbsolute(std.testing.io, path) catch {};
 
-    try std.testing.expect(std.mem.find(u8, path, "fx-trace-") != null);
+    try std.testing.expect(std.mem.find(u8, path, "y2-trace-") != null);
     try std.testing.expect(std.mem.endsWith(u8, path, ".md"));
 
     var file = try std.Io.Dir.openFileAbsolute(std.testing.io, path, .{});
@@ -3808,7 +3726,7 @@ test "trace auth summary preserves missing and loaded status text" {
 
     var credential = credentials.Credential{
         .token = try alloc.dupe(u8, "token"),
-        .source = .fx_login,
+        .source = .retired_login,
     };
     defer credential.deinit(alloc);
     _ = app.auth.adoptCredential(alloc, &credential);
@@ -3816,7 +3734,7 @@ test "trace auth summary preserves missing and loaded status text" {
     defer loaded.deinit();
     try writeAuthStateSummary(&loaded.writer, &app);
     try std.testing.expectEqualStrings(
-        "auth: source=fx login refreshable=true gateway_team=unset\n",
+        "auth: source=y2 login refreshable=true gateway_team=unset\n",
         loaded.written(),
     );
 }
@@ -3860,7 +3778,7 @@ test "trace successful tool calls use compact result previews" {
     var call: diagnostics.ToolCallMetric = .{ .started_at_ms = 3000, .duration_ms = 1, .ok = true };
     call.setName("read_file");
     call.setArgs("{\"path\":\"README.md\"}");
-    call.setResult("<path>README.md</path>\n<content>\n# fx\n\nlong body line\n</content>");
+    call.setResult("<path>README.md</path>\n<content>\n# y2\n\nlong body line\n</content>");
     diagnostics.recordToolCall(call);
 
     var out: std.Io.Writer.Allocating = .init(alloc);
@@ -3869,7 +3787,7 @@ test "trace successful tool calls use compact result previews" {
     const text = out.written();
 
     try std.testing.expect(std.mem.find(u8, text, "recent successes (compact):") != null);
-    try std.testing.expect(std.mem.find(u8, text, "result_preview: # fx") != null);
+    try std.testing.expect(std.mem.find(u8, text, "result_preview: # y2") != null);
     try std.testing.expect(std.mem.find(u8, text, "<path>README.md</path>") == null);
     try std.testing.expect(std.mem.find(u8, text, "long body line") == null);
 }
@@ -3971,19 +3889,6 @@ test "app_commands exposes active handler API surface" {
     try std.testing.expectEqual(@as(usize, 1), handlers_info.params.len);
     try std.testing.expect(handlers_info.params[0].type.? == *SurfaceOnlyApp);
     try std.testing.expect(handlers_info.return_type.? == command_router.CommandHandlers);
-}
-
-test "credits command renders through the composed provider" {
-    var app = CreditsCommandFakeApp{ .alloc = std.testing.allocator };
-    defer app.deinit();
-
-    try Handlers(CreditsCommandFakeApp).commandShowCredits(@ptrCast(&app));
-
-    try std.testing.expectEqual(@as(usize, 1), app.calls);
-    try std.testing.expect(app.saw_expected_input);
-    try std.testing.expectEqualStrings("credits", app.notice_topic.?);
-    try std.testing.expectEqual(types.NoticeTone.neutral, app.notice_tone.?);
-    try std.testing.expectEqualStrings("balance=10", app.notice_body.items);
 }
 
 test "app_commands routes clear through carry-forward session reset" {
@@ -4101,7 +4006,7 @@ test "app_commands preserves command display after implicit MCP reload" {
     try std.testing.expectEqualStrings("mcp", app.last_topic.?);
     try std.testing.expectEqual(types.NoticeTone.neutral, app.last_tone.?);
     try std.testing.expectEqualStrings(
-        "Waiting for MCP authentication for 'fixture'. You can continue using fx while the browser flow completes.",
+        "Waiting for MCP authentication for 'fixture'. You can continue using y2 while the browser flow completes.",
         app.notice_body.items,
     );
     try Handlers(McpCommandFakeApp).collectMcpAuthenticationFacts(&app);
@@ -4359,12 +4264,12 @@ test "skills remove prefers a managed match after a workspace duplicate" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    try writeTempSkillFile(&tmp, "home/.fx/skills/review/SKILL.md", "---\nname: review\n---\nmanaged body\n");
+    try writeTempSkillFile(&tmp, "home/.y2/skills/review/SKILL.md", "---\nname: review\n---\nmanaged body\n");
     try writeTempSkillFile(&tmp, "home/workspace/.agents/skills/review/SKILL.md", "---\nname: review\n---\nworkspace body\n");
 
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
-    const managed_skill = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills/review");
+    const managed_skill = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills/review");
     defer alloc.free(managed_skill);
     const workspace_skill = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace/.agents/skills/review");
     defer alloc.free(workspace_skill);
@@ -4396,7 +4301,7 @@ test "skills remove prefers a managed match after a workspace duplicate" {
     try std.testing.expectEqual(@as(usize, 2), app.reload_count);
     try std.testing.expectError(
         error.FileNotFound,
-        tmp.dir.access(io_mod.getIo(), "home/.fx/skills/review", .{}),
+        tmp.dir.access(io_mod.getIo(), "home/.y2/skills/review", .{}),
     );
     try tmp.dir.access(io_mod.getIo(), "home/workspace/.agents/skills/review/SKILL.md", .{});
 }

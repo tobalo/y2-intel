@@ -139,7 +139,7 @@ pub const Decision = enum {
 /// filtered visibility, and every runtime/catalog/auth identity are included.
 pub fn authorityGeneration(view: View) u64 {
     var hash = std.crypto.hash.sha2.Sha256.init(.{});
-    hash.update("fx.mcp.access-authority.v1\x00");
+    hash.update("y2.mcp.access-authority.v1\x00");
     hashU64(&hash, view.runtime_generation);
     hashString(&hash, view.owner_id);
     hashString(&hash, view.parent_id);

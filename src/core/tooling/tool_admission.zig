@@ -2123,7 +2123,7 @@ pub fn permissionStateKeyForCall(
 
     var canonical: std.Io.Writer.Allocating = .init(arena);
     defer canonical.deinit();
-    try writeIdentityField(&canonical.writer, "fx-permission-state-v1");
+    try writeIdentityField(&canonical.writer, "y2-permission-state-v1");
     var targets = try permissionTargetsForCall(input, arena, call);
     defer targets.deinit(arena);
     try writeIdentityField(&canonical.writer, call.name);
@@ -2191,7 +2191,7 @@ fn permissionStateKeyForPreparedFileMutation(
 ) !session_permission_state.RuleKey {
     var canonical: std.Io.Writer.Allocating = .init(arena);
     defer canonical.deinit();
-    try writeIdentityField(&canonical.writer, "fx-permission-state-file-v1");
+    try writeIdentityField(&canonical.writer, "y2-permission-state-file-v1");
     try writeIdentityField(&canonical.writer, prepared.tool_name);
     try writeIdentityField(&canonical.writer, &prepared.arguments_hash);
     try writeIdentityField(&canonical.writer, prepared.target_path);
@@ -5252,7 +5252,7 @@ test "session deny narrows configured command allow" {
         .arguments_json = "{\"action\":\"exec\",\"command\":\"touch configured.txt\"}",
     };
     const key = try permissionStateKeyForCall(input, arena, call);
-    try std.testing.expect(std.mem.find(u8, key.canonical, "fx-permission-state-v2") != null);
+    try std.testing.expect(std.mem.find(u8, key.canonical, "y2-permission-state-v2") != null);
     try std.testing.expect(std.mem.find(u8, key.canonical, "restricted") == null);
     try std.testing.expect(std.mem.find(u8, key.canonical, "none") == null);
     var empty: session_permission_state.State = .{};
@@ -5844,7 +5844,7 @@ test "automatic trusted-root write keeps persistence targets on reviewer path" {
         ".git/hooks/pre-commit",
         ".git/config",
         ".ssh/authorized_keys",
-        "Library/LaunchAgents/com.fx.smoke.plist",
+        "Library/LaunchAgents/com.y2.smoke.plist",
     };
     for (relative_targets, 0..) |relative_target, index| {
         const target_path = try std.fs.path.join(arena, &.{ workspace, relative_target });

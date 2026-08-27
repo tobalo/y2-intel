@@ -5,14 +5,14 @@ const gateway_provider = @import("../core/gateway/gateway_provider.zig");
 const io_mod = @import("../core/shared/io.zig");
 const secret = @import("../core/auth/secret.zig");
 const types = @import("../core/shared/types.zig");
-const gateway_client = @import("client.zig");
+const http_runtime = @import("http_runtime.zig");
 
 const max_catalog_models: usize = 128;
 const max_model_id_bytes: usize = 1024;
 const max_catalog_bytes: usize = 4 * 1024 * 1024;
 const fetch_timeout_ms: i64 = 30_000;
 const default_models_endpoint = "https://chatgpt.com/backend-api/codex/models";
-const e2e_models_endpoint_env = "FX_E2E_OPENAI_CODEX_MODELS_URL";
+const e2e_models_endpoint_env = "Y2_E2E_OPENAI_CODEX_MODELS_URL";
 
 pub const protocol_client_version = "0.148.0";
 pub const reviewer_model = "gpt-5.4-mini";
@@ -82,7 +82,7 @@ fn fetchCatalogForProvider(
         .credential = credential,
         .account_id = account_id,
     };
-    var response = gateway_client.runBoundedHttpOperation(
+    var response = http_runtime.runBoundedHttpOperation(
         FetchResponse,
         alloc,
         cancel_flag,
@@ -149,12 +149,12 @@ const FetchOperation = struct {
             .method = .GET,
             .headers = .{
                 .authorization = .{ .override = auth_header },
-                .user_agent = .{ .override = gateway_client.user_agent },
+                .user_agent = .{ .override = http_runtime.user_agent },
                 .accept_encoding = .omit,
             },
             .extra_headers = &.{
                 .{ .name = "chatgpt-account-id", .value = self.account_id },
-                .{ .name = "originator", .value = "fx" },
+                .{ .name = "originator", .value = "y2" },
                 .{ .name = "accept", .value = "application/json" },
             },
             .response_writer = &response_writer,
@@ -174,7 +174,7 @@ const FetchOperation = struct {
 
 fn modelsUrl(alloc: std.mem.Allocator) ![]u8 {
     const base = io_mod.getenv(e2e_models_endpoint_env) orelse default_models_endpoint;
-    if (io_mod.getenv(e2e_models_endpoint_env) != null and !gateway_client.isLoopbackHttpUrl(base)) {
+    if (io_mod.getenv(e2e_models_endpoint_env) != null and !http_runtime.isLoopbackHttpUrl(base)) {
         return error.InvalidE2ECodexModelsEndpoint;
     }
     const separator: u8 = if (std.mem.findScalar(u8, base, '?') == null) '?' else '&';

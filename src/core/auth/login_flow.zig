@@ -18,7 +18,7 @@ else
     struct {};
 
 const Allocator = std.mem.Allocator;
-const teams_endpoint = "https://api.vercel.com/v2/teams";
+const teams_endpoint = "https://api.identity.example/v2/teams";
 const poll_wait_slice_ms: u64 = 100;
 pub const poll_request_timeout_ms: i64 = 15_000;
 const max_poll_interval_ms = std.math.maxInt(u64) / std.time.ns_per_ms;
@@ -138,22 +138,22 @@ pub const SignInSnapshot = struct {
 pub const max_manual_code_bytes: usize = 4096;
 
 pub const SignInCompletion = union(enum) {
-    vercel: TeamSelection,
+    retired_credential: TeamSelection,
     chatgpt: chatgpt_session.Session,
     grok: grok_session.Session,
 
     pub fn deinit(self: *SignInCompletion, alloc: Allocator) void {
         switch (self.*) {
-            .vercel => |*selection| selection.deinit(alloc),
+            .retired_credential => |*selection| selection.deinit(alloc),
             .chatgpt => |*session| session.deinit(alloc),
             .grok => |*session| session.deinit(alloc),
         }
-        self.* = .{ .vercel = .{} };
+        self.* = .{ .retired_credential = .{} };
     }
 
     pub fn take(self: *SignInCompletion) SignInCompletion {
         const completion = self.*;
-        self.* = .{ .vercel = .{} };
+        self.* = .{ .retired_credential = .{} };
         return completion;
     }
 };
@@ -536,7 +536,7 @@ fn completeSignIn(
     errdefer freeTeams(alloc, &teams);
     const now_ms = io_mod.milliTimestamp();
     const session = try take_login_session(alloc, issuer_url, client_id, token, null, now_ms);
-    return .{ .vercel = .{
+    return .{ .retired_credential = .{
         .session = session,
         .teams = teams,
     } };
@@ -544,7 +544,7 @@ fn completeSignIn(
 
 fn saveSignIn(_: ?*anyopaque, alloc: Allocator, completion: SignInCompletion) !void {
     const session = switch (completion) {
-        .vercel => |selection| selection.session orelse return LoginError.NoSession,
+        .retired_credential => |selection| selection.session orelse return LoginError.NoSession,
         .chatgpt, .grok => return error.InvalidSignInCompletion,
     };
     try oauth_session.saveNewSession(alloc, session);
@@ -596,8 +596,8 @@ pub fn runLogin(
     defer session.deinit(alloc);
 
     try oauth_session.saveNewSession(alloc, session);
-    try writeStdout("Signed in to Vercel.\n");
-    try writeStdout("AI Gateway access may still require billing or API setup for the selected account.\n");
+    try writeStdout("Signed in to Retired credential.\n");
+    try writeStdout("retired gateway access may still require billing or API setup for the selected account.\n");
 }
 
 fn take_login_session(
@@ -656,7 +656,7 @@ pub fn runTeams(
     const selected = selection.teams.items[selected_index];
     var changed_team = try selection.select(alloc, selected_index);
     defer changed_team.deinit(alloc);
-    try writeStdoutFmt("Selected Vercel team: {s} ({s}).\n", .{ selected.name, selected.slug });
+    try writeStdoutFmt("Selected Retired credential team: {s} ({s}).\n", .{ selected.name, selected.slug });
 }
 
 pub fn loadTeamSelection(
@@ -670,7 +670,7 @@ pub fn loadTeamSelection(
         var loaded = (try mutation.load(alloc)) orelse return LoginError.NoSession;
         errdefer loaded.deinit(alloc);
         if (loaded.expired(io_mod.milliTimestamp())) {
-            try credentials.refreshFxSession(alloc, transport, &mutation, &loaded);
+            try credentials.refreshY2Session(alloc, transport, &mutation, &loaded);
         }
         break :blk loaded;
     };
@@ -947,7 +947,7 @@ const BrowserOpenPrompt = struct {
         const stdin_is_tty = try std.Io.File.stdin().isTty(io_mod.getIo());
         return .{
             .url = url,
-            .enabled = browserOpenEnabled(io_mod.getenv("FX_NO_OPEN_BROWSER") != null, stdin_is_tty, host.current()),
+            .enabled = browserOpenEnabled(io_mod.getenv("Y2_NO_OPEN_BROWSER") != null, stdin_is_tty, host.current()),
         };
     }
 
@@ -1130,7 +1130,7 @@ fn defaultTeamIndex(teams: []const Team, current: ?[]const u8) usize {
 }
 
 fn selectTeamByLine(alloc: Allocator, teams: []const Team, default_index: usize) !usize {
-    try writeStdout("\nSelect a Vercel team for AI Gateway:\n");
+    try writeStdout("\nSelect a Retired credential team for retired gateway:\n");
     try writeStdout("Model requests will use the selected team; Gateway access may still require billing or API setup.\n\n");
     for (teams, 0..) |team, i| {
         const marker = if (i == default_index) " (default)" else "";
@@ -1156,7 +1156,7 @@ fn selectTeamInteractive(alloc: Allocator, teams: []const Team, default_index: u
     var raw = try TeamPickerRawMode.enable();
     defer raw.disable();
 
-    try writeStdout("\nSelect a Vercel team for AI Gateway:\n");
+    try writeStdout("\nSelect a Retired credential team for retired gateway:\n");
     try writeStdout("Model requests will use the selected team; Gateway access may still require billing or API setup.\n\n");
 
     var selected = default_index;
@@ -1381,7 +1381,7 @@ fn check_take_login_session_allocation_failures(alloc: Allocator) !void {
     };
     var session = try take_login_session(
         alloc,
-        "https://vercel.com",
+        "https://identity.example",
         "client",
         &token,
         &team,
@@ -1440,12 +1440,12 @@ fn writeStdoutFmt(comptime fmt: []const u8, args: anytype) !void {
 test "login flow parses teams" {
     var teams = try parseTeams(
         std.testing.allocator,
-        "{\"teams\":[{\"id\":\"team_1\",\"slug\":\"vercel-labs\",\"name\":\"Vercel Labs\"},{\"id\":\"team_2\",\"slug\":\"personal\"}]}",
+        "{\"teams\":[{\"id\":\"team_1\",\"slug\":\"example-org\",\"name\":\"Retired credential Labs\"},{\"id\":\"team_2\",\"slug\":\"personal\"}]}",
     );
     defer freeTeams(std.testing.allocator, &teams);
     try std.testing.expectEqual(@as(usize, 2), teams.items.len);
     try std.testing.expectEqualStrings("team_1", teams.items[0].id);
-    try std.testing.expectEqualStrings("Vercel Labs", teams.items[0].name);
+    try std.testing.expectEqualStrings("Retired credential Labs", teams.items[0].name);
     try std.testing.expectEqualStrings("personal", teams.items[1].name);
 }
 
@@ -1549,9 +1549,9 @@ const LoginPollTestState = struct {
 
 fn testMetadata() oauth.Metadata {
     return .{
-        .issuer = @constCast("https://vercel.test"),
-        .device_authorization_endpoint = @constCast("https://vercel.test/device"),
-        .token_endpoint = @constCast("https://vercel.test/token"),
+        .issuer = @constCast("https://identity.example"),
+        .device_authorization_endpoint = @constCast("https://identity.example/device"),
+        .token_endpoint = @constCast("https://identity.example/token"),
     };
 }
 
@@ -1559,7 +1559,7 @@ fn testDevice() oauth.DeviceAuthorization {
     return .{
         .device_code = @constCast("device"),
         .user_code = @constCast("USER-CODE"),
-        .verification_uri = @constCast("https://vercel.test/oauth/device"),
+        .verification_uri = @constCast("https://identity.example/oauth/device"),
         .expires_in = 60,
         .interval = 1,
     };
@@ -1632,7 +1632,7 @@ const SignInTestState = struct {
     ) !SignInCompletion {
         const self = state(raw);
         _ = self.complete_count.fetchAdd(1, .seq_cst);
-        return .{ .vercel = .{
+        return .{ .retired_credential = .{
             .session = try take_login_session(
                 alloc,
                 issuer_url,
@@ -1686,7 +1686,7 @@ const CooperativeSignInTestState = struct {
     ) !SignInCompletion {
         const self = state(raw);
         self.complete_count += 1;
-        return .{ .vercel = .{ .session = try take_login_session(
+        return .{ .retired_credential = .{ .session = try take_login_session(
             alloc,
             issuer_url,
             client_id,
@@ -1710,12 +1710,12 @@ const CooperativeSignInTestState = struct {
 fn makeTestPreparedLogin(alloc: Allocator) !PreparedLogin {
     var metadata = try oauth.parseMetadata(
         alloc,
-        "{\"issuer\":\"https://vercel.test\",\"device_authorization_endpoint\":\"https://vercel.test/device\",\"token_endpoint\":\"https://vercel.test/token\"}",
+        "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\"}",
     );
     errdefer metadata.deinit(alloc);
     var device = try oauth.parseDeviceAuthorization(
         alloc,
-        "{\"device_code\":\"device\",\"user_code\":\"USER-CODE\",\"verification_uri\":\"https://vercel.test/oauth/device\",\"verification_uri_complete\":\"https://vercel.test/oauth/device?code=USER-CODE\",\"expires_in\":60,\"interval\":1}",
+        "{\"device_code\":\"device\",\"user_code\":\"USER-CODE\",\"verification_uri\":\"https://identity.example/oauth/device\",\"verification_uri_complete\":\"https://identity.example/oauth/device?code=USER-CODE\",\"expires_in\":60,\"interval\":1}",
     );
     errdefer device.deinit(alloc);
     return .{
@@ -1858,7 +1858,7 @@ fn makeLoopbackPreparedLogin(alloc: Allocator, token_endpoint: []const u8) !Prep
     errdefer alloc.free(owned_token_endpoint);
     var device = try oauth.parseDeviceAuthorization(
         alloc,
-        "{\"device_code\":\"device\",\"user_code\":\"USER-CODE\",\"verification_uri\":\"https://vercel.test/oauth/device\",\"expires_in\":60,\"interval\":1}",
+        "{\"device_code\":\"device\",\"user_code\":\"USER-CODE\",\"verification_uri\":\"https://identity.example/oauth/device\",\"expires_in\":60,\"interval\":1}",
     );
     errdefer device.deinit(alloc);
     return .{
@@ -2184,7 +2184,7 @@ test "login polling starts before waiting for browser input" {
     const alloc = std.testing.allocator;
     var state = LoginPollTestState.init(alloc, &.{.success});
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device", .enabled = true };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device", .enabled = true };
 
     var token = try pollForTokenWithDeps(alloc, oauth_transport.unavailable_provider, testMetadata(), "client", testDevice(), &prompt, state.deps());
     defer token.deinit(alloc);
@@ -2200,14 +2200,14 @@ test "login polling opens browser once when enter arrives while waiting" {
     var state = LoginPollTestState.init(alloc, &.{ .pending, .pending, .success });
     state.enter_on_wait = 1;
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device", .enabled = true };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device", .enabled = true };
 
     var token = try pollForTokenWithDeps(alloc, oauth_transport.unavailable_provider, testMetadata(), "client", testDevice(), &prompt, state.deps());
     defer token.deinit(alloc);
 
     try std.testing.expectEqual(@as(usize, 3), state.poll_index);
     try std.testing.expectEqual(@as(usize, 1), state.open_count);
-    try std.testing.expectEqualStrings("https://vercel.test/oauth/device", state.opened_url.?);
+    try std.testing.expectEqualStrings("https://identity.example/oauth/device", state.opened_url.?);
     try std.testing.expectEqual(@as(usize, 1), state.wait_calls.items.len);
     try std.testing.expectEqual(@as(usize, 19), state.sleep_calls.items.len);
     for (state.sleep_calls.items) |sleep_ms| {
@@ -2221,7 +2221,7 @@ test "login polling continues when the URL opener is unavailable" {
     state.enter_on_wait = 1;
     state.open_available = false;
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device", .enabled = true };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device", .enabled = true };
 
     var token = try pollForTokenWithDeps(alloc, oauth_transport.unavailable_provider, testMetadata(), "client", testDevice(), &prompt, state.deps());
     defer token.deinit(alloc);
@@ -2237,7 +2237,7 @@ test "login polling continues when the URL opener fails" {
     state.enter_on_wait = 1;
     state.open_error = true;
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device", .enabled = true };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device", .enabled = true };
 
     var token = try pollForTokenWithDeps(alloc, oauth_transport.unavailable_provider, testMetadata(), "client", testDevice(), &prompt, state.deps());
     defer token.deinit(alloc);
@@ -2251,7 +2251,7 @@ test "login polling slow_down increases the next interval" {
     const alloc = std.testing.allocator;
     var state = LoginPollTestState.init(alloc, &.{ .slow_down, .success });
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device" };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device" };
 
     var token = try pollForTokenWithDeps(alloc, oauth_transport.unavailable_provider, testMetadata(), "client", testDevice(), &prompt, state.deps());
     defer token.deinit(alloc);
@@ -2268,7 +2268,7 @@ test "login polling disabled browser prompt still polls immediately" {
     var state = LoginPollTestState.init(alloc, &.{ .pending, .success });
     state.enter_on_wait = 1;
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device", .enabled = false };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device", .enabled = false };
 
     var token = try pollForTokenWithDeps(alloc, oauth_transport.unavailable_provider, testMetadata(), "client", testDevice(), &prompt, state.deps());
     defer token.deinit(alloc);
@@ -2286,7 +2286,7 @@ test "login polling rejects invalid provider timing values" {
     const alloc = std.testing.allocator;
     var state = LoginPollTestState.init(alloc, &.{});
     defer state.deinit();
-    var prompt = BrowserOpenPrompt{ .url = "https://vercel.test/oauth/device" };
+    var prompt = BrowserOpenPrompt{ .url = "https://identity.example/oauth/device" };
 
     var device = testDevice();
     device.expires_in = -1;

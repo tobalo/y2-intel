@@ -166,7 +166,7 @@ pub fn writeDiagnosticSummary(alloc: Allocator, writer: *std.Io.Writer, diagnost
     if (debug_trace.activeLogPath()) |trace_path| {
         try writer.print("; see \"{f}\" for details", .{std.zig.fmtString(trace_path)});
     } else {
-        try writer.writeAll("; relaunch with FX_TRACE=1 to write a trace log");
+        try writer.writeAll("; relaunch with Y2_TRACE=1 to write a trace log");
     }
 }
 
@@ -235,7 +235,7 @@ pub const SkillSource = skill_contract.SkillSource;
 
 pub const SkillMenuSourceFilter = enum {
     all,
-    fx,
+    y2,
     workspace,
     opencode,
     codex,
@@ -246,7 +246,7 @@ pub const SkillMenuSourceFilter = enum {
 
 pub const skill_menu_source_filters = [_]SkillMenuSourceFilter{
     .all,
-    .fx,
+    .y2,
     .workspace,
     .claude,
     .codex,
@@ -459,13 +459,13 @@ fn canonicalPathHasReadAuthority(
     return pathInsideReadAuthorities(read_authority, extra_authorities, canonical_path);
 }
 
-/// Parses FX_SKILL_SYMLINK_AUTHORITIES (colon-separated absolute paths) into
+/// Parses Y2_SKILL_SYMLINK_AUTHORITIES (colon-separated absolute paths) into
 /// owned duplicates. Returns an empty slice when the variable is unset or
 /// contains no valid absolute paths. Relative entries and entries containing
 /// `..` components are silently skipped. The caller must free each entry and
 /// the slice itself via `freeExternalAuthorities`.
 fn externalSymlinkAuthorities(alloc: Allocator) ![][]const u8 {
-    const raw = io_mod.getenv("FX_SKILL_SYMLINK_AUTHORITIES") orelse return &.{};
+    const raw = io_mod.getenv("Y2_SKILL_SYMLINK_AUTHORITIES") orelse return &.{};
     if (raw.len == 0) return &.{};
 
     var authorities: std.ArrayList([]const u8) = .empty;
@@ -944,14 +944,14 @@ const skill_group_count: usize = 3;
 
 pub fn skillSourceLabel(source: SkillSource) []const u8 {
     return switch (source) {
-        .workspace_fx => "workspace .fx/skills",
+        .workspace_fx => "workspace .y2/skills",
         .workspace_shared => "workspace skills/",
         .workspace_opencode => "workspace .opencode/skills",
         .workspace_codex => "workspace .codex/skills",
         .workspace_claude => "workspace .claude/skills",
         .workspace_agents => "workspace .agents/skills",
         .workspace_claw => "workspace .claw/skills",
-        .global_fx => "global ~/.fx/skills",
+        .global_fx => "global ~/.y2/skills",
         .global_opencode => "global ~/.config/opencode/skills",
         .global_codex => "global ~/.codex/skills",
         .global_claude => "global ~/.claude/skills",
@@ -962,14 +962,14 @@ pub fn skillSourceLabel(source: SkillSource) []const u8 {
 
 pub fn skillSourceShortLabel(source: SkillSource) []const u8 {
     return switch (source) {
-        .workspace_fx => "workspace .fx",
+        .workspace_fx => "workspace .y2",
         .workspace_shared => "workspace skills/",
         .workspace_opencode => "workspace .opencode",
         .workspace_codex => "workspace .codex",
         .workspace_claude => "workspace .claude",
         .workspace_agents => "workspace .agents",
         .workspace_claw => "workspace .claw",
-        .global_fx => "global .fx",
+        .global_fx => "global .y2",
         .global_opencode => "global opencode",
         .global_codex => "global .codex",
         .global_claude => "global .claude",
@@ -981,7 +981,7 @@ pub fn skillSourceShortLabel(source: SkillSource) []const u8 {
 pub fn skillMenuFilterLabel(filter: SkillMenuSourceFilter) []const u8 {
     return switch (filter) {
         .all => "All",
-        .fx => "fx",
+        .y2 => "y2",
         .workspace => "Workspace",
         .opencode => "OpenCode",
         .codex => "Codex",
@@ -993,8 +993,8 @@ pub fn skillMenuFilterLabel(filter: SkillMenuSourceFilter) []const u8 {
 
 pub fn skillMenuFilterForSource(source: SkillSource) SkillMenuSourceFilter {
     return switch (source) {
-        .global_fx => .fx,
-        .workspace_fx => .fx,
+        .global_fx => .y2,
+        .workspace_fx => .y2,
         .workspace_shared => .workspace,
         .workspace_opencode, .global_opencode => .opencode,
         .workspace_codex, .global_codex => .codex,
@@ -2414,7 +2414,7 @@ test "listSkillsSummary with skills" {
         \\Visible skills (3):
         \\
         \\Managed installs (1):
-        \\  - managed: installed [global ~/.fx/skills]
+        \\  - managed: installed [global ~/.y2/skills]
         \\
         \\Workspace skills (1):
         \\  - local [workspace skills/]
@@ -2436,7 +2436,7 @@ test "listSkillsSummaryStyled dims only source labels" {
     });
     defer alloc.free(result);
 
-    try std.testing.expect(std.mem.find(u8, result, "  - managed: installed \x1b[38;5;245m[global ~/.fx/skills]\x1b[0m\n") != null);
+    try std.testing.expect(std.mem.find(u8, result, "  - managed: installed \x1b[38;5;245m[global ~/.y2/skills]\x1b[0m\n") != null);
     try std.testing.expect(std.mem.find(u8, result, "\x1b[38;5;245mmanaged") == null);
     try std.testing.expect(std.mem.find(u8, result, "\x1b[38;5;245minstalled") == null);
 }
@@ -2621,13 +2621,13 @@ test "loadVisibleSkills scans only roots supplied by policy" {
 
     try writeTempFile(&tmp, "home/workspace/app/custom-skills/injected/SKILL.md", "---\nname: injected\ndescription: selected by policy\n---\nbody\n");
     try writeTempFile(&tmp, "home/workspace/app/skills/ignored/SKILL.md", "---\nname: ignored\ndescription: not selected\n---\nbody\n");
-    try writeTempFile(&tmp, "home/.fx/skills/ignored-managed/SKILL.md", "---\nname: ignored-managed\ndescription: not selected\n---\nbody\n");
+    try writeTempFile(&tmp, "home/.y2/skills/ignored-managed/SKILL.md", "---\nname: ignored-managed\ndescription: not selected\n---\nbody\n");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace/app");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     const workspace_roots = [_]skill_contract.RootSpec{
@@ -2655,14 +2655,14 @@ test "loadVisibleSkills preserves root-distinct duplicate skill names" {
 
     try writeTempFile(&tmp, "home/workspace/app/.agents/skills/review/SKILL.md", "---\nname: review\ndescription: closest\n---\n\nclosest body\n");
     try writeTempFile(&tmp, "home/workspace/.agents/skills/review/SKILL.md", "---\nname: review\ndescription: ancestor\n---\n\nancestor body\n");
-    try writeTempFile(&tmp, "home/.fx/skills/review/SKILL.md", "---\nname: review\ndescription: managed\n---\n\nmanaged body\n");
+    try writeTempFile(&tmp, "home/.y2/skills/review/SKILL.md", "---\nname: review\ndescription: managed\n---\n\nmanaged body\n");
     try writeTempFile(&tmp, "home/.agents/skills/review/SKILL.md", "---\nname: review\ndescription: global compatibility\n---\n\nglobal body\n");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace/app");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
@@ -2717,7 +2717,7 @@ test "loadVisibleSkills deduplicates symlinked workspace and global roots while 
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const unused_managed_root = try std.fs.path.join(alloc, &.{ home_root, ".fx/skills" });
+    const unused_managed_root = try std.fs.path.join(alloc, &.{ home_root, ".y2/skills" });
     defer alloc.free(unused_managed_root);
 
     const workspace_roots = [_]skill_contract.RootSpec{
@@ -2773,13 +2773,13 @@ test "loadVisibleSkills stops ancestor walking before home and keeps home agents
     try writeTempFile(&tmp, "home/skills/home-shared/SKILL.md", "---\nname: home-shared\ndescription: should not load\n---\n\nbody\n");
     try writeTempFile(&tmp, "home/.agents/skills/review/SKILL.md", "---\nname: review\ndescription: global agents\n---\n\nbody\n");
     try tmp.dir.createDirPath(io_mod.getIo(), "home/workspace/app");
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace/app");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
@@ -2798,13 +2798,13 @@ test "loadVisibleSkills discovers workspace and global codex roots" {
 
     try writeTempFile(&tmp, "home/workspace/app/.codex/skills/local-codex/SKILL.md", "---\nname: local-codex\ndescription: workspace codex\n---\n\nbody\n");
     try writeTempFile(&tmp, "home/.codex/skills/global-codex/SKILL.md", "---\nname: global-codex\ndescription: global codex\n---\n\nbody\n");
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace/app");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
@@ -2831,13 +2831,13 @@ test "loadVisibleSkills discovers and reopens contained linked metadata" {
         "../../../skill-source/linked-leaf/SKILL.md",
         "home/workspace/.codex/skills/linked-leaf/SKILL.md",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const logical_path = try std.fs.path.join(alloc, &.{ workspace_root, ".codex/skills/linked-leaf" });
     defer alloc.free(logical_path);
@@ -3135,13 +3135,13 @@ test "loadVisibleSkills discovers and reopens a contained linked workspace candi
         "../../skill-source/linked-skill",
         "home/workspace/.codex/skills/linked-skill",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const logical_path = try std.fs.path.join(alloc, &.{ workspace_root, ".codex/skills/linked-skill" });
     defer alloc.free(logical_path);
@@ -3193,13 +3193,13 @@ test "loadVisibleSkills diagnoses an unavailable linked workspace candidate" {
         "../../skill-source/missing-skill",
         "home/workspace/.codex/skills/missing-skill",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const logical_path = try std.fs.path.join(alloc, &.{ workspace_root, ".codex/skills/missing-skill" });
     defer alloc.free(logical_path);
@@ -3236,13 +3236,13 @@ test "loadVisibleSkills discovers a contained linked workspace root" {
         "../skill-root",
         "home/workspace/.codex/skills",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
@@ -3269,13 +3269,13 @@ test "loadVisibleSkills diagnoses an escaping linked workspace candidate" {
         "../../../outside-skill",
         "home/workspace/.codex/skills/escaping-skill",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const logical_path = try std.fs.path.join(alloc, &.{ workspace_root, ".codex/skills/escaping-skill" });
     defer alloc.free(logical_path);
@@ -3317,13 +3317,13 @@ test "loadVisibleSkills cleans contained-link authority allocation failures" {
         "../../skill-source/linked-skill",
         "home/workspace/.codex/skills/linked-skill",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     try std.testing.checkAllAllocationFailures(
@@ -3448,7 +3448,7 @@ test "skill discovery rejects symlinked ancestors inside an automatic root" {
 
     try writeTempFile(&tmp, "outside/skills/external/SKILL.md", "---\nname: external\ndescription: must not load\n---\nbody\n");
     try tmp.dir.createDirPath(io_mod.getIo(), "home/workspace");
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
     if (comptime @import("builtin").os.tag == .windows) return error.SkipZigTest;
     tmp.dir.symLink(std.testing.io, "../../outside", "home/workspace/.agents", .{ .is_directory = true }) catch |err| {
         if (err == error.AccessDenied or err == error.FileSystem) return error.SkipZigTest;
@@ -3459,7 +3459,7 @@ test "skill discovery rejects symlinked ancestors inside an automatic root" {
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
@@ -3477,7 +3477,7 @@ test "skill discovery reports a symlinked automatic root whose target lacks the 
 
     try tmp.dir.createDirPath(io_mod.getIo(), "outside");
     try tmp.dir.createDirPath(io_mod.getIo(), "home/workspace");
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
     if (comptime @import("builtin").os.tag == .windows) return error.SkipZigTest;
     tmp.dir.symLink(std.testing.io, "../../outside", "home/workspace/.agents", .{ .is_directory = true }) catch |err| {
         if (err == error.AccessDenied or err == error.FileSystem) return error.SkipZigTest;
@@ -3488,7 +3488,7 @@ test "skill discovery reports a symlinked automatic root whose target lacks the 
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
@@ -3611,17 +3611,17 @@ test "loadVisibleSkills cleans every partial allocation failure" {
 
     try writeTempFile(
         &tmp,
-        "home/.fx/skills/review/SKILL.md",
+        "home/.y2/skills/review/SKILL.md",
         "---\nname: review\ndescription: >-\n  allocation\n  cleanup\n---\nbody\n",
     );
-    try writeTempFile(&tmp, "home/.fx/skills/bad/SKILL.md", "---\nname: first\nname: duplicate\n---\nbad body\n");
+    try writeTempFile(&tmp, "home/.y2/skills/bad/SKILL.md", "---\nname: first\nname: duplicate\n---\nbad body\n");
     try tmp.dir.createDirPath(io_mod.getIo(), "home/workspace");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     try std.testing.checkAllAllocationFailures(
@@ -3664,13 +3664,13 @@ test "linked metadata cleans every partial allocation failure" {
         "../../../source/SKILL.md",
         "home/workspace/.codex/skills/linked/SKILL.md",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
 
     const descriptor_count_before = try openFileDescriptorCount();
@@ -3737,7 +3737,7 @@ test "externalSymlinkAuthorities parses colon-separated absolute paths" {
 
     const env = try TestEnviron.install(alloc);
     defer env.deinit();
-    try env.put("FX_SKILL_SYMLINK_AUTHORITIES", "/nix/store:/opt/skills: relative :/bad/../path");
+    try env.put("Y2_SKILL_SYMLINK_AUTHORITIES", "/nix/store:/opt/skills: relative :/bad/../path");
 
     const authorities = try externalSymlinkAuthorities(alloc);
     defer freeExternalAuthorities(alloc, authorities);
@@ -3771,20 +3771,20 @@ test "loadVisibleSkills discovers linked metadata through external authority" {
         "../../../../../external-store/linked-leaf/SKILL.md",
         "home/workspace/.codex/skills/linked-leaf/SKILL.md",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const external_authority = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "external-store");
     defer alloc.free(external_authority);
 
     const env = try TestEnviron.install(alloc);
     defer env.deinit();
-    try env.put("FX_SKILL_SYMLINK_AUTHORITIES", external_authority);
+    try env.put("Y2_SKILL_SYMLINK_AUTHORITIES", external_authority);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
     defer discovery.deinit(alloc);
@@ -3816,20 +3816,20 @@ test "loadVisibleSkills discovers a linked candidate resolved via external symli
         "../../../../external-store/linked-skill",
         "home/workspace/.codex/skills/linked-skill",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const external_authority = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "external-store");
     defer alloc.free(external_authority);
 
     const env = try TestEnviron.install(alloc);
     defer env.deinit();
-    try env.put("FX_SKILL_SYMLINK_AUTHORITIES", external_authority);
+    try env.put("Y2_SKILL_SYMLINK_AUTHORITIES", external_authority);
 
     var discovery = try loadVisibleSkills(alloc, workspace_root, home_root, managed_root, test_root_policy);
     defer discovery.deinit(alloc);
@@ -3860,13 +3860,13 @@ test "loadVisibleSkills still rejects external symlinks without an authority" {
         "../../../../external-store/escaping-skill",
         "home/workspace/.codex/skills/escaping-skill",
     );
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx/skills");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2/skills");
 
     const workspace_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/workspace");
     defer alloc.free(workspace_root);
     const home_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home_root);
-    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.fx/skills");
+    const managed_root = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home/.y2/skills");
     defer alloc.free(managed_root);
     const logical_path = try std.fs.path.join(alloc, &.{ workspace_root, ".codex/skills/escaping-skill" });
     defer alloc.free(logical_path);

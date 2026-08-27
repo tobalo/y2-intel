@@ -5,15 +5,15 @@ const secret = @import("../core/auth/secret.zig");
 const stream_provider = @import("../core/agent/stream_provider.zig");
 const io_mod = @import("../core/shared/io.zig");
 const types = @import("../core/shared/types.zig");
-const gateway_client = @import("client.zig");
+const http_runtime = @import("http_runtime.zig");
 const responses_protocol = @import("responses_protocol.zig");
 const model_tool_schema = @import("../core/tooling/model_tool_schema.zig");
 
 const Allocator = std.mem.Allocator;
 const endpoint = "https://cli-chat-proxy.grok.com/v1/responses";
-// The proxy gates this as Grok wire compatibility; fx identifies itself separately below.
+// The proxy gates this as Grok wire compatibility; y2 identifies itself separately below.
 const proxy_compatibility_version = "1.0.6";
-const e2e_endpoint_env = "FX_E2E_XAI_GROK_RESPONSES_URL";
+const e2e_endpoint_env = "Y2_E2E_XAI_GROK_RESPONSES_URL";
 const max_error_body_bytes: usize = 256 * 1024;
 const max_sse_line_bytes: usize = 1024 * 1024;
 const max_sse_aggregate_bytes: usize = 64 * 1024 * 1024;
@@ -133,7 +133,7 @@ fn streamCompletion(
     var result = streamPrepared(alloc, request, payload) catch |err| {
         if (request.cancel_flag.load(.seq_cst)) return error.Cancelled;
         if (requestDeadlineExpired(request)) return error.Timeout;
-        request.attempt_evidence.network_failure = gateway_client.networkFailureEvidence(err, request.delivery.load());
+        request.attempt_evidence.network_failure = http_runtime.networkFailureEvidence(err, request.delivery.load());
         return err;
     };
     if (requestDeadlineExpired(request)) {
@@ -176,7 +176,7 @@ const OpenRequestOperation = struct {
                 .content_type = .{ .override = "application/json" },
                 .authorization = .{ .override = self.auth_header },
                 .accept_encoding = .omit,
-                .user_agent = .{ .override = gateway_client.user_agent },
+                .user_agent = .{ .override = http_runtime.user_agent },
             },
             .extra_headers = self.extra_headers,
             .keep_alive = false,
@@ -195,7 +195,7 @@ pub fn streamPrepared(
     const auth_header = try std.fmt.allocPrint(alloc, "Bearer {s}", .{request.credential.secret});
     defer secret.zeroAndFree(alloc, auth_header);
     const request_endpoint = if (io_mod.getenv(e2e_endpoint_env)) |override| endpoint: {
-        if (!gateway_client.isLoopbackHttpUrl(override)) return error.InvalidE2EXaiGrokEndpoint;
+        if (!http_runtime.isLoopbackHttpUrl(override)) return error.InvalidE2EXaiGrokEndpoint;
         break :endpoint override;
     } else endpoint;
     const uri = try std.Uri.parse(request_endpoint);
@@ -210,7 +210,7 @@ pub fn streamPrepared(
     extra_count += 1;
     extra_headers_buf[extra_count] = .{ .name = "x-grok-client-version", .value = proxy_compatibility_version };
     extra_count += 1;
-    extra_headers_buf[extra_count] = .{ .name = "x-grok-client-identifier", .value = "fx" };
+    extra_headers_buf[extra_count] = .{ .name = "x-grok-client-identifier", .value = "y2" };
     extra_count += 1;
     extra_headers_buf[extra_count] = .{ .name = "x-grok-model-override", .value = request.model };
     extra_count += 1;
@@ -239,7 +239,7 @@ pub fn streamPrepared(
         }
     }
     try request.admission.admit();
-    var opened = try gateway_client.runBoundedHttpOperation(
+    var opened = try http_runtime.runBoundedHttpOperation(
         OpenedRequest,
         alloc,
         request.cancel_flag,
@@ -251,14 +251,14 @@ pub fn streamPrepared(
     var cancel_watch_done = std.atomic.Value(bool).init(false);
     const cancel_watcher = if (http_request.connection) |connection|
         if (request.deadline) |deadline|
-            try gateway_client.spawnHttpCancelWatcherBounded(
+            try http_runtime.spawnHttpCancelWatcherBounded(
                 &cancel_watch_done,
                 request.cancel_flag,
                 deadline,
                 connection.stream_writer.stream,
             )
         else
-            try gateway_client.spawnHttpCancelWatcher(
+            try http_runtime.spawnHttpCancelWatcher(
                 &cancel_watch_done,
                 request.cancel_flag,
                 connection.stream_writer.stream,

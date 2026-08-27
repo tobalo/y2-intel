@@ -43,18 +43,18 @@ pub fn decideLogoutProvider(facts: LogoutFacts) model_provider.ProviderId {
     if (facts.selected == .codex or facts.active_source == .chatgpt_subscription) return .codex;
 
     const only_grok_login = facts.available_sources.contains(.grok_subscription) and
-        !facts.available_sources.contains(.fx_login) and
+        !facts.available_sources.contains(.retired_login) and
         !facts.available_sources.contains(.chatgpt_subscription);
     if (only_grok_login) return .grok;
     const only_codex_login = facts.available_sources.contains(.chatgpt_subscription) and
-        !facts.available_sources.contains(.fx_login) and
+        !facts.available_sources.contains(.retired_login) and
         !facts.available_sources.contains(.grok_subscription);
     if (only_codex_login) return .codex;
     return .gateway;
 }
 
 pub const SignInCompletionAction = union(enum) {
-    vercel,
+    retired_credential,
     switch_provider: model_provider.ProviderId,
     activate_source: credentials.Source,
 };
@@ -64,7 +64,7 @@ pub fn signInCompletion(
     provider_routing_supported: bool,
 ) SignInCompletionAction {
     return switch (provider) {
-        .gateway => .vercel,
+        .gateway => .retired_credential,
         .codex => if (provider_routing_supported)
             .{ .switch_provider = .codex }
         else
@@ -119,5 +119,5 @@ test "sign in completion selects routing or credential activation without effect
         SignInCompletionAction{ .activate_source = .grok_subscription },
         signInCompletion(.grok, false),
     );
-    try std.testing.expectEqual(SignInCompletionAction.vercel, signInCompletion(.gateway, true));
+    try std.testing.expectEqual(SignInCompletionAction.retired_credential, signInCompletion(.gateway, true));
 }

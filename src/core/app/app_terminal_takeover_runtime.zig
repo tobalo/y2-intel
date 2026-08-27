@@ -241,7 +241,7 @@ pub const Controller = struct {
         }
     }
 
-    pub fn blocksFxSurface(
+    pub fn blocksY2Surface(
         self: *const Controller,
         terminal: *const shell_runtime.TerminalState,
     ) bool {
@@ -257,9 +257,9 @@ pub const Controller = struct {
     ) !bool {
         if (self.phase == .inactive) return false;
         if (self.phase == .releasing) {
-            return self.blocksFxSurface(&app.terminal);
+            return self.blocksY2Surface(&app.terminal);
         }
-        if (self.phase != .acquiring and !self.blocksFxSurface(&app.terminal)) {
+        if (self.phase != .acquiring and !self.blocksY2Surface(&app.terminal)) {
             return false;
         }
         if (self.help_visible) {
@@ -328,7 +328,7 @@ pub const Controller = struct {
     pub fn commit(self: *Controller, comptime App: type, app: *App) !bool {
         if (self.phase == .inactive) return false;
         if (self.phase == .acquiring) return true;
-        if (!self.blocksFxSurface(&app.terminal)) return false;
+        if (!self.blocksY2Surface(&app.terminal)) return false;
         if ((self.phase == .active or
             (self.phase == .releasing and !self.discard_input)) and
             self.write_correlation == null and self.input.items.len != 0)
@@ -423,7 +423,7 @@ pub const Controller = struct {
         const profile_user = identity.profileUser(&profile_user_buffer) orelse
             return self.restoreManagerAfterOpenFailure(App, app, "unsupported host");
         const durable_session_id = app_session_runtime.Runtime(App).activeSessionId(app) orelse
-            return self.restoreManagerAfterOpenFailure(App, app, "no durable Fx session");
+            return self.restoreManagerAfterOpenFailure(App, app, "no durable Y2 session");
         const owner = app_session_runtime.Runtime(App).childCapability(app) orelse
             return self.restoreManagerAfterOpenFailure(App, app, "durable session unavailable");
         var authority = store.reloadHumanTakeoverAuthorityClaim(app.alloc, owner, .{
@@ -821,7 +821,7 @@ pub const Controller = struct {
             self.resize_correlation != null or
             self.inline_recovery_pending;
         if (!cleanup_pending and
-            !self.blocksFxSurface(&app.terminal))
+            !self.blocksY2Surface(&app.terminal))
         {
             try self.finishReturn(App, app);
         } else if (surface_error) |return_err| {
@@ -836,7 +836,7 @@ pub const Controller = struct {
         std.debug.assert(self.screen_correlation == null);
         std.debug.assert(self.resize_correlation == null);
         std.debug.assert(self.release_correlation == null);
-        std.debug.assert(!self.blocksFxSurface(&app.terminal));
+        std.debug.assert(!self.blocksY2Surface(&app.terminal));
         const reason = self.return_reason;
 
         self.reset(app.alloc);
@@ -950,7 +950,7 @@ pub const Controller = struct {
 };
 
 fn takeoverFailureRequested(action: []const u8) bool {
-    const requested = io_mod.getenv("FX_TERMINAL_TEST_TAKEOVER_FAILURE") orelse
+    const requested = io_mod.getenv("Y2_TERMINAL_TEST_TAKEOVER_FAILURE") orelse
         return false;
     return std.mem.eql(u8, requested, action);
 }
@@ -1100,9 +1100,9 @@ test "alternate screen ownership is the takeover visibility oracle" {
     var terminal = shell_runtime.TerminalState{
         .alternate_screen_owner = .terminal_session,
     };
-    try std.testing.expect(controller.blocksFxSurface(&terminal));
+    try std.testing.expect(controller.blocksY2Surface(&terminal));
     terminal.alternate_screen_owner = .subagent_manager;
-    try std.testing.expect(!controller.blocksFxSurface(&terminal));
+    try std.testing.expect(!controller.blocksY2Surface(&terminal));
     try std.testing.expectEqual(Phase.releasing, controller.phase);
     try std.testing.expect(controller.lease_acquired);
 }
@@ -1189,7 +1189,7 @@ test "takeover direct return restores modes and requests normal viewport recover
 
     try std.testing.expect(controller.lease_acquired);
     try std.testing.expect(!controller.inline_recovery_pending);
-    try std.testing.expect(!controller.blocksFxSurface(&app.terminal));
+    try std.testing.expect(!controller.blocksY2Surface(&app.terminal));
     try std.testing.expectEqual(Phase.releasing, controller.phase);
     try std.testing.expectEqual(
         shell_runtime.AlternateScreenOwner.none,

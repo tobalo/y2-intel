@@ -14,7 +14,7 @@ from scripts.pgso.toolchain import Toolchain
 class PgsoToolchainTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="fx-pgso-toolchain-"
+            prefix="y2-pgso-toolchain-"
         )
         self.root = pathlib.Path(self.temporary_directory.name)
         self.llvm_bin = self.root / "llvm" / "bin"

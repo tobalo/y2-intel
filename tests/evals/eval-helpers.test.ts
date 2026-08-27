@@ -2,27 +2,27 @@ import { describe, expect, test } from "bun:test";
 import { buildEvalProcessEnv, shouldLoadDotEnv } from "./eval-helpers";
 
 describe("eval helpers", () => {
-  test("passes the selected eval model to fx through FX_MODEL", () => {
-    const previous = process.env.FX_MODEL;
-    process.env.FX_MODEL = "ambient/model";
+  test("passes the selected eval model to y2 through Y2_MODEL", () => {
+    const previous = process.env.Y2_MODEL;
+    process.env.Y2_MODEL = "ambient/model";
 
     try {
-      const env = buildEvalProcessEnv("/tmp/fx-eval-home-test", "selected/model");
+      const env = buildEvalProcessEnv("/tmp/y2-eval-home-test", "selected/model");
 
-      expect(env.FX_MODEL).toBe("selected/model");
-      expect(env.HOME).toBe("/tmp/fx-eval-home-test");
+      expect(env.Y2_MODEL).toBe("selected/model");
+      expect(env.HOME).toBe("/tmp/y2-eval-home-test");
       expect(env.NO_COLOR).toBe("1");
     } finally {
       if (previous === undefined) {
-        delete process.env.FX_MODEL;
+        delete process.env.Y2_MODEL;
       } else {
-        process.env.FX_MODEL = previous;
+        process.env.Y2_MODEL = previous;
       }
     }
   });
 
   test("does not load repository dotenv files in a hermetic run", () => {
-    expect(shouldLoadDotEnv({ FX_E2E_DISABLE_DOTENV: "1" })).toBe(false);
+    expect(shouldLoadDotEnv({ Y2_E2E_DISABLE_DOTENV: "1" })).toBe(false);
     expect(shouldLoadDotEnv({})).toBe(true);
   });
 });

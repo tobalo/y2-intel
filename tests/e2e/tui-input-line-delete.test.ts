@@ -7,7 +7,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN } from "../evals/eval-helpers";
+import { Y2_BIN } from "../evals/eval-helpers";
 import {
   assertSingleFooter,
   findFooterBlocks,
@@ -130,13 +130,13 @@ describe.skipIf(SKIP)("tui: logical-line deletion", () => {
     "all decoded and raw routes preserve surrounding logical lines",
     async () => {
       for (const route of routes) {
-        const workDir = mkdtempSync(join(tmpdir(), "fx-line-delete-"));
+        const workDir = mkdtempSync(join(tmpdir(), "y2-line-delete-"));
         workDirs.push(workDir);
         const stderrPath = join(workDir, "stderr.log");
         writeFileSync(stderrPath, "");
 
         session = await TmuxSession.create({
-          cmd: `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN} 2>${stderrPath}`,
+          cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN} 2>${stderrPath}`,
           cwd: workDir,
           width: 120,
           height: 40,
@@ -182,7 +182,7 @@ describe.skipIf(SKIP)("tui: logical-line deletion", () => {
           );
         }
         if (!session.isAlive()) {
-          failures.push(`${route.label}: fx process is not alive`);
+          failures.push(`${route.label}: y2 process is not alive`);
         }
         const stderr = readFileSync(stderrPath, "utf8");
         if (stderr.length !== 0) {

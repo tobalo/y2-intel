@@ -14,7 +14,7 @@ import {
 } from "node:fs";
 import { platform, tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN } from "../evals/eval-helpers";
+import { Y2_BIN } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -107,7 +107,7 @@ function summarize(values: number[]) {
 
 function makePaths(label: string): Paths {
   const tempRoot = platform() === "darwin" ? "/private/tmp" : tmpdir();
-  const root = realpathSync(mkdtempSync(join(tempRoot, `fx-r-${label}-`)));
+  const root = realpathSync(mkdtempSync(join(tempRoot, `y2-r-${label}-`)));
   return {
     root,
     home: join(root, "home"),
@@ -124,23 +124,23 @@ function gatewayEnv(home: string, gateway: ReturnType<typeof startFakeGateway>) 
   return {
     HOME: home,
     Y2_API_KEY: "fake-resume-brutal-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: FAKE_GATEWAY_MODEL,
-    FX_AUTO_UPGRADE: "0",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_AUTO_UPGRADE: "0",
     NO_COLOR: "1",
   };
 }
 
 function prepareFilesystem(paths: Paths, config: Config): void {
-  mkdirSync(join(paths.home, ".fx"), { recursive: true });
+  mkdirSync(join(paths.home, ".y2"), { recursive: true });
   mkdirSync(paths.workspace);
   mkdirSync(paths.foreignWorkspace);
   writeFileSync(paths.stderr, "");
   writeFileSync(paths.trace, "");
   writeFileSync(
-    join(paths.home, ".fx", "settings.json"),
+    join(paths.home, ".y2", "settings.json"),
     JSON.stringify({
       sandbox: "none",
       permission_mode: "auto",
@@ -217,7 +217,7 @@ async function seedRealSession(paths: Paths, config: Config): Promise<IndexedSum
   let session: TmuxSession | null = null;
   try {
     session = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       cwd: realpathSync(paths.workspace),
       env: gatewayEnv(paths.home, gateway),
       stderrPath: paths.stderr,
@@ -238,7 +238,7 @@ async function seedRealSession(paths: Paths, config: Config): Promise<IndexedSum
     gateway.stop();
   }
 
-  const indexPath = join(paths.home, ".fx", "sessions", "index.json");
+  const indexPath = join(paths.home, ".y2", "sessions", "index.json");
   const parsed = JSON.parse(readFileSync(indexPath, "utf8")) as {
     sessions: IndexedSummary[];
   };
@@ -255,7 +255,7 @@ function installLargeCatalog(
   config: Config,
   real: IndexedSummary,
 ): void {
-  const sessionsRoot = join(paths.home, ".fx", "sessions");
+  const sessionsRoot = join(paths.home, ".y2", "sessions");
   const base = Math.max(Date.now(), real.updated_at_ms + config.catalogEntries + 10);
   const entries: IndexedSummary[] = [];
   entries.push({
@@ -431,12 +431,12 @@ async function runStress(config: Config): Promise<Paths> {
   let passed = false;
   try {
     session = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       cwd: realpathSync(paths.workspace),
       env: {
         ...gatewayEnv(paths.home, gateway),
-        FX_TRACE_LOG: paths.trace,
-        FX_TRACE_SCOPES: "core,session",
+        Y2_TRACE_LOG: paths.trace,
+        Y2_TRACE_SCOPES: "core,session",
       },
       stderrPath: paths.stderr,
       width: 112,
@@ -487,7 +487,7 @@ async function runStress(config: Config): Promise<Paths> {
 
     const report = {
       config,
-      catalogBytes: statSync(join(paths.home, ".fx", "sessions", "index.json")).size,
+      catalogBytes: statSync(join(paths.home, ".y2", "sessions", "index.json")).size,
       transitions: {
         open: summarize(metrics.open),
         scope: summarize(metrics.scope),
@@ -563,7 +563,7 @@ test.skipIf(!tmuxAvailable())(
   300_000,
 );
 
-test.skipIf(!tmuxAvailable() || process.env.FX_RESUME_BRUTAL !== "1")(
+test.skipIf(!tmuxAvailable() || process.env.Y2_RESUME_BRUTAL !== "1")(
   "/resume sustains one hundred mixed interaction cycles without resource drift",
   async () => {
     await runStress({
@@ -581,7 +581,7 @@ test.skipIf(!tmuxAvailable() || process.env.FX_RESUME_BRUTAL !== "1")(
 
 test.skipIf(
   !tmuxAvailable() ||
-    process.env.FX_RESUME_PROFILE !== "1" ||
+    process.env.Y2_RESUME_PROFILE !== "1" ||
     platform() !== "darwin" ||
     !existsSync("/usr/bin/sample"),
 )(
@@ -603,10 +603,10 @@ test.skipIf(
   900_000,
 );
 
-test.skipIf(!tmuxAvailable() || process.env.FX_RESUME_50K !== "1")(
+test.skipIf(!tmuxAvailable() || process.env.Y2_RESUME_50K !== "1")(
   "/resume survives a fifty-thousand-entry catalog and real fifty-thousand-line tool-heavy session",
   async () => {
-    const profileSeconds = process.env.FX_RESUME_PROFILE === "1" &&
+    const profileSeconds = process.env.Y2_RESUME_PROFILE === "1" &&
         platform() === "darwin" &&
         existsSync("/usr/bin/sample")
       ? 30

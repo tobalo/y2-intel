@@ -817,7 +817,7 @@ test "process-epoch create records retain exact receipts and reset authority" {
     var record = try Record.init(alloc, "root-id");
     defer record.deinit(alloc);
     const process_id =
-        "fxop:m:999:0000000000000000000000000000000000000000000000000000000000000000";
+        "y2op:m:999:0000000000000000000000000000000000000000000000000000000000000000";
     try record.append(
         alloc,
         process_id,
@@ -1088,9 +1088,9 @@ test "non-monotonic process epochs cannot advance manager compaction horizon" {
     );
     defer alloc.free(manager_two);
     const legacy_high =
-        "fxop:m:999999:0000000000000000000000000000000000000000000000000000000000000000";
+        "y2op:m:999999:0000000000000000000000000000000000000000000000000000000000000000";
     const legacy_low =
-        "fxop:m:1:1111111111111111111111111111111111111111111111111111111111111111";
+        "y2op:m:1:1111111111111111111111111111111111111111111111111111111111111111";
     try record.append(alloc, manager_five, fingerprint, "child-five");
     try record.append(alloc, legacy_high, fingerprint, "legacy-high");
     try record.append(alloc, manager_two, fingerprint, "child-two");

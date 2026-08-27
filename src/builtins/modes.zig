@@ -40,7 +40,7 @@ test "built-in modes register exact ACP order and permission policy" {
     try std.testing.expect(lookup("unknown") == null);
 }
 
-test "ask and code mode projections carry included custom provider guidance" {
+test "ask and code mode projections exclude unavailable provider tools" {
     inline for (&.{ "ask", "code" }) |mode_id| {
         var projection = try registry.buildModelToolProjection(
             std.testing.allocator,
@@ -50,8 +50,8 @@ test "ask and code mode projections carry included custom provider guidance" {
         );
         defer projection.deinit(std.testing.allocator);
 
-        try std.testing.expect(tool_projection.containsName(projection.advertised_names, "web_search"));
-        try std.testing.expectEqualStrings(builtin_tools.web_search.description, projection.custom_guidance);
+        try std.testing.expect(!tool_projection.containsName(projection.advertised_names, "web_search"));
+        try std.testing.expectEqualStrings("", projection.custom_guidance);
     }
 }
 

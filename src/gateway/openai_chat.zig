@@ -6,13 +6,13 @@ const model_tool_schema = @import("../core/tooling/model_tool_schema.zig");
 const secret = @import("../core/auth/secret.zig");
 const stream_provider = @import("../core/agent/stream_provider.zig");
 const types = @import("../core/shared/types.zig");
-const gateway_client = @import("client.zig");
+const http_runtime = @import("http_runtime.zig");
 
 const Allocator = std.mem.Allocator;
 
 pub const default_y2_chat_url = "https://api.y2.dev/api/v1/chat/completions";
 pub const default_model = "y2-agent";
-pub const chat_url_env = "FX_API_CHAT_URL";
+pub const chat_url_env = "Y2_API_CHAT_URL";
 pub const openai_base_url_env = "OPENAI_BASE_URL";
 
 const max_error_body_bytes: usize = 1024 * 1024;
@@ -74,7 +74,7 @@ fn validateEndpoint(endpoint: []const u8) !void {
         return error.InvalidApiEndpoint;
     }
     if (std.ascii.eqlIgnoreCase(uri.scheme, "https")) return;
-    if (gateway_client.isLoopbackHttpUrl(endpoint)) return;
+    if (http_runtime.isLoopbackHttpUrl(endpoint)) return;
     return error.InvalidApiEndpoint;
 }
 
@@ -634,7 +634,7 @@ fn streamCompletion(
     defer alloc.free(payload);
     return streamPrepared(alloc, request, endpoint, payload) catch |err| {
         if (request.cancel_flag.load(.seq_cst)) return error.Cancelled;
-        request.attempt_evidence.network_failure = gateway_client.networkFailureEvidence(err, request.delivery.load());
+        request.attempt_evidence.network_failure = http_runtime.networkFailureEvidence(err, request.delivery.load());
         return err;
     };
 }
@@ -696,7 +696,7 @@ pub fn streamPrepared(
         .raw = .fromMilliseconds(connect_timeout_ms),
     });
     try request.admission.admit();
-    var opened = try gateway_client.runBoundedHttpOperation(
+    var opened = try http_runtime.runBoundedHttpOperation(
         OpenedRequest,
         alloc,
         request.cancel_flag,
@@ -707,7 +707,7 @@ pub fn streamPrepared(
     defer http_request.deinit();
     var cancel_watch_done = std.atomic.Value(bool).init(false);
     const cancel_watcher = if (http_request.connection) |connection|
-        try gateway_client.spawnHttpCancelWatcher(
+        try http_runtime.spawnHttpCancelWatcher(
             &cancel_watch_done,
             request.cancel_flag,
             connection.stream_writer.stream,

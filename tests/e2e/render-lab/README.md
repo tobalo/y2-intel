@@ -1,6 +1,6 @@
-# Fx Render Lab
+# Y2 Render Lab
 
-Render Lab is the runtime evidence system for Fx terminal rendering bugs. It exists because rendering failures usually happen after the binary is running inside a real terminal, not during compile time. The lab turns those failures into artifacts that can be replayed, analyzed, and compared without relying on screenshots or manual descriptions.
+Render Lab is the runtime evidence system for Y2 terminal rendering bugs. It exists because rendering failures usually happen after the binary is running inside a real terminal, not during compile time. The lab turns those failures into artifacts that can be replayed, analyzed, and compared without relying on screenshots or manual descriptions.
 
 The core rule is:
 
@@ -13,10 +13,10 @@ The oracle is byte replay plus terminal-owned text/grid capture.
 
 Render Lab is designed to answer these questions:
 
-- Did the freshly built Fx binary emit coherent terminal bytes?
-- Did replaying those bytes through `fx replay` produce the expected model?
+- Did the freshly built Y2 binary emit coherent terminal bytes?
+- Did replaying those bytes through `y2 replay` produce the expected model?
 - Did the real terminal-owned text/grid settle after each user-visible event?
-- Did old shell scrollback stay outside Fx-owned viewport rows?
+- Did old shell scrollback stay outside Y2-owned viewport rows?
 - Did quit, relaunch, resize, and native clear-scrollback actions preserve the intended boundaries?
 - Did the terminal keep changing after an event when the scenario expected it to be idle?
 
@@ -48,8 +48,8 @@ Zig VT tests
 tmux Render Lab
   Deterministic real PTY coverage. Good for resize, scrollback, cursor, ANSI, relaunch.
 
-FX_RECORD tape and fx replay
-  Byte-level recording of what Fx wrote plus replay through the built-in virtual terminal.
+Y2_RECORD tape and y2 replay
+  Byte-level recording of what Y2 wrote plus replay through the built-in virtual terminal.
 
 Native Render Lab
   Opt-in platform proof for Terminal.app, Ghostty, Warp, and UI-only actions such as Command-K.
@@ -65,12 +65,12 @@ The default deterministic scenario is `same-shell-relaunch`.
 It drives one tmux shell through this shape:
 
 1. Start a shell with temp `HOME`, `ZDOTDIR`, history, and workdir.
-2. Print shell markers and wrapped lines before Fx starts.
-3. Launch the freshly built `zig-out/bin/fx`.
+2. Print shell markers and wrapped lines before Y2 starts.
+3. Launch the freshly built `zig-out/bin/y2`.
 4. Run no-key slash commands such as `/status`.
-5. Quit Fx.
+5. Quit Y2.
 6. Print more shell markers in the same shell.
-7. Relaunch Fx.
+7. Relaunch Y2.
 8. Resize narrow, wide, and back.
 9. Quit and relaunch a third time.
 10. Capture final state, replay artifacts, trace logs, and report HTML.
@@ -78,16 +78,16 @@ It drives one tmux shell through this shape:
 Command:
 
 ```bash
-cd /Users/example/Developer/Fx/fx-worktree-rendering
+cd /Users/example/Developer/Y2/y2-worktree-rendering
 zig build
 cd tests/e2e
-bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp/fx-render-lab
+bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp/y2-render-lab
 ```
 
 Default test wrapper:
 
 ```bash
-cd /Users/example/Developer/Fx/fx-worktree-rendering/tests/e2e
+cd /Users/example/Developer/Y2/y2-worktree-rendering/tests/e2e
 bun test tui-render-lab.test.ts
 ```
 
@@ -98,7 +98,7 @@ This wrapper is CI-safe apart from requiring tmux. It does not require `Y2_API_K
 List available scenarios:
 
 ```bash
-cd /Users/example/Developer/Fx/fx-worktree-rendering/tests/e2e
+cd /Users/example/Developer/Y2/y2-worktree-rendering/tests/e2e
 bun run render-lab -- --list-scenarios
 ```
 
@@ -116,21 +116,21 @@ Native scenarios are opt-in because they open and control real terminal applicat
 Common gate:
 
 ```bash
-FX_RENDER_LAB_NATIVE=1 bun run render-lab -- --scenario native-terminal-app-relaunch --runs 1 --out /private/tmp/fx-native
+Y2_RENDER_LAB_NATIVE=1 bun run render-lab -- --scenario native-terminal-app-relaunch --runs 1 --out /private/tmp/y2-native
 ```
 
 Ghostty and Warp use clipboard-based selected-text capture, so they require an extra explicit gate:
 
 ```bash
-FX_RENDER_LAB_NATIVE=1 FX_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD=1 \
-  bun run render-lab -- --scenario native-ghostty-relaunch --runs 1 --out /private/tmp/fx-native-ghostty
+Y2_RENDER_LAB_NATIVE=1 Y2_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD=1 \
+  bun run render-lab -- --scenario native-ghostty-relaunch --runs 1 --out /private/tmp/y2-native-ghostty
 ```
 
 The Command-K scenario requires a second gate because it triggers real terminal clear-scrollback behavior:
 
 ```bash
-FX_RENDER_LAB_NATIVE=1 FX_RENDER_LAB_NATIVE_COMMAND_K=1 \
-  bun run render-lab -- --scenario native-terminal-app-command-k --runs 1 --out /private/tmp/fx-native-command-k
+Y2_RENDER_LAB_NATIVE=1 Y2_RENDER_LAB_NATIVE_COMMAND_K=1 \
+  bun run render-lab -- --scenario native-terminal-app-command-k --runs 1 --out /private/tmp/y2-native-command-k
 ```
 
 Do not treat tmux clear-history as proof for Terminal.app or Ghostty Command-K. Tmux can approximate a clear, but Command-K is a UI-level terminal action.
@@ -142,10 +142,10 @@ The witness system lives in `evidence.ts`.
 Every frame is captured only at an event boundary, such as:
 
 - shell command output observed
-- Fx launch requested
-- Fx prompt visible
+- Y2 launch requested
+- Y2 prompt visible
 - slash command output visible
-- Fx quit requested
+- Y2 quit requested
 - shell prompt visible after quit
 - resize applied
 - final state captured
@@ -185,7 +185,7 @@ run-<timestamp>-<n>/
   manifest.json
   runtime-evidence.json
   trace.log
-  render.fxtape
+  render.y2tape
   replay-summary.json
   final-grid.txt
   failure.md
@@ -202,9 +202,9 @@ Important files:
 
 - `manifest.json`: top-level run metadata, binary hash, markers, frame list, analyzer failures.
 - `runtime-evidence.json`: compact witness summary for every frame.
-- `trace.log`: Fx debug trace for repaint, resize, footer, input, and related scopes.
-- `render.fxtape`: byte-level replay tape produced by the freshly built Fx binary.
-- `replay-summary.json`: structured `fx replay` output.
+- `trace.log`: Y2 debug trace for repaint, resize, footer, input, and related scopes.
+- `render.y2tape`: byte-level replay tape produced by the freshly built Y2 binary.
+- `replay-summary.json`: structured `y2 replay` output.
 - `final-grid.txt`: replay golden output for the final tape state.
 - `failure.md`: short human-readable failure list.
 - `repro.sh`: command to recreate the scenario.
@@ -218,13 +218,13 @@ The analyzer checks the earliest failing frame it can identify.
 
 Current invariant classes include:
 
-- at most one active Fx logo block
+- at most one active Y2 logo block
 - at most one active footer block
 - footer rows stay inside terminal bounds
 - footer rows do not contain transcript markers
 - divider widths match the current terminal width closely enough
 - cursor coordinates stay inside frame bounds
-- shell markers do not appear inside the Fx-owned viewport band
+- shell markers do not appear inside the Y2-owned viewport band
 - shell markers are preserved in final scrollback unless explicitly cleared
 - markers cleared by a native clear-scrollback scenario stay absent
 - trace does not show excessive footer clean or repaint spam
@@ -234,7 +234,7 @@ The marker rules are the core scrollback oracle:
 
 ```text
 Shell rows printed before launch must remain shell-owned.
-Fx must not replay old shell rows into its active viewport.
+Y2 must not replay old shell rows into its active viewport.
 Native clear-scrollback must not allow pre-clear rows to return.
 ```
 
@@ -252,7 +252,7 @@ zig build
 
 ```bash
 cd tests/e2e
-bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp/fx-render-lab
+bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp/y2-render-lab
 ```
 
 3. Open `failure.md`. If it has failures, inspect the first one.
@@ -269,7 +269,7 @@ bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp
 
 6. If the bug only appears in a specific terminal app, run the matching native scenario with the explicit gate.
 
-7. If native fails and tmux passes, the issue is likely terminal-app behavior, terminal capture behavior, or a terminal-specific Fx code path such as `TERM_PROGRAM=Apple_Terminal`.
+7. If native fails and tmux passes, the issue is likely terminal-app behavior, terminal capture behavior, or a terminal-specific Y2 code path such as `TERM_PROGRAM=Apple_Terminal`.
 
 8. Fix the rendering or capture code.
 
@@ -288,7 +288,7 @@ bun test tui-render-lab.test.ts
 
 `single-active-logo`
 
-More than one Fx logo block is visible in the active viewport. Usually means old Fx startup output was replayed or not cleared correctly.
+More than one Y2 logo block is visible in the active viewport. Usually means old Y2 startup output was replayed or not cleared correctly.
 
 `single-active-footer`
 
@@ -298,9 +298,9 @@ More than one footer block is visible. Usually points to footer cleanup, viewpor
 
 A marker appeared in a footer-owned row. This usually means transcript and footer row ownership overlapped.
 
-`shell-marker-in-fx-band`
+`shell-marker-in-y2-band`
 
-A shell marker was found inside the active Fx viewport band. This is the primary old-scrollback-replayed-as-Fx-content failure.
+A shell marker was found inside the active Y2 viewport band. This is the primary old-scrollback-replayed-as-Y2-content failure.
 
 `shell-marker-preserved`
 
@@ -332,21 +332,21 @@ Terminal.app:
 
 - Uses AppleScript `contents` from a native Terminal window.
 - Does not require clipboard capture for the relaunch scenario.
-- Command-K requires System Events and the explicit `FX_RENDER_LAB_NATIVE_COMMAND_K=1` gate.
+- Command-K requires System Events and the explicit `Y2_RENDER_LAB_NATIVE_COMMAND_K=1` gate.
 - Current native smoke exposed an Apple Terminal path where the first shell marker was missing by final relaunch. Keep that failure visible until the product behavior is fixed or the invariant is intentionally revised.
 
 Ghostty:
 
 - Uses real Ghostty app launch.
 - Uses selected-text clipboard capture.
-- Requires `FX_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD=1`.
+- Requires `Y2_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD=1`.
 - Useful when Ghostty scrollback, resize, or terminal-specific behavior diverges from tmux.
 
 Warp:
 
 - Uses real Warp app launch.
 - Uses selected-text clipboard capture.
-- Requires `FX_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD=1`.
+- Requires `Y2_RENDER_LAB_NATIVE_ALLOW_CLIPBOARD=1`.
 - Warp private OSC/DCS behavior should be metadata only unless a future adapter can expose a stable byte/text contract for it.
 
 ## Adding A Scenario
@@ -383,12 +383,12 @@ zig build test
 zig fmt src/
 cd tests/e2e
 bun test tui-render-lab.test.ts
-bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp/fx-render-lab
-../../zig-out/bin/fx status --json
+bun run render-lab -- --scenario same-shell-relaunch --runs 1 --out /private/tmp/y2-render-lab
+../../zig-out/bin/y2 status --json
 git diff --check
 ```
 
-Use the exact freshly built binary from this checkout. Do not run bare `fx`.
+Use the exact freshly built binary from this checkout. Do not run bare `y2`.
 
 If the bug was reported in a native terminal, also run the matching native scenario and include the artifact path in the run notes.
 

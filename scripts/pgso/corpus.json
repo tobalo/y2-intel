@@ -1,33 +1,32 @@
 {
   "version": 1,
   "intentional_exclusions": {
-    "ci-shards.test.ts": "The suite validates the E2E shard planner rather than fx runtime behavior.",
+    "ci-shards.test.ts": "The suite validates the E2E shard planner rather than y2 runtime behavior.",
     "context-limits-live.test.ts": "The suite requires a real model credential and live provider responses.",
     "notifications.test.ts": "Sound-related tests are prohibited on the production training host.",
-    "tmux-helpers.test.ts": "The suite validates E2E harness helpers rather than fx runtime behavior.",
+    "tmux-helpers.test.ts": "The suite validates E2E harness helpers rather than y2 runtime behavior.",
     "tui-agent.test.ts": "The suite requires a real model credential and is not deterministic.",
     "tui-command-permissions.test.ts": "The file contains a sound scenario and cannot be run safely as a whole.",
     "tui-direct-write-audit.test.ts": "The suite validates a repository audit tool rather than the candidate runtime.",
     "tui-keybindings.test.ts": "The file-wide guard requires a real model credential.",
     "tui-render-lab.test.ts": "The suite validates render-lab infrastructure and owns separate native opt-in scenarios.",
     "tui-render-live-stress.test.ts": "The suite requires a real model credential and explicit live stress opt-in.",
-    "web-fetch-live.test.ts": "The suite requires explicit live-network opt-in.",
-    "web-search-live.test.ts": "The suite requires a real model credential and live provider responses."
+    "web-fetch-live.test.ts": "The suite requires explicit live-network opt-in."
   },
   "defaults": {
     "cwd": "tests/e2e",
     "env_set": {
-      "FX_AUTO_UPGRADE": "0",
-      "FX_SOUND": "0",
+      "Y2_AUTO_UPGRADE": "0",
+      "Y2_SOUND": "0",
       "NO_COLOR": "1"
     },
     "env_unset": [
       "Y2_API_KEY",
       "OPENAI_API_KEY",
       "OPENAI_BASE_URL",
-      "FX_API_CHAT_URL",
-      "FX_MODEL",
-      "VERCEL_OIDC_TOKEN"
+      "Y2_API_CHAT_URL",
+      "Y2_MODEL",
+      "REMOVED_LEGACY_OIDC_TOKEN"
     ],
     "timeout_seconds": 1800,
     "requires_tmux": true
@@ -37,7 +36,7 @@
       "name": "direct-help",
       "argv": ["{binary}", "help"],
       "cwd": ".",
-      "env_set": {"FX_SKIP_ONBOARDING": "1"},
+      "env_set": {"Y2_SKIP_ONBOARDING": "1"},
       "profile_runs": 100,
       "timeout_seconds": 60,
       "requires_tmux": false
@@ -46,7 +45,7 @@
       "name": "direct-version",
       "argv": ["{binary}", "--version"],
       "cwd": ".",
-      "env_set": {"FX_SKIP_ONBOARDING": "1"},
+      "env_set": {"Y2_SKIP_ONBOARDING": "1"},
       "timeout_seconds": 60,
       "requires_tmux": false
     },
@@ -54,7 +53,7 @@
       "name": "direct-status",
       "argv": ["{binary}", "status", "--json"],
       "cwd": ".",
-      "env_set": {"FX_SKIP_ONBOARDING": "1"},
+      "env_set": {"Y2_SKIP_ONBOARDING": "1"},
       "timeout_seconds": 60,
       "requires_tmux": false
     },
@@ -62,7 +61,7 @@
       "name": "direct-background",
       "argv": ["{binary}", "background", "--json"],
       "cwd": ".",
-      "env_set": {"FX_SKIP_ONBOARDING": "1"},
+      "env_set": {"Y2_SKIP_ONBOARDING": "1"},
       "timeout_seconds": 60,
       "requires_tmux": false
     },
@@ -70,7 +69,7 @@
       "name": "direct-doctor",
       "argv": ["{binary}", "doctor", "--json"],
       "cwd": ".",
-      "env_set": {"FX_SKIP_ONBOARDING": "1"},
+      "env_set": {"Y2_SKIP_ONBOARDING": "1"},
       "timeout_seconds": 60,
       "requires_tmux": false
     },
@@ -78,7 +77,7 @@
       "name": "direct-sessions",
       "argv": ["{binary}", "sessions", "--json"],
       "cwd": ".",
-      "env_set": {"FX_SKIP_ONBOARDING": "1"},
+      "env_set": {"Y2_SKIP_ONBOARDING": "1"},
       "profile_runs": 100,
       "timeout_seconds": 60,
       "requires_tmux": false
@@ -92,7 +91,6 @@
     {"name": "e2e-file-tool-permissions", "argv": ["bun", "test", "--max-concurrency", "1", "./file-tool-permissions.test.ts"], "test_file": "file-tool-permissions.test.ts"},
     {"name": "e2e-gateway-stream-lifecycle", "argv": ["bun", "test", "--max-concurrency", "1", "./gateway-stream-lifecycle.test.ts"], "test_file": "gateway-stream-lifecycle.test.ts"},
     {"name": "e2e-web-fetch-fake-network", "argv": ["bun", "test", "--max-concurrency", "1", "./web-fetch-fake-network.test.ts"], "test_file": "web-fetch-fake-network.test.ts"},
-    {"name": "e2e-web-search-fake-gateway", "argv": ["bun", "test", "--max-concurrency", "1", "./web-search-fake-gateway.test.ts"], "test_file": "web-search-fake-gateway.test.ts"},
     {"name": "e2e-vision-route-fake-gateway", "argv": ["bun", "test", "--max-concurrency", "1", "./vision-route-fake-gateway.test.ts"], "test_file": "vision-route-fake-gateway.test.ts"},
     {"name": "e2e-acp", "argv": ["bun", "test", "--max-concurrency", "1", "./acp.test.ts"], "test_file": "acp.test.ts"},
     {"name": "e2e-mcp-http", "argv": ["bun", "test", "--max-concurrency", "1", "./mcp-http.test.ts"], "test_file": "mcp-http.test.ts"},
@@ -130,7 +128,6 @@
     {"name": "verify-tui-slash-extra", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-slash-extra.test.ts"], "test_file": "tui-slash-extra.test.ts"},
     {"name": "verify-tui-slash-menu", "argv": ["bun", "test", "--max-concurrency", "1", "./tui-slash-menu.test.ts"], "test_file": "tui-slash-menu.test.ts"},
     {"name": "verify-web-fetch-permission-progress", "argv": ["bun", "test", "--max-concurrency", "1", "./web-fetch-permission-progress.test.ts"], "test_file": "web-fetch-permission-progress.test.ts", "requires_tmux": false},
-    {"name": "verify-web-search-permission-progress", "argv": ["bun", "test", "--max-concurrency", "1", "./web-search-permission-progress.test.ts"], "test_file": "web-search-permission-progress.test.ts", "requires_tmux": false},
     {"name": "verify-yolo-permission-mode", "argv": ["bun", "test", "--max-concurrency", "1", "./yolo-permission-mode.test.ts"], "test_file": "yolo-permission-mode.test.ts"}
   ]
 }

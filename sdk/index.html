@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>fx core debugger</title>
+  <title>y2 core debugger</title>
   <style>
     @import url("https://cdn.jsdelivr.net/npm/geist@1.3.1/dist/fonts/geist-mono/style.css");
     :root { color-scheme: dark; --bg: #000; --panel: #050505; --line: #242424; --muted: #777; --dim: #aaa; --text: #f2f2f2; }
@@ -43,7 +43,7 @@
   </style>
 </head>
 <body>
-  <header><h1>fx-core debugger</h1><span id="status">booting</span></header>
+  <header><h1>y2-core debugger</h1><span id="status">booting</span></header>
   <section id="controls" aria-label="Session controls">
     <label>Model<input id="model" class="model" list="models" disabled><datalist id="models"></datalist></label>
     <label>Mode<select id="mode" disabled></select></label>
@@ -56,9 +56,9 @@
     <button type="button" id="cancel" disabled>Cancel</button>
   </form>
   <script type="module">
-    import { createFxAgent, supportsJspi } from "./browser.js";
+    import { createY2Agent, supportsJspi } from "./browser.js";
 
-    const configPrefix = "fx.core.config.";
+    const configPrefix = "y2.core.config.";
     const configStore = {
       get(configId) { return localStorage.getItem(`${configPrefix}${configId}`); },
       set(configId, value) { localStorage.setItem(`${configPrefix}${configId}`, value); },
@@ -85,7 +85,7 @@
     const transportSelect = document.querySelector("#transport");
     transportSelect.value = transport;
     const startedAt = performance.now();
-    const test = window.__fxCoreTest = {
+    const test = window.__y2CoreTest = {
       state: "booting",
       transport,
       events: [],
@@ -281,12 +281,12 @@
       setState("unsupported");
     } else {
       try {
-        const agent = await createFxAgent({
+        const agent = await createY2Agent({
           wasm: location.hostname === "localhost" || location.hostname === "127.0.0.1"
-            ? "../zig-out/bin/fx-core.wasm"
-            : "./fx-core.wasm",
+            ? "../zig-out/bin/y2-core.wasm"
+            : "./y2-core.wasm",
           env: {
-            FX_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
+            Y2_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
             OPENAI_API_KEY: "browser-session",
           },
           fetch: dispatchFetch,

@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFx } from "../evals/eval-helpers";
+import { runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -21,7 +21,7 @@ import {
 const TIMEOUT = 120_000;
 const CONFIGURED_SANDBOX = process.platform === "darwin" ? "os" : "none";
 
-type FxJson = {
+type Y2Json = {
   output: string;
   exit_code: number;
   tool_calls: Array<{ name: string; status: string }>;
@@ -32,7 +32,7 @@ function createIsolatedRoot(prefix: string) {
   const home = join(root, "home");
   const workspace = join(root, "workspace");
   const external = join(root, "external");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   mkdirSync(external, { recursive: true });
   return {
@@ -43,11 +43,11 @@ function createIsolatedRoot(prefix: string) {
   };
 }
 
-function parseFxJson(result: { stdout: string; stderr: string; code: number | null }): FxJson {
+function parseY2Json(result: { stdout: string; stderr: string; code: number | null }): Y2Json {
   if (result.code !== 0) {
-    throw new Error(`fx exited ${result.code}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`);
+    throw new Error(`y2 exited ${result.code}\nstdout: ${result.stdout}\nstderr: ${result.stderr}`);
   }
-  return JSON.parse(result.stdout.trim()) as FxJson;
+  return JSON.parse(result.stdout.trim()) as Y2Json;
 }
 
 async function runWithFakeGateway(
@@ -58,20 +58,20 @@ async function runWithFakeGateway(
 ) {
   const gateway = startFakeGateway(responses);
   try {
-    const result = await runFx(args, {
+    const result = await runY2(args, {
       cwd: root.workspace,
       env: {
         HOME: root.home,
         Y2_API_KEY: "fake-file-permission-key",
-        VERCEL_OIDC_TOKEN: undefined,
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
         ...env,
-        FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_API_CHAT_URL: gateway.chatUrl,
-        FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-        FX_E2E_GATEWAY_CREDITS_URL: undefined,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        Y2_API_CHAT_URL: gateway.chatUrl,
+        Y2_API_CHAT_URL: gateway.chatUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+        Y2_E2E_GATEWAY_CREDITS_URL: undefined,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       timeoutMs: TIMEOUT,
     });
@@ -83,13 +83,13 @@ async function runWithFakeGateway(
 
 describe("external file permissions", () => {
   test(
-    "fx ask --yolo bypasses a configured write denial without a classifier request",
+    "y2 ask --yolo bypasses a configured write denial without a classifier request",
     async () => {
-      const root = createIsolatedRoot("fx-yolo-permissions-");
+      const root = createIsolatedRoot("y2-yolo-permissions-");
       try {
         const target = join(root.external, "yolo-write.txt");
         const tracePath = join(root.root, "permission-trace.log");
-        const settingsPath = join(root.home, ".fx", "settings.json");
+        const settingsPath = join(root.home, ".y2", "settings.json");
         writeFileSync(
           settingsPath,
           JSON.stringify({
@@ -107,31 +107,31 @@ describe("external file permissions", () => {
             "--json",
             "--no-save",
             "--yolo",
-            `Use only the write_file tool to create ${target} with exactly this content: FX_E2E_YOLO.`,
+            `Use only the write_file tool to create ${target} with exactly this content: Y2_E2E_YOLO.`,
           ],
           [
             fakeGatewayToolCall("yolo_write_1", "write_file", {
               path: target,
-              content: "FX_E2E_YOLO",
+              content: "Y2_E2E_YOLO",
             }),
             fakeGatewayFinalText("yolo write complete"),
           ],
           {
-            FX_TRACE_LOG: tracePath,
-            FX_TRACE_SCOPES: "permission",
+            Y2_TRACE_LOG: tracePath,
+            Y2_TRACE_SCOPES: "permission",
           },
         );
 
         expect(result.stderr).toContain(
-          "YOLO enabled: fx permission checks disabled",
+          "YOLO enabled: y2 permission checks disabled",
         );
-        const output = parseFxJson(result);
+        const output = parseY2Json(result);
         expect(
           output.tool_calls.some(
             (call) => call.name === "write_file" && call.status === "success",
           ),
         ).toBe(true);
-        expect(readFileSync(target, "utf8")).toBe("FX_E2E_YOLO");
+        expect(readFileSync(target, "utf8")).toBe("Y2_E2E_YOLO");
         const trace = readFileSync(tracePath, "utf8");
         expect(trace).not.toContain("event=auto_review_start");
         expect(gateway.classifierRequests).toHaveLength(0);
@@ -148,17 +148,17 @@ describe("external file permissions", () => {
   );
 
   test(
-    "fx ask reads external paths and exercises classifier and rule-gated writes",
+    "y2 ask reads external paths and exercises classifier and rule-gated writes",
     async () => {
-      const root = createIsolatedRoot("fx-file-permissions-");
+      const root = createIsolatedRoot("y2-file-permissions-");
       try {
         const readTarget = join(root.external, "read-fixture.txt");
         const classifiedTarget = join(root.external, "classified-write.txt");
         const allowedTarget = join(root.external, "allowed-write.txt");
         const tracePath = join(root.root, "permission-trace.log");
-        writeFileSync(readTarget, "FX_E2E_EXTERNAL_READ\n");
+        writeFileSync(readTarget, "Y2_E2E_EXTERNAL_READ\n");
         writeFileSync(classifiedTarget, "before");
-        writeFileSync(join(root.home, ".fx", "settings.json"), "{}");
+        writeFileSync(join(root.home, ".y2", "settings.json"), "{}");
 
         const { result: readResult } = await runWithFakeGateway(
           root,
@@ -171,12 +171,12 @@ describe("external file permissions", () => {
           ],
           [
             fakeGatewayToolCall("external_read_1", "read_file", { path: readTarget }),
-            fakeGatewayFinalText("FX_E2E_EXTERNAL_READ"),
+            fakeGatewayFinalText("Y2_E2E_EXTERNAL_READ"),
           ],
         );
-        const read = parseFxJson(readResult);
+        const read = parseY2Json(readResult);
         expect(read.tool_calls).toContainEqual({ name: "read_file", status: "success" });
-        expect(read.output).toContain("FX_E2E_EXTERNAL_READ");
+        expect(read.output).toContain("Y2_E2E_EXTERNAL_READ");
 
         const { gateway: classifiedGateway, result: classifiedResult } =
           await runWithFakeGateway(
@@ -186,18 +186,18 @@ describe("external file permissions", () => {
               "--json",
               "--no-save",
               "--auto",
-              `Use only the write_file tool to overwrite ${classifiedTarget} with exactly this content: FX_E2E_EXTERNAL_CLASSIFIED.`,
+              `Use only the write_file tool to overwrite ${classifiedTarget} with exactly this content: Y2_E2E_EXTERNAL_CLASSIFIED.`,
             ],
             [
               fakeGatewayToolCall("classified_write_1", "write_file", {
                 path: classifiedTarget,
-                content: "FX_E2E_EXTERNAL_CLASSIFIED",
+                content: "Y2_E2E_EXTERNAL_CLASSIFIED",
               }),
               fakeGatewayFinalText("classified write complete"),
             ],
             {
-              FX_TRACE_LOG: tracePath,
-              FX_TRACE_SCOPES: "permission",
+              Y2_TRACE_LOG: tracePath,
+              Y2_TRACE_SCOPES: "permission",
             },
           );
         const trace = readFileSync(tracePath, "utf-8");
@@ -205,12 +205,12 @@ describe("external file permissions", () => {
         expect(trace.match(/event=auto_review_result/g)).toHaveLength(1);
         expect(trace).toContain("event=auto_review_result tool_name=write_file decision=clear");
         expect(classifiedGateway.classifierRequests).toHaveLength(1);
-        const classified = parseFxJson(classifiedResult);
+        const classified = parseY2Json(classifiedResult);
         expect(classified.tool_calls).toContainEqual({ name: "write_file", status: "success" });
-        expect(readFileSync(classifiedTarget, "utf-8")).toBe("FX_E2E_EXTERNAL_CLASSIFIED");
+        expect(readFileSync(classifiedTarget, "utf-8")).toBe("Y2_E2E_EXTERNAL_CLASSIFIED");
 
         writeFileSync(
-          join(root.home, ".fx", "settings.json"),
+          join(root.home, ".y2", "settings.json"),
           JSON.stringify({
             permission: {
               edit: {
@@ -227,19 +227,19 @@ describe("external file permissions", () => {
             "--json",
             "--no-save",
             "--auto",
-            `Use only the write_file tool to create ${allowedTarget} with exactly this content: FX_E2E_EXTERNAL_ALLOWED.`,
+            `Use only the write_file tool to create ${allowedTarget} with exactly this content: Y2_E2E_EXTERNAL_ALLOWED.`,
           ],
           [
             fakeGatewayToolCall("allowed_write_1", "write_file", {
               path: allowedTarget,
-              content: "FX_E2E_EXTERNAL_ALLOWED",
+              content: "Y2_E2E_EXTERNAL_ALLOWED",
             }),
             fakeGatewayFinalText("allowed write complete"),
           ],
         );
-        const allowed = parseFxJson(allowedResult);
+        const allowed = parseY2Json(allowedResult);
         expect(allowed.tool_calls).toContainEqual({ name: "write_file", status: "success" });
-        expect(readFileSync(allowedTarget, "utf-8")).toBe("FX_E2E_EXTERNAL_ALLOWED");
+        expect(readFileSync(allowedTarget, "utf-8")).toBe("Y2_E2E_EXTERNAL_ALLOWED");
         expect(allowedGateway.classifierRequests).toHaveLength(0);
       } finally {
         rmSync(root.root, { recursive: true, force: true });

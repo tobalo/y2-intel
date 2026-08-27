@@ -687,7 +687,7 @@ def build_profile_linked_benchmarks(
             benchmark_ir=pair.profile_use_ir,
             output_text=supplement_path,
             source_module=plan.profile_module,
-            destination_module="fx",
+            destination_module="y2",
             allowed_prefixes=plan.function_prefixes,
             log_dir=(
                 production_paths.logs / "supplements" / plan.selector
@@ -740,12 +740,12 @@ def relink_profile_linked_benchmarks(
             benchmark_profile=pair.merged_profile,
             output_text=mapped_text,
             output_profile=mapped_profile_path,
-            source_module="fx",
+            source_module="y2",
             destination_module=plan.profile_module,
             log_dir=pair_paths.logs / "production-profile-map",
         )
         supplemented_functions = {
-            name.removeprefix("fx;")
+            name.removeprefix("y2;")
             for name in linked.supplement.function_names
         }
         if not supplemented_functions.issubset(
@@ -804,10 +804,10 @@ def profile_linked_benchmark_evidence(
         function_modes = verify_supplement_functions(
             production_ir,
             linked.supplement.function_names,
-            production_module="fx",
+            production_module="y2",
         )
         benchmark_profile_names = tuple(
-            f"{plan.profile_module};{name.removeprefix('fx;')}"
+            f"{plan.profile_module};{name.removeprefix('y2;')}"
             for name in linked.supplement.function_names
         )
         benchmark_modes = verify_supplement_functions(
@@ -849,10 +849,10 @@ def _measurement_environment(home: pathlib.Path) -> dict[str, str]:
     environment = hermetic_environment(home)
     environment.update(
         {
-            "FX_AUTO_UPGRADE": "0",
-            "FX_DISABLE_KEYCHAIN": "1",
-            "FX_SKIP_ONBOARDING": "1",
-            "FX_SOUND": "0",
+            "Y2_AUTO_UPGRADE": "0",
+            "Y2_DISABLE_KEYCHAIN": "1",
+            "Y2_SKIP_ONBOARDING": "1",
+            "Y2_SOUND": "0",
             "HOME": str(home),
             "NO_COLOR": "1",
         }

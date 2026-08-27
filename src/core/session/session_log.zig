@@ -4615,7 +4615,7 @@ test "root init rejects symlinked durable and sessions roots" {
         tmp.dir.symLink(
             io_mod.getIo(),
             "../outside",
-            "home/.fx",
+            "home/.y2",
             .{ .is_directory = true },
         ) catch |err| switch (err) {
             error.AccessDenied => return error.SkipZigTest,
@@ -4633,12 +4633,12 @@ test "root init rejects symlinked durable and sessions roots" {
     {
         var tmp = std.testing.tmpDir(.{});
         defer tmp.cleanup();
-        try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+        try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
         try tmp.dir.createDirPath(io_mod.getIo(), "outside");
         tmp.dir.symLink(
             io_mod.getIo(),
             "../../outside",
-            "home/.fx/sessions",
+            "home/.y2/sessions",
             .{ .is_directory = true },
         ) catch |err| switch (err) {
             error.AccessDenied => return error.SkipZigTest,
@@ -4657,8 +4657,8 @@ test "root init rejects symlinked durable and sessions roots" {
 fn testState(alloc: Allocator, id: []const u8, updated_at_ms: i64) !session_codec.DurableSessionState {
     return .{
         .id = try alloc.dupe(u8, id),
-        .origin_workspace_root = try alloc.dupe(u8, "/tmp/fx-plan-03"),
-        .workspace_root = try alloc.dupe(u8, "/tmp/fx-plan-03"),
+        .origin_workspace_root = try alloc.dupe(u8, "/tmp/y2-plan-03"),
+        .workspace_root = try alloc.dupe(u8, "/tmp/y2-plan-03"),
         .created_at_ms = 10,
         .updated_at_ms = updated_at_ms,
         .conversation_language = session.ConversationLanguage.literal("en"),
@@ -4914,7 +4914,7 @@ test "usage sidecar restores exact optional metrics after read-only and writable
         7,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -5092,7 +5092,7 @@ test "indeterminate canonical usage retry repairs the rich sidecar" {
         7,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -5164,7 +5164,7 @@ test "unwritable usage sidecar keeps canonical usage resumable and incomplete" {
         7,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{

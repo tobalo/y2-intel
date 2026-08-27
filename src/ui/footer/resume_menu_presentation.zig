@@ -446,7 +446,7 @@ fn composeSelectionFailureRow(
     if (indent_width > 0) try row.appendSlice(alloc, "  ");
     try row.appendSlice(alloc, ui_render.red_style);
     const message = switch (failure) {
-        .open_elsewhere => "This session is open in another Fx. Close it there, then press Enter to retry.",
+        .open_elsewhere => "This session is open in another Y2. Close it there, then press Enter to retry.",
         .being_updated => "This session is being updated. Wait a moment, then press Enter to retry.",
         .unavailable => "Unable to resume this session.",
     };
@@ -540,7 +540,7 @@ test "resume menu renders each session on one line with a right metadata cluster
     const alloc = std.testing.allocator;
     const summaries = [_]session_store.SessionSummary{.{
         .id = @constCast("one"),
-        .workspace_root = @constCast("/Users/example/Developer/Fx/worktrees/resume-catalog"),
+        .workspace_root = @constCast("/Users/example/Developer/Y2/worktrees/resume-catalog"),
         .title = @constCast("Redesign resume menu"),
         .created_at_ms = 1,
         .updated_at_ms = 1_000,
@@ -602,7 +602,7 @@ test "resume menu explains retryable selected session contention" {
     }{
         .{
             .failure = .open_elsewhere,
-            .message = "This session is open in another Fx. Close it there, then press Enter to retry.",
+            .message = "This session is open in another Y2. Close it there, then press Enter to retry.",
         },
         .{
             .failure = .being_updated,
@@ -705,7 +705,7 @@ test "resume menu keeps long titles on one narrow row without a workspace spill 
     const alloc = std.testing.allocator;
     const summaries = [_]session_store.SessionSummary{.{
         .id = @constCast("one"),
-        .workspace_root = @constCast("/Users/example/Developer/Fx/worktrees/a-very-long-session-catalog-worktree"),
+        .workspace_root = @constCast("/Users/example/Developer/Y2/worktrees/a-very-long-session-catalog-worktree"),
         .title = @constCast("Investigate a very long session catalog rendering issue"),
         .created_at_ms = 1,
         .updated_at_ms = 1,

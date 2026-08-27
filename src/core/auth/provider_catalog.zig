@@ -63,7 +63,7 @@ test "auth provider catalog uses the model provider identity and explicit aliase
     try std.testing.expectEqual(model_provider.ProviderId.grok, parse("grok").?);
     try std.testing.expect(parse("openai-codex") == null);
     try std.testing.expect(parse("chatgpt") == null);
-    try std.testing.expect(parse("vercel") == null);
+    try std.testing.expect(parse("retired_credential") == null);
     try std.testing.expect(parse("gateway") == null);
     try std.testing.expect(parse("unknown") == null);
     try std.testing.expect(find(.codex).subscription);

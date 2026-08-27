@@ -2147,9 +2147,9 @@ test "control compaction ignores non-monotonic process epochs" {
     defer alloc.free(manager_two);
     const ids = [_][]const u8{
         manager_five,
-        "fxop:m:999999:0000000000000000000000000000000000000000000000000000000000000000",
+        "y2op:m:999999:0000000000000000000000000000000000000000000000000000000000000000",
         manager_two,
-        "fxop:m:1:1111111111111111111111111111111111111111111111111111111111111111",
+        "y2op:m:1:1111111111111111111111111111111111111111111111111111111111111111",
     };
     const epochs = [_]u64{ 5, 999999, 2, 1 };
     const operations = try alloc.alloc(domain.OperationReceipt, ids.len);
@@ -2210,7 +2210,7 @@ test "canonical bytes evict receipt epochs with their event prefix" {
     @memset(&current_parent, 'b');
     for (0..count) |index| {
         const epoch: u64 = @intCast(index + 1);
-        const id = try std.fmt.allocPrint(alloc, "fxop:2:m:{d}:{s}", .{ epoch, digest });
+        const id = try std.fmt.allocPrint(alloc, "y2op:2:m:{d}:{s}", .{ epoch, digest });
         errdefer alloc.free(id);
         const previous_parent_id = try alloc.dupe(u8, &previous_parent);
         errdefer alloc.free(previous_parent_id);

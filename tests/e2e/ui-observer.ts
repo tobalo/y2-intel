@@ -2,7 +2,7 @@
  * Deterministic UI observer runner.
  *
  * This is an inspection tool, not a golden test suite. It launches the
- * freshly built fx binary in tmux, arms one observer checkpoint, releases one
+ * freshly built y2 binary in tmux, arms one observer checkpoint, releases one
  * fixture transition, and saves terminal plus replay artifacts for review.
  */
 import { execFileSync } from "node:child_process";
@@ -18,7 +18,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN } from "../evals/eval-helpers";
+import { Y2_BIN } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -146,13 +146,13 @@ function isScenarioName(value: string | undefined): value is ScenarioName {
 }
 
 function createFixtureRoot(autoPermissions = false) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-ui-observer-fixture-")));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-ui-observer-fixture-")));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({
       sandbox: "none",
       permission_mode: autoPermissions ? "auto" : "ask",
@@ -163,12 +163,12 @@ function createFixtureRoot(autoPermissions = false) {
 }
 
 function createArtifactDir(keep: boolean): string {
-  const configured = process.env.FX_UI_OBSERVER_ARTIFACT_DIR;
+  const configured = process.env.Y2_UI_OBSERVER_ARTIFACT_DIR;
   if (configured) {
     mkdirSync(configured, { recursive: true });
     return realpathSync(configured);
   }
-  const root = mkdtempSync(join(tmpdir(), "fx-ui-observer-"));
+  const root = mkdtempSync(join(tmpdir(), "y2-ui-observer-"));
   if (keep) return realpathSync(root);
   return root;
 }
@@ -181,13 +181,13 @@ function gatewayEnv(
   return {
     HOME: fixture.home,
     Y2_API_KEY: "ui-observer-local",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: FAKE_GATEWAY_MODEL,
-    FX_AUTO_UPGRADE: "0",
-    FX_UI_OBSERVE_DIR: artifactDir,
-    FX_RECORD: join(artifactDir, "session.fxtp"),
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_AUTO_UPGRADE: "0",
+    Y2_UI_OBSERVE_DIR: artifactDir,
+    Y2_RECORD: join(artifactDir, "session.y2tp"),
     NO_COLOR: "1",
   };
 }
@@ -277,9 +277,9 @@ async function captureArtifacts(
   const checkpoint = checkpointRecord(context.artifactDir);
   const sequence = checkpoint.sequence;
   const marker = `ui-observer:${scenario}:${context.checkpoint}:frame:${sequence}`;
-  const tapePath = join(context.artifactDir, "session.fxtp");
+  const tapePath = join(context.artifactDir, "session.y2tp");
   const replayDir = join(context.artifactDir, "replay");
-  execFileSync(FX_BIN, ["replay", tapePath, "--frames-dir", replayDir], {
+  execFileSync(Y2_BIN, ["replay", tapePath, "--frames-dir", replayDir], {
     cwd: context.artifactDir,
     stdio: "pipe",
   });
@@ -600,7 +600,7 @@ async function setupScenario(
   }
 
   const session = await TmuxSession.create({
-    cmd: FX_BIN,
+    cmd: Y2_BIN,
     cwd: fixture.workspace,
     env: gatewayEnv(fixture, gateway, artifactDir),
     width: size.width,
@@ -665,8 +665,8 @@ async function run() {
   }
   if (!args.scenario) throw new Error("--scenario is required");
   if (!tmuxAvailable()) throw new Error("tmux is required");
-  if (!existsSync(FX_BIN)) {
-    throw new Error(`fresh fx binary is missing: ${FX_BIN}\nRun: zig build`);
+  if (!existsSync(Y2_BIN)) {
+    throw new Error(`fresh y2 binary is missing: ${Y2_BIN}\nRun: zig build`);
   }
 
   const fixture = createFixtureRoot(
@@ -676,7 +676,7 @@ async function run() {
   );
   const artifactDir = createArtifactDir(args.keep);
   let context: ScenarioContext | null = null;
-  const preserveArtifacts = args.keep || process.env.FX_UI_OBSERVER_ARTIFACT_DIR !== undefined;
+  const preserveArtifacts = args.keep || process.env.Y2_UI_OBSERVER_ARTIFACT_DIR !== undefined;
   try {
     context = await setupScenario(args.scenario, fixture, artifactDir, args.size);
     await waitFor(() => frameRecords(artifactDir).length > 0, "initial observer frame");

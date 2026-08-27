@@ -32,7 +32,7 @@ pub const Environment = union(enum) {
     }
 };
 
-const permission_identity_prefix = "@fx-terminal-env:";
+const permission_identity_prefix = "@y2-terminal-env:";
 
 pub fn isExplicitPermissionCommandIdentity(value: []const u8) bool {
     return std.mem.startsWith(u8, value, permission_identity_prefix);

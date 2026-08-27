@@ -10,7 +10,7 @@ import { execFileSync, execSync } from "node:child_process";
 import { existsSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, REPO_ROOT } from "../evals/eval-helpers";
+import { Y2_BIN, REPO_ROOT } from "../evals/eval-helpers";
 
 let sessionCounter = 0;
 
@@ -20,21 +20,21 @@ const TMUX_HEX_CHUNK_BYTES = 256;
 const COMPOSER_LINE = /^[ \t]*(?:┃|❯|>)(?:[ \t]|$)/;
 const AUTH_ENV_KEYS = [
   "Y2_API_KEY",
-  "VERCEL_OIDC_TOKEN",
+  "REMOVED_LEGACY_OIDC_TOKEN",
 ] as const;
 const DEFAULT_UNSET_ENV_KEYS = [
   ...AUTH_ENV_KEYS,
-  "FX_E2E_GATEWAY_CHAT_URL",
-  "FX_E2E_GATEWAY_MODELS_URL",
-  "FX_E2E_GATEWAY_CREDITS_URL",
-  "FX_E2E_UPGRADE_BASE_URL",
-  "FX_PERMISSION_MODE",
+  "Y2_API_CHAT_URL",
+  "Y2_E2E_GATEWAY_MODELS_URL",
+  "Y2_E2E_GATEWAY_CREDITS_URL",
+  "Y2_E2E_UPGRADE_BASE_URL",
+  "Y2_PERMISSION_MODE",
 ] as const;
 const MIRRORED_ENV_KEYS = [
-  "FX_GATEWAY_BASE_URL",
-  "FX_API_CHAT_URL",
-  "FX_MAX_AGENT_STEPS",
-  "FX_MODEL",
+  "Y2_GATEWAY_BASE_URL",
+  "Y2_API_CHAT_URL",
+  "Y2_MAX_AGENT_STEPS",
+  "Y2_MODEL",
 ] as const;
 
 export function terminalFixtureShell(): string {
@@ -484,7 +484,7 @@ export class TmuxSession {
     socketName?: string;
   }): Promise<TmuxSession> {
     const {
-      cmd = FX_BIN,
+      cmd = Y2_BIN,
       cwd = REPO_ROOT,
       env = {},
       width = 120,
@@ -507,9 +507,9 @@ export class TmuxSession {
     }
 
     const sequence = ++sessionCounter;
-    const name = `fx-test-${process.pid}-${sequence}`;
+    const name = `y2-test-${process.pid}-${sequence}`;
     const resolvedSocketName = socketName ?? (isolated
-      ? `fx-e2e-${process.pid}-${sequence}-${Date.now()}`
+      ? `y2-e2e-${process.pid}-${sequence}-${Date.now()}`
       : undefined);
     const startGate = `${name}-start`;
     const exitStatusPath = join(tmpdir(), `${name}.exit-status`);
@@ -540,9 +540,9 @@ export class TmuxSession {
       value === undefined ? [] : [shellQuote(`${key}=${value}`)]
     );
     const defaultArgs = [
-      ["FX_DISABLE_KEYCHAIN", "1"],
-      ["FX_SKIP_ONBOARDING", "1"],
-      ["FX_SOUND", "0"],
+      ["Y2_DISABLE_KEYCHAIN", "1"],
+      ["Y2_SKIP_ONBOARDING", "1"],
+      ["Y2_SOUND", "0"],
     ].flatMap(([key, value]) =>
       Object.prototype.hasOwnProperty.call(env, key) ? [] : [shellQuote(`${key}=${value}`)]
     );
@@ -563,9 +563,9 @@ export class TmuxSession {
     );
     const processEnv = {
       ...process.env,
-      FX_DISABLE_KEYCHAIN: "1",
-      FX_SKIP_ONBOARDING: "1",
-      FX_SOUND: process.env.FX_SOUND ?? "0",
+      Y2_DISABLE_KEYCHAIN: "1",
+      Y2_SKIP_ONBOARDING: "1",
+      Y2_SOUND: process.env.Y2_SOUND ?? "0",
     };
     for (const key of DEFAULT_UNSET_ENV_KEYS) delete processEnv[key];
 
@@ -897,7 +897,7 @@ export class TmuxSession {
   }
 
   /**
-   * Complete pane history including the ANSI sequences emitted by fx.
+   * Complete pane history including the ANSI sequences emitted by y2.
    * Keep this separate from the viewport capture so transcript-order tests
    * inspect all committed output rather than only the visible rows.
    */
@@ -919,7 +919,7 @@ export class TmuxSession {
 
   /**
    * Current pane title, which is what a terminal renders as the tab label.
-   * fx sets it through OSC 2, so this reads back what the user would see.
+   * y2 sets it through OSC 2, so this reads back what the user would see.
    */
   async paneTitle(): Promise<string> {
     try {
@@ -937,7 +937,7 @@ export class TmuxSession {
   }
 
   /**
-   * Resize the tmux window. Delivers a real SIGWINCH to fx, exercising the
+   * Resize the tmux window. Delivers a real SIGWINCH to y2, exercising the
    * resize pipeline end-to-end. Default post-resize sleep covers the 100 ms
    * debounce in src/main.zig.
    */

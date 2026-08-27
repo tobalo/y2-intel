@@ -5,24 +5,24 @@ import { tmpdir } from "node:os";
 import { resolve } from "node:path";
 import { pathToFileURL } from "node:url";
 import {
-  createFxAgent,
-  createFxTerminal,
-  fxSdkApiVersion,
-  libfxApiVersion,
+  createY2Agent,
+  createY2Terminal,
+  y2SdkApiVersion,
+  liby2ApiVersion,
 } from "../node.js";
 import * as browser from "../browser.js";
 
-assert.equal(libfxApiVersion, 2);
-assert.equal(fxSdkApiVersion, 1);
-assert.equal(browser.libfxApiVersion, 2);
-assert.equal(typeof browser.createFxAgent, "function");
-assert.equal(typeof browser.createFxTerminal, "function");
+assert.equal(liby2ApiVersion, 2);
+assert.equal(y2SdkApiVersion, 1);
+assert.equal(browser.liby2ApiVersion, 2);
+assert.equal(typeof browser.createY2Agent, "function");
+assert.equal(typeof browser.createY2Terminal, "function");
 
-const dir = await mkdtemp(resolve(tmpdir(), "libfx-loader-"));
+const dir = await mkdtemp(resolve(tmpdir(), "liby2-loader-"));
 const nativePath = resolve(dir, "native.mjs");
 await writeFile(nativePath, `
-  export async function createFxAgent(options) { return { backend: "native-agent", options }; }
-  export async function createFxTerminal(options) { return { backend: "native-terminal", options }; }
+  export async function createY2Agent(options) { return { backend: "native-agent", options }; }
+  export async function createY2Terminal(options) { return { backend: "native-terminal", options }; }
 `);
 const nativeUrl = pathToFileURL(nativePath);
 
@@ -32,12 +32,12 @@ for (const gatewayChatUrl of [
   "file:///tmp/socket",
 ]) {
   await assert.rejects(
-    createFxAgent({ nativeAddon: nativeUrl, env: { FX_API_CHAT_URL: gatewayChatUrl } }),
+    createY2Agent({ nativeAddon: nativeUrl, env: { Y2_API_CHAT_URL: gatewayChatUrl } }),
     TypeError,
   );
 }
 
-const directAgent = await createFxAgent({
+const directAgent = await createY2Agent({
   nativeAddon: nativeUrl,
   env: {
     OPENAI_BASE_URL: "https://models.example/v1",
@@ -47,41 +47,41 @@ const directAgent = await createFxAgent({
 assert.equal(directAgent.backend, "native-agent");
 assert.equal(directAgent.options.env.OPENAI_BASE_URL, "https://models.example/v1");
 
-const agent = await createFxAgent({ nativeAddon: nativeUrl, marker: 1 });
+const agent = await createY2Agent({ nativeAddon: nativeUrl, marker: 1 });
 assert.equal(agent.backend, "native-agent");
 assert.equal(agent.options.marker, 1);
 assert.equal("nativeAddon" in agent.options, false);
 assert.equal("backend" in agent.options, false);
 
-const terminal = await createFxTerminal({ nativeAddon: nativeUrl, marker: 2 });
+const terminal = await createY2Terminal({ nativeAddon: nativeUrl, marker: 2 });
 assert.equal(terminal.backend, "native-terminal");
 assert.equal(terminal.options.marker, 2);
 
 await assert.rejects(
-  createFxAgent({ nativeAddon: nativeUrl, backend: "wasm" }),
-  (error) => error?.code === "LIBFX_JSPI_REQUIRED" &&
+  createY2Agent({ nativeAddon: nativeUrl, backend: "wasm" }),
+  (error) => error?.code === "LIBY2_JSPI_REQUIRED" &&
     error.message.includes("--experimental-wasm-jspi"),
 );
 
 const coreOnlyPath = resolve(dir, "core-only.mjs");
 await writeFile(coreOnlyPath, `
-  export const libfxApiVersion = 2;
-  export async function createFxAgent() { return { backend: "core-only" }; }
+  export const liby2ApiVersion = 2;
+  export async function createY2Agent() { return { backend: "core-only" }; }
 `);
 await assert.rejects(
-  createFxTerminal({ nativeAddon: pathToFileURL(coreOnlyPath), backend: "native" }),
-  (error) => error?.code === "LIBFX_NATIVE_UNAVAILABLE" &&
-    error.message.includes("createFxTerminal"),
+  createY2Terminal({ nativeAddon: pathToFileURL(coreOnlyPath), backend: "native" }),
+  (error) => error?.code === "LIBY2_NATIVE_UNAVAILABLE" &&
+    error.message.includes("createY2Terminal"),
 );
 
 const incompatiblePath = resolve(dir, "incompatible.mjs");
 await writeFile(incompatiblePath, `
-  export const libfxApiVersion = 3;
-  export async function createFxAgent() {}
+  export const liby2ApiVersion = 3;
+  export async function createY2Agent() {}
 `);
 await assert.rejects(
-  createFxAgent({ nativeAddon: pathToFileURL(incompatiblePath), backend: "native" }),
-  (error) => error?.code === "LIBFX_NATIVE_UNAVAILABLE" &&
+  createY2Agent({ nativeAddon: pathToFileURL(incompatiblePath), backend: "native" }),
+  (error) => error?.code === "LIBY2_NATIVE_UNAVAILABLE" &&
     error.message.includes("incompatible"),
 );
 
@@ -90,15 +90,15 @@ for (const [name, source] of [
     export function createCore() { throw new Error("missing-version createCore invoked"); }
   `],
   ["unequal-version", `
-    export const libfxApiVersion = 3;
+    export const liby2ApiVersion = 3;
     export function createCore() { throw new Error("unequal-version createCore invoked"); }
   `],
 ]) {
   const modulePath = resolve(dir, `${name}.mjs`);
   await writeFile(modulePath, source);
   await assert.rejects(
-    createFxAgent({ nativeAddon: pathToFileURL(modulePath), backend: "native" }),
-    (error) => error?.code === "LIBFX_NATIVE_UNAVAILABLE" &&
+    createY2Agent({ nativeAddon: pathToFileURL(modulePath), backend: "native" }),
+    (error) => error?.code === "LIBY2_NATIVE_UNAVAILABLE" &&
       error.message.includes("incompatible") &&
       !String(error.cause).includes("createCore invoked"),
     `${name} low-level addon must fail before createCore invocation`,
@@ -107,7 +107,7 @@ for (const [name, source] of [
 
 const matchingVersionPath = resolve(dir, "matching-version.mjs");
 await writeFile(matchingVersionPath, `
-  export const libfxApiVersion = 2;
+  export const liby2ApiVersion = 2;
   export function createCore() {
     const error = new Error("matching-version createCore invoked");
     error.code = "MATCHING_VERSION_INVOKED";
@@ -115,9 +115,9 @@ await writeFile(matchingVersionPath, `
   }
 `);
 await assert.rejects(
-  createFxAgent({ nativeAddon: pathToFileURL(matchingVersionPath), backend: "native" }),
+  createY2Agent({ nativeAddon: pathToFileURL(matchingVersionPath), backend: "native" }),
   (error) => error?.code === "MATCHING_VERSION_INVOKED",
   "matching v2 low-level addon must reach createCore",
 );
 
-console.log("libfx loader passed: browser exports, native preference, fallback diagnostics, and strict low-level API validation");
+console.log("liby2 loader passed: browser exports, native preference, fallback diagnostics, and strict low-level API validation");

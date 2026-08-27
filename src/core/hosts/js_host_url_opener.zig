@@ -1,7 +1,7 @@
 const std = @import("std");
 const host = @import("host.zig");
 
-extern "fx" fn fx_open_url(url_ptr: [*]const u8, url_len: usize) i32;
+extern "y2" fn y2_open_url(url_ptr: [*]const u8, url_len: usize) i32;
 
 pub const opener: host.UrlOpener = .{ .open_fn = open };
 
@@ -10,7 +10,7 @@ fn open(
     _: std.mem.Allocator,
     url: []const u8,
 ) host.UrlOpenError!bool {
-    return openWith(fx_open_url, url);
+    return openWith(y2_open_url, url);
 }
 
 fn openWith(call: anytype, url: []const u8) bool {
@@ -23,5 +23,5 @@ test "JS host URL opener keeps the manual fallback without a handler" {
             return 0;
         }
     };
-    try std.testing.expect(!openWith(NoHandler.call, "https://vercel.test/login"));
+    try std.testing.expect(!openWith(NoHandler.call, "https://identity.example/login"));
 }

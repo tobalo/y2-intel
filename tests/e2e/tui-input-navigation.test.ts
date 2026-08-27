@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, REPO_ROOT, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, REPO_ROOT, runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
@@ -26,7 +26,7 @@ import {
 } from "./tui-render-assertions";
 
 const HAS_TMUX = tmuxAvailable();
-if (process.env.FX_REQUIRE_TMUX === "1" && !HAS_TMUX) {
+if (process.env.Y2_REQUIRE_TMUX === "1" && !HAS_TMUX) {
   throw new Error("tmux is required for tui-input-navigation.test.ts");
 }
 
@@ -56,19 +56,19 @@ afterEach(async () => {
   stderrPath = null;
 });
 
-async function startFx(
+async function startY2(
   width: number,
   height: number,
   withGateway = false,
   recordRender = false,
   gatewayResponseCount = 1,
 ): Promise<TmuxSession> {
-  testHome = mkdtempSync(join(tmpdir(), "fx-tui-input-"));
+  testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
   stderrPath = join(testHome, "stderr.log");
   writeFileSync(stderrPath, "");
-  mkdirSync(join(testHome, ".fx"), { recursive: true });
+  mkdirSync(join(testHome, ".y2"), { recursive: true });
   writeFileSync(
-    join(testHome, ".fx", "settings.json"),
+    join(testHome, ".y2", "settings.json"),
     JSON.stringify({ sandbox: "none" }),
   );
   if (withGateway) {
@@ -81,26 +81,26 @@ async function startFx(
   }
   const active = await TmuxSession.create({
     cmd: withGateway
-      ? FX_BIN
-      : `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN}`,
+      ? Y2_BIN
+      : `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
     env: {
       HOME: testHome,
       ...(gateway
         ? {
           Y2_API_KEY: "fake-input-navigation-key",
-          VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_API_CHAT_URL: gateway.chatUrl,
-          FX_MODEL: FAKE_GATEWAY_MODEL,
-          FX_AUTO_UPGRADE: "0",
+          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_API_CHAT_URL: gateway.chatUrl,
+          Y2_MODEL: FAKE_GATEWAY_MODEL,
+          Y2_AUTO_UPGRADE: "0",
         }
         : {}),
       ...(recordRender
         ? {
-          FX_RECORD: join(testHome, "session.fxtape"),
-          FX_RECORD_INPUT: "1",
-          FX_TRACE_LOG: join(testHome, "trace.log"),
-          FX_TRACE_SCOPES: RENDER_TRACE_SCOPES,
+          Y2_RECORD: join(testHome, "session.y2tape"),
+          Y2_RECORD_INPUT: "1",
+          Y2_TRACE_LOG: join(testHome, "trace.log"),
+          Y2_TRACE_SCOPES: RENDER_TRACE_SCOPES,
         }
         : {}),
     },
@@ -309,7 +309,7 @@ function delay(ms: number): Promise<void> {
 tmuxTest(
   "raw control aliases navigate slash completion through submission",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "/");
     await waitForSelectedSlashLabel(active, "/help", READY_TIMEOUT);
 
@@ -334,7 +334,7 @@ tmuxTest(
 tmuxTest(
   "unknown terminal escape sequences leave the command catalog open",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await active.sendText("/help");
     await active.waitForPane(
       (pane) =>
@@ -361,7 +361,7 @@ tmuxTest(
 tmuxTest(
   "plain Up and Down move exactly one hard-newline visual row per press",
   async () => {
-    const active = await startFx(60, 24);
+    const active = await startY2(60, 24);
     await typeLiteral(active, "alpha");
     await active.sendKeys("M-Enter");
     await typeLiteral(active, "beta");
@@ -386,7 +386,7 @@ tmuxTest(
 tmuxTest(
   "plain Up and Down move exactly one narrow-pane soft-wrap row",
   async () => {
-    const active = await startFx(18, 24);
+    const active = await startY2(18, 24);
     await typeLiteral(active, "abcdefghijklmnopqrstuvwxyz0123456789");
     await active.waitForPane((pane) => pane.includes("6789"), READY_TIMEOUT);
     const bottom = await active.waitForCursor((position) => position.col > 2, READY_TIMEOUT);
@@ -407,7 +407,7 @@ tmuxTest(
 tmuxTest(
   "bracketed-pasted tabs preserve columns across rows and vertical arrows move one row",
   async () => {
-    const active = await startFx(10, 24);
+    const active = await startY2(10, 24);
     await active.pasteText("\tX\naaaaaa\tY");
     await active.waitForPane((pane) => pane.includes("Y"), READY_TIMEOUT);
     const bottom = await active.waitForCursor((position) => position.col === 9, READY_TIMEOUT);
@@ -429,7 +429,7 @@ tmuxTest(
   "typed sentences wrap by word and continuation rows never start with a space",
   async () => {
     // 20 cols, prefix "┃ " = 18 content cells per row.
-    const active = await startFx(20, 24);
+    const active = await startY2(20, 24);
 
     // "wrapping" (8 cells) does not fit after "hello world " (12 cells),
     // so it moves whole to the next row.
@@ -483,7 +483,7 @@ tmuxTest(
 tmuxTest(
   "Unicode display units repaint after a wide shift and at the right margin",
   async () => {
-    const active = await startFx(60, 24);
+    const active = await startY2(60, 24);
 
     await typeLiteral(active, "A🇺🇸B");
     await waitForActiveFooter(active, (footer) => footer.includes("A🇺🇸B"));
@@ -528,7 +528,7 @@ tmuxTest(
 tmuxTest(
   "tab edge wrapping handles final cells, wide runes, and following units",
   async () => {
-    const active = await startFx(10, 24);
+    const active = await startY2(10, 24);
 
     await active.pasteText("\tX");
     await active.waitForPane((pane) => pane.includes("X"), READY_TIMEOUT);
@@ -562,8 +562,8 @@ tmuxTest(
     expect(new TextEncoder().encode(prompt)).toHaveLength(1003);
     expect(prompt.match(/\t/g)).toHaveLength(21);
 
-    const active = await startFx(72, 16, true, true);
-    const tapePath = join(testHome!, "session.fxtape");
+    const active = await startY2(72, 16, true, true);
+    const tapePath = join(testHome!, "session.y2tape");
     await active.pasteText(prompt);
     await active.waitForText("[Pasted text #1, 11 lines]", READY_TIMEOUT);
     await active.sendKeys("Enter");
@@ -597,7 +597,7 @@ tmuxTest(
     expect(trace).not.toContain("frame_owner_violation");
 
     const goldenPath = join(testHome!, "replay-grid.txt");
-    const replay = await runFx(["replay", tapePath, "--golden", goldenPath], {
+    const replay = await runY2(["replay", tapePath, "--golden", goldenPath], {
       cwd: REPO_ROOT,
       timeoutMs: READY_TIMEOUT,
     });
@@ -615,7 +615,7 @@ tmuxTest(
 tmuxTest(
   "long short long vertical movement restores the original preferred column",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "abcdefghijklmnop");
     await active.sendKeys("M-Enter");
     await typeLiteral(active, "xy");
@@ -638,7 +638,7 @@ tmuxTest(
 tmuxTest(
   "plain arrows navigate recalled multiline history before crossing entries",
   async () => {
-    const active = await startFx(60, 24, true, false, 2);
+    const active = await startY2(60, 24, true, false, 2);
     await setupMultilinePromptHistory(active);
     await typeTwoRowDraft(active);
 
@@ -716,7 +716,7 @@ tmuxTest(
 tmuxTest(
   "composer word editing keeps Option and Ctrl deletion contracts separate",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
 
     await typeLiteral(active, "hello world");
     await active.sendHexBytes(hexSeq("\x1b[98;3u"));
@@ -749,7 +749,7 @@ tmuxTest(
 tmuxTest(
   "composer aliases edit through raw controls and meta delete",
   async () => {
-    const active = await startFx(80, 24, true);
+    const active = await startY2(80, 24, true);
 
     await setupPromptHistory(active);
     await typeLiteral(active, "draft");
@@ -790,7 +790,7 @@ tmuxTest(
 tmuxTest(
   "Ctrl+W edit of recalled history preserves the unsent draft",
   async () => {
-    const active = await startFx(60, 24, true);
+    const active = await startY2(60, 24, true);
     await setupPromptHistory(active);
     await typeLiteral(active, "draft");
     await active.waitForCursor((position) => position.col > 2, READY_TIMEOUT);
@@ -817,7 +817,7 @@ tmuxTest(
 tmuxTest(
   "Ctrl+L redraws without clearing the draft or session",
   async () => {
-    const active = await startFx(80, 24, true, true, 2);
+    const active = await startY2(80, 24, true, true, 2);
     await setupPromptHistory(active);
     const draft = "CTRL_L_UNSENT_DRAFT";
     await typeLiteral(active, draft);
@@ -853,7 +853,7 @@ tmuxTest(
 tmuxTest(
   "delivered Command and Shift+Option keys edit the composer",
   async () => {
-    const active = await startFx(60, 24);
+    const active = await startY2(60, 24);
     await typeLiteral(active, "alpha beta");
 
     await active.sendHexBytes(hexSeq("\x1b[1;9D"));
@@ -889,7 +889,7 @@ tmuxTest(
 tmuxTest(
   "draft-edge movement resets preferred-column intent",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "abcdefghijklmnop");
     await active.sendKeys("M-Enter");
     await typeLiteral(active, "xy");
@@ -915,7 +915,7 @@ tmuxTest(
 tmuxTest(
   "no-op modified Down at input end resets preferred-column intent",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "abcdef");
     await active.sendKeys("M-Enter");
     await active.waitForCursor((position) => position.col === 2, READY_TIMEOUT);
@@ -941,7 +941,7 @@ tmuxTest(
 tmuxTest(
   "resize between consecutive vertical moves resets preferred-column intent",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "abcdefghijklmnop");
     await active.sendKeys("M-Enter");
     await typeLiteral(active, "xy");
@@ -970,7 +970,7 @@ tmuxTest(
 tmuxTest(
   "long capped input keeps the cursor-containing rows visible",
   async () => {
-    const active = await startFx(40, 12);
+    const active = await startY2(40, 12);
     const text = Array.from({ length: 20 }, (_, idx) =>
       `line-${String(idx + 1).padStart(2, "0")}`
     ).join("\n");
@@ -991,7 +991,7 @@ tmuxTest(
 tmuxTest(
   "typed pasted and slash-command images share the queued Gateway and session contract",
   async () => {
-    testHome = mkdtempSync(join(tmpdir(), "fx-tui-input-"));
+    testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
     stderrPath = join(testHome, "stderr.log");
     writeFileSync(stderrPath, "");
     const workspacePath = join(testHome, "workspace");
@@ -1032,17 +1032,17 @@ tmuxTest(
     );
     gateway = localGateway;
     const active = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       cwd: workspace,
       env: {
         HOME: testHome,
         Y2_API_KEY: "fake-image-input-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_API_CHAT_URL: localGateway.chatUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        Y2_API_CHAT_URL: localGateway.chatUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
       height: 24,
@@ -1100,7 +1100,7 @@ tmuxTest(
     expect(escapes).toContain("[Image 1]");
     expect(escapes).toContain("\x1b]8;;\x1b\\");
 
-    const listed = await runFx(["sessions", "--json"], {
+    const listed = await runY2(["sessions", "--json"], {
       cwd: workspace,
       env: { HOME: testHome },
       timeoutMs: READY_TIMEOUT,
@@ -1109,7 +1109,7 @@ tmuxTest(
     const sessionId = JSON.parse(listed.stdout).sessions[0]?.id as string | undefined;
     expect(sessionId).toBeDefined();
     const readImageTurns = async () => {
-      const detailResult = await runFx(["session", "--id", sessionId!, "--json"], {
+      const detailResult = await runY2(["session", "--id", sessionId!, "--json"], {
         cwd: workspace,
         env: { HOME: testHome },
         timeoutMs: READY_TIMEOUT,
@@ -1145,7 +1145,7 @@ tmuxTest(
 tmuxTest(
   "registered slash command stays local behind a pending image",
   async () => {
-    const active = await startFx(100, 24, true);
+    const active = await startY2(100, 24, true);
     const image = realpathSync(imageFixture);
 
     await typeLiteral(active, `/image ${image}`);
@@ -1175,10 +1175,10 @@ tmuxTest(
 tmuxTest(
   "repeated image commands stay local and submit together as one prompt",
   async () => {
-    testHome = mkdtempSync(join(tmpdir(), "fx-tui-input-"));
+    testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
     stderrPath = join(testHome, "stderr.log");
     writeFileSync(stderrPath, "");
-    const workspace = mkdtempSync(join(tmpdir(), "fx-tui-images-"));
+    const workspace = mkdtempSync(join(tmpdir(), "y2-tui-images-"));
     const firstPath = join(workspace, "first.png");
     const secondPath = join(workspace, "second.png");
     copyFileSync(imageFixture, firstPath);
@@ -1198,16 +1198,16 @@ tmuxTest(
     );
     gateway = localGateway;
     const active = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       env: {
         HOME: testHome,
         Y2_API_KEY: "fake-repeated-image-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_API_CHAT_URL: localGateway.chatUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        Y2_API_CHAT_URL: localGateway.chatUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
       height: 24,
@@ -1283,10 +1283,10 @@ tmuxTest(
 tmuxTest(
   "a later turn's image keeps its own id in the composer and transcript",
   async () => {
-    testHome = mkdtempSync(join(tmpdir(), "fx-tui-input-"));
+    testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
     stderrPath = join(testHome, "stderr.log");
     writeFileSync(stderrPath, "");
-    const workspace = mkdtempSync(join(tmpdir(), "fx-tui-image-ids-"));
+    const workspace = mkdtempSync(join(tmpdir(), "y2-tui-image-ids-"));
     const firstPath = join(workspace, "one.png");
     const secondPath = join(workspace, "two.png");
     copyFileSync(imageFixture, firstPath);
@@ -1309,16 +1309,16 @@ tmuxTest(
     );
     gateway = localGateway;
     const active = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       env: {
         HOME: testHome,
         Y2_API_KEY: "fake-image-id-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_API_CHAT_URL: localGateway.chatUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        Y2_API_CHAT_URL: localGateway.chatUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       width: 120,
       height: 36,
@@ -1380,10 +1380,10 @@ tmuxTest(
 tmuxTest(
   "image line kill and repeated yank preserve captured bytes under fresh ids",
   async () => {
-    testHome = mkdtempSync(join(tmpdir(), "fx-tui-input-"));
+    testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
     stderrPath = join(testHome, "stderr.log");
     writeFileSync(stderrPath, "");
-    const workspace = mkdtempSync(join(tmpdir(), "fx-tui-image-yank-"));
+    const workspace = mkdtempSync(join(tmpdir(), "y2-tui-image-yank-"));
     const sourcePath = join(workspace, "source.png");
     copyFileSync(imageFixture, sourcePath);
     const source = realpathSync(sourcePath);
@@ -1401,16 +1401,16 @@ tmuxTest(
     );
     gateway = localGateway;
     const active = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       env: {
         HOME: testHome,
         Y2_API_KEY: "fake-image-yank-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_API_CHAT_URL: localGateway.chatUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        Y2_API_CHAT_URL: localGateway.chatUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
       height: 24,
@@ -1456,7 +1456,7 @@ tmuxTest(
 tmuxTest(
   "pending image commands stay local",
   async () => {
-    testHome = mkdtempSync(join(tmpdir(), "fx-tui-input-"));
+    testHome = mkdtempSync(join(tmpdir(), "y2-tui-input-"));
     stderrPath = join(testHome, "stderr.log");
     writeFileSync(stderrPath, "");
     const localGateway = startFakeGateway(
@@ -1471,16 +1471,16 @@ tmuxTest(
     );
     gateway = localGateway;
     const active = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       env: {
         HOME: testHome,
         Y2_API_KEY: "fake-pending-image-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_API_CHAT_URL: localGateway.chatUrl,
-        FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        Y2_API_CHAT_URL: localGateway.chatUrl,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       width: 100,
       height: 24,
@@ -1525,9 +1525,9 @@ tmuxTest(
 );
 
 tmuxTest(
-  "repeated image-path paste cannot grow direct input past the cap and leaves fx alive",
+  "repeated image-path paste cannot grow direct input past the cap and leaves y2 alive",
   async () => {
-    const active = await startFx(120, 24);
+    const active = await startY2(120, 24);
     await active.pasteText(repeatedImagePaste(80));
     await active.waitForPane((pane) => pane.includes("[Image 1]"), READY_TIMEOUT);
     expect(active.isAlive()).toBe(true);
@@ -1538,7 +1538,7 @@ tmuxTest(
 tmuxTest(
   "unknown and overflowing image placeholders stay literal and vertically targetable",
   async () => {
-    const active = await startFx(60, 24);
+    const active = await startY2(60, 24);
     await typeLiteral(active, "[Image #999999999999999999999999999999999999]");
     await active.sendKeys("M-Enter");
     await typeLiteral(active, "tail");
@@ -1559,7 +1559,7 @@ tmuxTest(
 tmuxTest(
   "top-level slash and /mo completion rows stay left anchored",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "/");
     await expectOptionColumn(active, "/help", 2);
     await active.sendKeys("C-u");
@@ -1572,7 +1572,7 @@ tmuxTest(
 tmuxTest(
   "permission argument picker uses exact rendered columns",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "  /permissions ");
     await expectOptionColumn(active, "ask", 17);
   },
@@ -1582,22 +1582,22 @@ tmuxTest(
 tmuxTest(
   "current composer and submitted prompt use connected rails",
   async () => {
-    testHome = mkdtempSync(join(tmpdir(), "fx-tui-current-rails-"));
-    mkdirSync(join(testHome, ".fx"), { recursive: true });
+    testHome = mkdtempSync(join(tmpdir(), "y2-tui-current-rails-"));
+    mkdirSync(join(testHome, ".y2"), { recursive: true });
     const localGateway = startFakeGateway([
       fakeGatewayFinalText("CURRENT_RAIL_MOCK_OK"),
     ]);
     gateway = localGateway;
     const active = await TmuxSession.create({
-      cmd: FX_BIN,
+      cmd: Y2_BIN,
       env: {
         HOME: testHome,
         Y2_API_KEY: "fake-current-rail-key",
-        VERCEL_OIDC_TOKEN: undefined,
-        FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_API_CHAT_URL: localGateway.chatUrl,
-        FX_MODEL: FAKE_GATEWAY_MODEL,
-        FX_AUTO_UPGRADE: "0",
+        REMOVED_LEGACY_OIDC_TOKEN: undefined,
+        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        Y2_API_CHAT_URL: localGateway.chatUrl,
+        Y2_MODEL: FAKE_GATEWAY_MODEL,
+        Y2_AUTO_UPGRADE: "0",
       },
       width: 80,
       height: 24,
@@ -1659,7 +1659,7 @@ tmuxTest(
 tmuxTest(
   "wrapped slash prefix keeps current rail composer precedence and preserves selection",
   async () => {
-    const active = await startFx(8, 10);
+    const active = await startY2(8, 10);
     await typeLiteral(active, "       /");
     const end = await active.waitForCursor((position) => position.col > 2, READY_TIMEOUT);
     await active.sendKeys("Up");
@@ -1677,7 +1677,7 @@ tmuxTest(
 tmuxTest(
   "wrapped slash picker does not consume selection-modified arrows",
   async () => {
-    const active = await startFx(8, 10);
+    const active = await startY2(8, 10);
     await typeLiteral(active, "       /");
     const before = await active.waitForCursor((position) => position.col > 2, READY_TIMEOUT);
     await active.sendHexBytes(hexSeq("\x1b[1;2B"));
@@ -1696,7 +1696,7 @@ tmuxTest(
 tmuxTest(
   "wrapped slash prefix submits its visible selection",
   async () => {
-    const active = await startFx(8, 10, true);
+    const active = await startY2(8, 10, true);
     await typeLiteral(active, "       /he");
     await active.waitForPane((pane) => pane.includes("/he"), READY_TIMEOUT);
     await active.sendKeys("Enter");
@@ -1710,7 +1710,7 @@ tmuxTest(
 tmuxTest(
   "tiny pane keeps capped multiline slash picker visible and plain arrows navigate it",
   async () => {
-    const active = await startFx(8, 6);
+    const active = await startY2(8, 6);
     await typeLiteral(active, "       /");
     await active.waitForPane((pane) => pane.includes("/help"), READY_TIMEOUT);
     const before = await active.waitForCursor((position) => position.col > 2, READY_TIMEOUT);
@@ -1728,7 +1728,7 @@ tmuxTest(
 tmuxTest(
   "resize preserves slash routing and wrapped-composer arrow precedence",
   async () => {
-    const active = await startFx(80, 24);
+    const active = await startY2(80, 24);
     await typeLiteral(active, "       /");
     await active.waitForPane((pane) => pane.includes("/help"), READY_TIMEOUT);
     const visibleCursor = await active.waitForCursor((position) => position.col > 2, READY_TIMEOUT);

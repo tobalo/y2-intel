@@ -656,7 +656,7 @@ pub fn runWithTransport(
         .cfg = cfg,
         .writer = writer_value,
         .web_search_runtime = web_search_runtime.Runtime.init(.{
-            .provider = cfg.provider_set.gateway.fx_search,
+            .provider = cfg.provider_set.gateway.y2_search,
         }),
         .background = background_runtime.BackgroundRuntime.init(
             cfg.background_process_provider,
@@ -2530,7 +2530,7 @@ test "ACP usage flush preserves snapshot ownership on allocation failure" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://ai-gateway.vercel.sh",
+        "https://retired-gateway.invalid",
         null,
     );
 

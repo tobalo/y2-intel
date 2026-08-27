@@ -73,7 +73,6 @@ pub const Command = union(enum) {
     session: []const [:0]const u8,
     sessions: []const [:0]const u8,
     resume_session: ResumeInvocation,
-    credits: []const [:0]const u8,
     usage: []const [:0]const u8,
     upgrade: []const [:0]const u8,
     replay: []const [:0]const u8,
@@ -144,8 +143,8 @@ pub const RunResult = union(enum) {
     handled_exit: u8,
 };
 
-pub const record_modifier_usage = "usage: fx --record is only supported for interactive startup\n";
-const version_usage = "usage: fx --version\n";
+pub const record_modifier_usage = "usage: y2 --record is only supported for interactive startup\n";
+const version_usage = "usage: y2 --version\n";
 
 pub fn recordRequested(args: []const [:0]const u8) error{RecordModifierRequiresInteractive}!bool {
     var count: usize = 0;
@@ -253,7 +252,7 @@ const PersistedRecordOptions = struct {
     target: ?PersistedRecordTarget = null,
 };
 
-// `fx session` reads one saved session, so it names its target and never
+// `y2 session` reads one saved session, so it names its target and never
 // reaches for the picker that `ResumeTarget` carries.
 const SessionDetailTarget = union(enum) {
     last,
@@ -456,10 +455,6 @@ pub fn parse(command_catalog: CommandCatalog, args: []const [:0]const u8) Comman
         },
         'b' => {
             if (command_specs.matchesTopLevel(command_catalog, command, .background)) return .{ .background = args[1..] };
-            if (command_specs.matchesTopLevel(command_catalog, command, .credits)) return .{ .credits = args[1..] };
-        },
-        'c' => {
-            if (command_specs.matchesTopLevel(command_catalog, command, .credits)) return .{ .credits = args[1..] };
         },
         'd' => {
             if (command_specs.matchesTopLevel(command_catalog, command, .doctor)) return .{ .doctor = args[1..] };
@@ -594,8 +589,8 @@ pub fn parseInteractiveLaunch(
     }
 }
 
-/// Detects `fx <subcommand> --help` / `-h` and returns the subcommand kind so the
-/// caller can render command-specific help. Top-level `fx --help`/`fx help` are
+/// Detects `y2 <subcommand> --help` / `-h` and returns the subcommand kind so the
+/// caller can render command-specific help. Top-level `y2 --help`/`y2 help` are
 /// handled separately and intentionally excluded here.
 fn topLevelHelpRequest(command_catalog: CommandCatalog, args: []const [:0]const u8) ?TopLevelKind {
     if (args.len < 2) return null;
@@ -647,7 +642,7 @@ fn writeProviderActivationError(
     const message = try std.fmt.allocPrint(
         alloc,
         "{s}: {s}\n",
-        .{ if (caller == .provider_login) "fx login" else "fx provider", detail },
+        .{ if (caller == .provider_login) "y2 login" else "y2 provider", detail },
     );
     defer alloc.free(message);
     try writeStderr(deps, message);
@@ -830,11 +825,11 @@ fn runIfRequestedWithDeps(alloc: Allocator, args: []const [:0]const u8, cfg: Con
         var writer: std.Io.Writer.Allocating = .init(alloc);
         defer writer.deinit();
         if (globalLaunchErrorMessage(err)) |message| {
-            try writer.writer.print("fx: {s}\n", .{message});
+            try writer.writer.print("y2: {s}\n", .{message});
         } else {
-            try writer.writer.print("fx: invalid global launch option: {s}\n", .{@errorName(err)});
+            try writer.writer.print("y2: invalid global launch option: {s}\n", .{@errorName(err)});
         }
-        try writer.writer.writeAll("usage: fx [--context-limit NAME=BYTES|off] [--add-dir PATH]... [--no-additional-dirs] <command>\n");
+        try writer.writer.writeAll("usage: y2 [--context-limit NAME=BYTES|off] [--add-dir PATH]... [--no-additional-dirs] <command>\n");
         try writeStderr(deps, writer.written());
         return .handled_failure;
     };
@@ -894,7 +889,7 @@ fn runNonInteractiveWithDeps(
         },
         .acp => |rest| {
             const acp_opts = parseAcpArgs(rest) catch {
-                try writeStderr(deps, "usage: fx acp [--model <id>] [--log-file <path>]\n");
+                try writeStderr(deps, "usage: y2 acp [--model <id>] [--log-file <path>]\n");
                 return .handled_failure;
             };
             try cfg.acp_runner.run(alloc, .{
@@ -930,16 +925,16 @@ fn runNonInteractiveWithDeps(
         .issue => |rest| return runGithubWorkflow(alloc, rest, cfg, global_args.modifiers, deps, .issue),
         .login => |rest| {
             const maybe_login_provider = parseLoginProvider(rest) catch {
-                try writeStderr(deps, "usage: fx login <codex|grok>\n");
+                try writeStderr(deps, "usage: y2 login <codex|grok>\n");
                 return .handled_failure;
             };
             const login_provider = maybe_login_provider orelse {
-                try writeStderr(deps, "fx login: choose codex or grok; use fx setup for Y2 or another OpenAI-compatible API key\n");
+                try writeStderr(deps, "y2 login: choose codex or grok; use y2 setup for Y2 or another OpenAI-compatible API key\n");
                 return .handled_failure;
             };
             switch (login_provider) {
                 .gateway => {
-                    try writeStderr(deps, "fx login: Y2 and OpenAI-compatible endpoints use API keys; run fx setup\n");
+                    try writeStderr(deps, "y2 login: Y2 and OpenAI-compatible endpoints use API keys; run y2 setup\n");
                     return .handled_failure;
                 },
                 .codex => {
@@ -949,9 +944,9 @@ fn runNonInteractiveWithDeps(
                         cfg.url_opener,
                     ) catch |err| {
                         const message = switch (err) {
-                            error.ChatGptLoginTimedOut => "fx login: Codex authorization expired; run fx login codex again\n",
-                            error.ChatGptAuthorizationFailed => "fx login: Codex authorization denied\n",
-                            else => "fx login: failed to sign in with Codex\n",
+                            error.ChatGptLoginTimedOut => "y2 login: Codex authorization expired; run y2 login codex again\n",
+                            error.ChatGptAuthorizationFailed => "y2 login: Codex authorization denied\n",
+                            else => "y2 login: failed to sign in with Codex\n",
                         };
                         try writeStderr(deps, message);
                         return .handled_failure;
@@ -968,7 +963,7 @@ fn runNonInteractiveWithDeps(
                         cfg.url_opener,
                     ) catch |err| {
                         debug_trace.logf("auth", "Grok login failed err={s}", .{@errorName(err)});
-                        try writeStderr(deps, "fx login: failed to sign in with Grok\n");
+                        try writeStderr(deps, "y2 login: failed to sign in with Grok\n");
                         return .handled_failure;
                     };
                     if (!try activateProviderSelection(alloc, cfg, deps, .grok, .provider_login)) {
@@ -981,16 +976,16 @@ fn runNonInteractiveWithDeps(
         },
         .logout => |rest| {
             const maybe_login_provider = parseLoginProvider(rest) catch {
-                try writeStderr(deps, "usage: fx logout <codex|grok>\n");
+                try writeStderr(deps, "usage: y2 logout <codex|grok>\n");
                 return .handled_failure;
             };
             const login_provider = maybe_login_provider orelse {
-                try writeStderr(deps, "fx logout: choose codex or grok; manage API keys with fx setup\n");
+                try writeStderr(deps, "y2 logout: choose codex or grok; manage API keys with y2 setup\n");
                 return .handled_failure;
             };
             if (login_provider == .codex) {
                 const outcome = chatgpt_oauth.logout() catch {
-                    try writeStderr(deps, "fx logout: failed to durably remove saved Codex login\n");
+                    try writeStderr(deps, "y2 logout: failed to durably remove saved Codex login\n");
                     return .handled_failure;
                 };
                 return switch (outcome) {
@@ -1003,18 +998,18 @@ fn runNonInteractiveWithDeps(
                         break :result .handled_success;
                     },
                     .deleted_not_durable => result: {
-                        try writeStderr(deps, "fx logout: failed to durably remove saved Codex login\n");
+                        try writeStderr(deps, "y2 logout: failed to durably remove saved Codex login\n");
                         break :result .handled_failure;
                     },
                 };
             }
             if (login_provider == .grok) {
                 const outcome = grok_oauth.logout(alloc, cfg.gateway_provider.oauth_transport) catch {
-                    try writeStderr(deps, "fx logout: failed to durably remove saved Grok login\n");
+                    try writeStderr(deps, "y2 logout: failed to durably remove saved Grok login\n");
                     return .handled_failure;
                 };
                 if (outcome.revocation_failed) {
-                    try writeStderr(deps, "fx logout: local Grok session removed, but remote revocation could not be confirmed\n");
+                    try writeStderr(deps, "y2 logout: local Grok session removed, but remote revocation could not be confirmed\n");
                 }
                 return switch (outcome.deletion) {
                     .deleted => result: {
@@ -1026,29 +1021,29 @@ fn runNonInteractiveWithDeps(
                         break :result .handled_success;
                     },
                     .deleted_not_durable => result: {
-                        try writeStderr(deps, "fx logout: failed to durably remove saved Grok login\n");
+                        try writeStderr(deps, "y2 logout: failed to durably remove saved Grok login\n");
                         break :result .handled_failure;
                     },
                 };
             }
-            try writeStderr(deps, "fx logout: Y2 and OpenAI-compatible endpoints use API keys; manage them with fx setup\n");
+            try writeStderr(deps, "y2 logout: Y2 and OpenAI-compatible endpoints use API keys; manage them with y2 setup\n");
             return .handled_failure;
         },
         .teams => |rest| {
             if (rest.len != 0) {
-                try writeStderr(deps, "usage: fx teams\n");
+                try writeStderr(deps, "usage: y2 teams\n");
                 return .handled_failure;
             }
-            try writeStderr(deps, "fx teams: Vercel team selection was removed; Y2 API keys are already workspace-bound\n");
+            try writeStderr(deps, "y2 teams: team selection is not used by Y2 API keys\n");
             return .handled_failure;
         },
         .provider => |rest| {
             if (rest.len != 1) {
-                try writeStderr(deps, "usage: fx provider <gateway|codex|grok>\n");
+                try writeStderr(deps, "usage: y2 provider <gateway|codex|grok>\n");
                 return .handled_failure;
             }
             const target = model_provider.parse(rest[0]) orelse {
-                try writeStderr(deps, "fx provider: expected gateway, codex, or grok\n");
+                try writeStderr(deps, "y2 provider: expected gateway, codex, or grok\n");
                 return .handled_failure;
             };
             return if (try activateProviderSelection(alloc, cfg, deps, target, .provider_command))
@@ -1133,9 +1128,9 @@ fn runNonInteractiveWithDeps(
             const catalog_access = startup.modelCatalogAccess();
             const catalog_provider = cfg.provider_set.select(startup.provider).cli_model_catalog orelse {
                 try writeStderr(deps, switch (startup.provider) {
-                    .gateway => "fx models: Gateway model catalog is unavailable\n",
-                    .codex => "fx models: Codex model catalog is unavailable\n",
-                    .grok => "fx models: Grok model catalog is unavailable\n",
+                    .gateway => "y2 models: Gateway model catalog is unavailable\n",
+                    .codex => "y2 models: Codex model catalog is unavailable\n",
+                    .grok => "y2 models: Grok model catalog is unavailable\n",
                 });
                 return .handled_failure;
             };
@@ -1161,7 +1156,7 @@ fn runNonInteractiveWithDeps(
                             message,
                         );
                     } else {
-                        try writeStderr(deps, "fx models: ");
+                        try writeStderr(deps, "y2 models: ");
                         try writeStderr(deps, message);
                         try writeStderr(deps, "\n");
                     }
@@ -1527,42 +1522,6 @@ fn runNonInteractiveWithDeps(
                 },
             }
         },
-        .credits => |rest| {
-            const opts = parseLocalSurfaceArgs(rest) catch |err| {
-                try writeUsageOrJsonError(alloc, cfg.command_catalog, deps, .credits, "credits", err, rest);
-                return .handled_failure;
-            };
-            var startup = try deps.load_startup_state(
-                alloc,
-                cfg.gateway_provider.oauth_transport,
-                cfg.secret_store,
-                cfg.default_model,
-                cfg.default_agent_step_limit,
-            );
-            defer startup.deinit(alloc);
-            try writeConfigDiagnostics(alloc, deps, startup.config_diagnostics);
-
-            const credits = cfg.provider_set.select(startup.provider).credits orelse
-                gateway_provider.unavailable_credits_provider;
-            var snapshot = credits.fetch(alloc, .{
-                .credential = startup.apiKey(),
-                .credential_source = if (startup.credential) |credential| credential.source else null,
-                .tenant = startup.gatewayTeam(),
-            });
-            defer snapshot.deinit(alloc);
-            const text = try snapshot.render(alloc, opts.format);
-            defer alloc.free(text);
-            if (snapshot.err_message != null) {
-                if (opts.format == .json) {
-                    try writeFormattedOutput(deps, text, opts.format);
-                } else {
-                    try writeStderr(deps, text);
-                }
-                return .handled_failure;
-            }
-            try writeFormattedOutput(deps, text, opts.format);
-            return .handled_success;
-        },
         .usage => |rest| {
             const opts = parseUsageArgs(rest) catch |err| {
                 try writeUsageOrJsonError(alloc, cfg.command_catalog, deps, .usage, "usage", err, rest);
@@ -1609,7 +1568,7 @@ fn runNonInteractiveWithDeps(
                 if (opts.format == .json) {
                     try writeJsonCommandFailure(alloc, deps, "upgrade", err, "failed to load update settings");
                 } else {
-                    try writeStderr(deps, "fx upgrade: failed to load update settings\n");
+                    try writeStderr(deps, "y2 upgrade: failed to load update settings\n");
                 }
                 return .handled_failure;
             };
@@ -1622,7 +1581,7 @@ fn runNonInteractiveWithDeps(
                     if (opts.format == .json) {
                         try writeJsonCommandFailure(alloc, deps, "upgrade", err, "failed to save update channel");
                     } else {
-                        try writeStderr(deps, "fx upgrade: failed to save update channel\n");
+                        try writeStderr(deps, "y2 upgrade: failed to save update channel\n");
                     }
                     return .handled_failure;
                 };
@@ -1642,7 +1601,7 @@ fn runNonInteractiveWithDeps(
                 .text => .text,
                 .json => .json,
             }) catch {
-                try writeStderr(deps, "fx upgrade: render failed\n");
+                try writeStderr(deps, "y2 upgrade: render failed\n");
                 return .handled_failure;
             };
             defer alloc.free(text);
@@ -1655,7 +1614,7 @@ fn runNonInteractiveWithDeps(
             return if (exit_code == 0) .handled_success else .handled_failure;
         },
         .unknown => |command| {
-            try writeStderr(deps, "fx: unknown subcommand: ");
+            try writeStderr(deps, "y2: unknown subcommand: ");
             try writeStderr(deps, command);
             try writeStderr(deps, "\n\n");
             try writeTopLevelHelp(alloc, cfg.command_catalog, deps, cfg.version, .stderr);
@@ -1700,7 +1659,7 @@ fn runGithubWorkflow(
     const prompt = switch (workflow) {
         .pull_request => github_workflows.buildPrompt(alloc, workflow, workflowLanguagePlaceholder(), opts.context) catch |err| switch (err) {
             error.NotGitRepository => {
-                try writeStderr(deps, "fx pr: requires running inside a git repository\n");
+                try writeStderr(deps, "y2 pr: requires running inside a git repository\n");
                 return .handled_failure;
             },
             else => return err,
@@ -1721,8 +1680,8 @@ fn runGithubWorkflow(
 
     const draft = github_publish.parseDraft(alloc, run_result.assistant_output) catch {
         try writeStderr(deps, switch (workflow) {
-            .pull_request => "fx pr: failed to parse drafted PR title/body\n",
-            .issue => "fx issue: failed to parse drafted issue title/body\n",
+            .pull_request => "y2 pr: failed to parse drafted PR title/body\n",
+            .issue => "y2 issue: failed to parse drafted issue title/body\n",
         });
         return .handled_failure;
     };
@@ -1735,8 +1694,8 @@ fn runGithubWorkflow(
     defer published.deinit(alloc);
     if (!published.ok) {
         try writeStderr(deps, switch (workflow) {
-            .pull_request => "fx pr: ",
-            .issue => "fx issue: ",
+            .pull_request => "y2 pr: ",
+            .issue => "y2 issue: ",
         });
         try writeStderr(deps, published.text);
         try writeStderr(deps, "\n");
@@ -1761,11 +1720,11 @@ fn runPasteSetup(
     deps: RunDeps,
 ) !bool {
     if (secret_store.isDisabled()) {
-        try writeStderr(deps, "fx setup: stored API keys are disabled by FX_DISABLE_KEYCHAIN\n");
+        try writeStderr(deps, "y2 setup: stored API keys are disabled by Y2_DISABLE_KEYCHAIN\n");
         return false;
     }
     if (!deps.setup_terminal_available(deps.setup_ctx)) {
-        try writeStderr(deps, "fx setup: an interactive terminal is required to paste an API key\n");
+        try writeStderr(deps, "y2 setup: an interactive terminal is required to paste an API key\n");
         return false;
     }
 
@@ -1787,7 +1746,7 @@ fn runPasteSetup(
         defer secret.zeroAndFree(alloc, key);
         try writeStderr(deps, "\n");
         secret_store.store(alloc, key) catch {
-            try writeStderr(deps, "fx setup: API key was not saved\n");
+            try writeStderr(deps, "y2 setup: API key was not saved\n");
             return false;
         };
     }
@@ -1909,7 +1868,7 @@ fn writeConfigDiagnostics(
         var notice_writer: std.Io.Writer.Allocating = .init(alloc);
         defer notice_writer.deinit();
         try notice_writer.writer.print(
-            "fx: config {s}: {s}",
+            "y2: config {s}: {s}",
             .{ @tagName(diagnostic.layer), @tagName(diagnostic.cause) },
         );
         try config_runtime.writeDiagnosticMetadata(&notice_writer.writer, diagnostic);
@@ -2059,7 +2018,7 @@ fn selfExePathDefault(_: ?*anyopaque, alloc: Allocator) ![]u8 {
 }
 
 fn writeTopLevelUsage(command_catalog: CommandCatalog, deps: RunDeps, kind: TopLevelKind) !void {
-    try writeStderr(deps, "usage: fx ");
+    try writeStderr(deps, "usage: y2 ");
     try writeStderr(deps, command_specs.topLevelUsage(command_catalog, kind));
     try writeStderr(deps, "\n");
 }
@@ -2096,7 +2055,7 @@ fn writeUsageCommandFailure(
             message,
         );
     }
-    try writeStderr(deps, "fx usage: ");
+    try writeStderr(deps, "y2 usage: ");
     try writeStderr(deps, message);
     try writeStderr(deps, "\n");
 }
@@ -2120,7 +2079,7 @@ fn writeWorkspaceCommandError(
 ) !void {
     if (!argsContainJson(args)) {
         if (output_contracts.workspaceErrorMessage(err)) |message| {
-            try writeStderr(deps, "fx workspace: ");
+            try writeStderr(deps, "y2 workspace: ");
             try writeStderr(deps, message);
             try writeStderr(deps, "\n");
             return;
@@ -2152,7 +2111,7 @@ fn writeWorkspaceIndeterminateError(
         .unconfirmed => "settings durability is uncertain; reloaded settings match neither the requested nor previous state",
     };
     if (!argsContainJson(args)) {
-        try writeStderr(deps, "fx workspace: ");
+        try writeStderr(deps, "y2 workspace: ");
         try writeStderr(deps, message);
         try writeStderr(deps, "\n");
         return;
@@ -2612,102 +2571,102 @@ fn writeLookupFailure(
 
     switch (err) {
         error.NoBackgroundRecords => {
-            try writeStderr(deps, "fx ");
+            try writeStderr(deps, "y2 ");
             try writeStderr(deps, kind);
             try writeStderr(deps, ": no persisted records for this workspace\n");
         },
         error.BackgroundRecordNotFound => {
-            try writeStderr(deps, "fx ");
+            try writeStderr(deps, "y2 ");
             try writeStderr(deps, kind);
             try writeStderr(deps, ": record not found\n");
         },
         error.InvalidBackgroundRecord, error.UnsupportedBackgroundSchema => {
-            try writeStderr(deps, "fx ");
+            try writeStderr(deps, "y2 ");
             try writeStderr(deps, kind);
             try writeStderr(deps, ": record is unreadable or from an unsupported version\n");
         },
         error.NoSavedSessions => {
-            try writeStderr(deps, "fx session: no saved sessions for this workspace\n");
+            try writeStderr(deps, "y2 session: no saved sessions for this workspace\n");
         },
         error.NoReadableSessions => {
-            try writeStderr(deps, "fx session: saved sessions are unreadable; run `fx doctor` for recovery guidance\n");
+            try writeStderr(deps, "y2 session: saved sessions are unreadable; run `y2 doctor` for recovery guidance\n");
         },
         error.SessionNotFound => {
-            try writeStderr(deps, "fx session: record not found\n");
+            try writeStderr(deps, "y2 session: record not found\n");
         },
         error.InvalidSessionFormat => {
             try writeStderr(
                 deps,
-                "fx session: record is corrupt; run `fx doctor` for recovery guidance\n",
+                "y2 session: record is corrupt; run `y2 doctor` for recovery guidance\n",
             );
         },
         error.UnsupportedSessionSchema => {
             try writeStderr(
                 deps,
-                "fx session: record uses an unsupported session version\n",
+                "y2 session: record uses an unsupported session version\n",
             );
         },
         error.InvalidSessionId => {
-            try writeStderr(deps, "fx session: invalid session id\n");
+            try writeStderr(deps, "y2 session: invalid session id\n");
         },
         error.LegacySessionTooLarge => {
             try writeStderr(
                 deps,
-                "fx session: legacy session is too large for automatic loading; run `fx session migrate <id> --allow-large`\n",
+                "y2 session: legacy session is too large for automatic loading; run `y2 session migrate <id> --allow-large`\n",
             );
         },
         error.LegacySessionReadResourceExhausted => {
             try writeStderr(
                 deps,
-                "fx session: legacy session could not be loaded with available resources\n",
+                "y2 session: legacy session could not be loaded with available resources\n",
             );
         },
         error.LegacySessionMigrationResourceExhausted => {
             try writeStderr(
                 deps,
-                "fx session: migration did not complete because resources were exhausted; the original session remains authoritative\n",
+                "y2 session: migration did not complete because resources were exhausted; the original session remains authoritative\n",
             );
         },
         error.LegacySessionMigrationFailed, error.LegacySessionChanged => {
             try writeStderr(
                 deps,
-                "fx session: migration did not complete; the original session remains authoritative\n",
+                "y2 session: migration did not complete; the original session remains authoritative\n",
             );
         },
         error.LegacySessionMigrationIndeterminate => {
             try writeStderr(
                 deps,
-                "fx session: migration outcome is indeterminate and will be resolved by the next exact writable load\n",
+                "y2 session: migration outcome is indeterminate and will be resolved by the next exact writable load\n",
             );
         },
         error.SessionRecoveryNotNeeded => {
             try writeStderr(
                 deps,
-                "fx session: recovery was refused because the session has a valid commit boundary; resume it normally\n",
+                "y2 session: recovery was refused because the session has a valid commit boundary; resume it normally\n",
             );
         },
         error.SessionRecoveryRequiresCurrentSchema => {
             try writeStderr(
                 deps,
-                "fx session: recovery only applies to current schema-v3 sessions; migrate legacy sessions first\n",
+                "y2 session: recovery only applies to current schema-v3 sessions; migrate legacy sessions first\n",
             );
         },
         error.SessionRecoveryUnsupportedSchema => {
             try writeStderr(
                 deps,
-                "fx session: recovery is unavailable for this unsupported session version\n",
+                "y2 session: recovery is unavailable for this unsupported session version\n",
             );
         },
         error.SessionRecoveryBoundaryInvalid => {
             try writeStderr(
                 deps,
-                "fx session: no exact trustworthy recovery boundary was found; the source was left unchanged\n",
+                "y2 session: no exact trustworthy recovery boundary was found; the source was left unchanged\n",
             );
         },
         error.SessionRecoveryIndeterminate => {
             try writeStderr(
                 deps,
-                "fx session: the recovery copy could not be confirmed; the source was left unchanged\n",
+                "y2 session: the recovery copy could not be confirmed; the source was left unchanged\n",
             );
         },
         error.SessionAuthorityBoundaryUnavailable,
@@ -2715,19 +2674,19 @@ fn writeLookupFailure(
         => {
             try writeStderr(
                 deps,
-                "fx session: session authority is temporarily unavailable while an incomplete commit is resolved\n",
+                "y2 session: session authority is temporarily unavailable while an incomplete commit is resolved\n",
             );
         },
         error.SessionAuthorityIntentCleanupPending => {
             try writeStderr(
                 deps,
-                "fx session: session authority is confirmed but transition cleanup is still pending\n",
+                "y2 session: session authority is confirmed but transition cleanup is still pending\n",
             );
         },
         error.SessionBusy, error.SessionLockUnsupported => {
             try writeStderr(
                 deps,
-                "fx session: session is busy or the filesystem cannot provide the required lock\n",
+                "y2 session: session is busy or the filesystem cannot provide the required lock\n",
             );
         },
         error.SessionPathUnsafe,
@@ -2736,14 +2695,14 @@ fn writeLookupFailure(
         => {
             try writeStderr(
                 deps,
-                "fx session: durable session storage is unsafe or does not support required private permissions\n",
+                "y2 session: durable session storage is unsafe or does not support required private permissions\n",
             );
         },
         error.DurableLayoutFailed, error.SessionStoreUnavailable => {
-            try writeStderr(deps, "fx session: durable session store is unavailable\n");
+            try writeStderr(deps, "y2 session: durable session store is unavailable\n");
         },
         error.HomeNotSet => {
-            try writeStderr(deps, "fx ");
+            try writeStderr(deps, "y2 ");
             try writeStderr(deps, kind);
             try writeStderr(deps, ": HOME is not set\n");
         },
@@ -2761,7 +2720,7 @@ fn writeSessionDetailFailure(
     const message = switch (err) {
         error.InvalidSessionFormat => try std.fmt.allocPrint(
             alloc,
-            "session {s} is corrupt; run `fx session recover {s}`",
+            "session {s} is corrupt; run `y2 session recover {s}`",
             .{ session_id, session_id },
         ),
         error.UnsupportedSessionSchema => try std.fmt.allocPrint(
@@ -2787,7 +2746,7 @@ fn writeSessionDetailFailure(
             message,
         );
     }
-    try writeStderr(deps, "fx session: ");
+    try writeStderr(deps, "y2 session: ");
     try writeStderr(deps, message);
     try writeStderr(deps, "\n");
 }
@@ -2813,12 +2772,12 @@ fn lookupFailureMessage(err: anyerror) ?[]const u8 {
         error.BackgroundRecordNotFound => "record not found",
         error.InvalidBackgroundRecord, error.UnsupportedBackgroundSchema => "record is unreadable or from an unsupported version",
         error.NoSavedSessions => "no saved sessions for this workspace",
-        error.NoReadableSessions => "saved sessions are unreadable; run `fx doctor` for recovery guidance",
+        error.NoReadableSessions => "saved sessions are unreadable; run `y2 doctor` for recovery guidance",
         error.SessionNotFound => "record not found",
-        error.InvalidSessionFormat => "record is corrupt; run `fx doctor` for recovery guidance",
+        error.InvalidSessionFormat => "record is corrupt; run `y2 doctor` for recovery guidance",
         error.UnsupportedSessionSchema => "record uses an unsupported session version",
         error.InvalidSessionId => "invalid session id",
-        error.LegacySessionTooLarge => "legacy session is too large for automatic loading; run `fx session migrate <id> --allow-large`",
+        error.LegacySessionTooLarge => "legacy session is too large for automatic loading; run `y2 session migrate <id> --allow-large`",
         error.LegacySessionReadResourceExhausted => "legacy session could not be loaded with available resources",
         error.LegacySessionMigrationResourceExhausted => "migration did not complete because resources were exhausted; the original session remains authoritative",
         error.LegacySessionMigrationFailed, error.LegacySessionChanged => "migration did not complete; the original session remains authoritative",
@@ -2855,7 +2814,7 @@ test "session detail failures separate corruption from unsupported schema" {
     );
     try std.testing.expectEqualStrings("", corrupt_text.stdout.written());
     try std.testing.expectEqualStrings(
-        "fx session: session broken-session is corrupt; run `fx session recover broken-session`\n",
+        "y2 session: session broken-session is corrupt; run `y2 session recover broken-session`\n",
         corrupt_text.stderr.written(),
     );
 
@@ -2873,7 +2832,7 @@ test "session detail failures separate corruption from unsupported schema" {
         std.mem.find(
             u8,
             corrupt_json.stdout.written(),
-            "\"error\":\"session broken-session is corrupt; run `fx session recover broken-session`\"",
+            "\"error\":\"session broken-session is corrupt; run `y2 session recover broken-session`\"",
         ) != null,
     );
     try std.testing.expect(
@@ -2895,7 +2854,7 @@ test "session detail failures separate corruption from unsupported schema" {
     );
     try std.testing.expectEqualStrings("", unsupported_text.stdout.written());
     try std.testing.expectEqualStrings(
-        "fx session: session future-session uses an unsupported session version\n",
+        "y2 session: session future-session uses an unsupported session version\n",
         unsupported_text.stderr.written(),
     );
 }
@@ -2912,7 +2871,7 @@ test "session recovery boundary failures keep stable text and json guidance" {
     );
     try std.testing.expectEqualStrings("", text_output.stdout.written());
     try std.testing.expectEqualStrings(
-        "fx session: no exact trustworthy recovery boundary was found; the source was left unchanged\n",
+        "y2 session: no exact trustworthy recovery boundary was found; the source was left unchanged\n",
         text_output.stderr.written(),
     );
 
@@ -2990,7 +2949,7 @@ fn commandSupportsWorkspaceModifiers(command: Command) bool {
 fn writeWorkspaceModifierUsage(deps: RunDeps) !void {
     try writeStderr(
         deps,
-        "fx: --add-dir and --no-additional-dirs are only supported for interactive, resume, ask, ACP, PR, and issue launches\n",
+        "y2: --add-dir and --no-additional-dirs are only supported for interactive, resume, ask, ACP, PR, and issue launches\n",
     );
 }
 
@@ -3487,10 +3446,6 @@ test "parse recognizes every top-level command and preserves unknown commands" {
         .resume_session => |invocation| try std.testing.expectEqual(@as(usize, 1), invocation.args.len),
         else => return error.TestExpectedEqual,
     }
-    switch (parse(command_catalog, &.{ @constCast("credits"), @constCast("--json") })) {
-        .credits => |rest| try std.testing.expectEqual(@as(usize, 1), rest.len),
-        else => return error.TestExpectedEqual,
-    }
     switch (parse(command_catalog, &.{ @constCast("usage"), @constCast("--period"), @constCast("24h") })) {
         .usage => |rest| try std.testing.expectEqual(@as(usize, 2), rest.len),
         else => return error.TestExpectedEqual,
@@ -3620,10 +3575,10 @@ test "parse acp args extracts known flags and rejects invalid arguments" {
         @constCast("--model"),
         @constCast("openai/gpt-4o"),
         @constCast("--log-file"),
-        @constCast("/tmp/fx.log"),
+        @constCast("/tmp/y2.log"),
     });
     try std.testing.expectEqualStrings("openai/gpt-4o", opts.model.?);
-    try std.testing.expectEqualStrings("/tmp/fx.log", opts.log_file.?);
+    try std.testing.expectEqualStrings("/tmp/y2.log", opts.log_file.?);
 
     try std.testing.expectError(error.InvalidAcpArgs, parseAcpArgs(&.{@constCast("--unknown")}));
     try std.testing.expectError(error.InvalidAcpArgs, parseAcpArgs(&.{@constCast("--model")}));
@@ -4139,7 +4094,7 @@ test "workspace launch modifiers preserve supported command help" {
         deps,
     );
     try std.testing.expectEqual(RunResult.handled_success, result);
-    try std.testing.expect(std.mem.startsWith(u8, capture.stdout.written(), "fx ask\n\n"));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stdout.written(), "y2 ask\n\n"));
     try std.testing.expectEqualStrings("", capture.stderr.written());
 }
 
@@ -4166,11 +4121,11 @@ test "global workspace launch option errors use user-facing copy" {
     }{
         .{
             .args = &.{@constCast("--add-dir")},
-            .expected = "fx: --add-dir requires a directory path\n",
+            .expected = "y2: --add-dir requires a directory path\n",
         },
         .{
             .args = &.{ @constCast("--no-additional-dirs"), @constCast("--no-additional-dirs") },
-            .expected = "fx: --no-additional-dirs may only be specified once\n",
+            .expected = "y2: --no-additional-dirs may only be specified once\n",
         },
     };
 
@@ -4217,7 +4172,7 @@ test "runIfRequested version flags reject extra args" {
         const result = try runIfRequestedWithDeps(std.testing.allocator, args, testConfig(), capture.deps());
         try std.testing.expectEqual(RunResult.handled_failure, result);
         try std.testing.expectEqualStrings("", capture.stdout.written());
-        try std.testing.expectEqualStrings("usage: fx --version\n", capture.stderr.written());
+        try std.testing.expectEqualStrings("usage: y2 --version\n", capture.stderr.written());
     }
 }
 
@@ -4239,7 +4194,7 @@ test "setup is a paste-only stored-key adapter" {
     try std.testing.expectEqual(@as(usize, 1), capture.setup_read_calls);
     try std.testing.expect(capture.setup_value_matched);
     try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Paste Y2 or OpenAI-compatible API key") != null);
-    try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Vercel CLI") == null);
+    try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Retired credential CLI") == null);
     try std.testing.expect(std.mem.find(u8, capture.stdout.written(), cfg.secret_store.backend_label) != null);
 }
 
@@ -4281,7 +4236,7 @@ test "setup preserves the disabled secret-store failure" {
     try std.testing.expectEqual(@as(usize, 0), capture.setup_store_calls);
     try std.testing.expectEqual(@as(usize, 0), capture.setup_read_calls);
     try std.testing.expectEqualStrings(
-        "fx setup: stored API keys are disabled by FX_DISABLE_KEYCHAIN\n",
+        "y2 setup: stored API keys are disabled by Y2_DISABLE_KEYCHAIN\n",
         capture.stderr.written(),
     );
 }
@@ -4364,7 +4319,7 @@ test "runIfRequested rejects record modifier outside interactive startup" {
     );
 
     try std.testing.expectEqual(RunResult.handled_failure, result);
-    try std.testing.expectEqualStrings("usage: fx --record is only supported for interactive startup\n", capture.stderr.written());
+    try std.testing.expectEqualStrings("usage: y2 --record is only supported for interactive startup\n", capture.stderr.written());
 }
 
 test "runIfRequested carries record intent through supported interactive launches" {
@@ -4523,7 +4478,7 @@ test "CLI surface uses the supplied command catalog for parsing usage and help" 
         usage_capture.deps(),
     );
     try std.testing.expectEqual(RunResult.handled_failure, result);
-    try std.testing.expectEqualStrings("usage: fx start\n", usage_capture.stderr.written());
+    try std.testing.expectEqualStrings("usage: y2 start\n", usage_capture.stderr.written());
 }
 
 test "workflow config does not carry placeholder gateway tools" {
@@ -4551,7 +4506,7 @@ test "runIfRequested invalid local flags write usage" {
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{ @constCast("status"), @constCast("--wat") }, testConfig(), capture.deps());
     try std.testing.expectEqual(RunResult.handled_failure, result);
     try std.testing.expectEqualStrings("", capture.stdout.written());
-    try std.testing.expectEqualStrings("usage: fx status [--json]\n", capture.stderr.written());
+    try std.testing.expectEqualStrings("usage: y2 status [--json]\n", capture.stderr.written());
 }
 
 test "runIfRequested invalid json local flags write json error" {
@@ -4704,7 +4659,7 @@ test "runIfRequested rejects malformed resume aliases with canonical usage" {
         );
         try std.testing.expectEqual(RunResult.handled_failure, result);
         try std.testing.expectEqualStrings(
-            "usage: fx session resume [last|<id>] [--record] | session resume --id <id> [--record] | --resume [last|<id>] [--record] | resume [last|<id>] [--record] | resume --id <id> [--record] | --resume-last | --continue | -c | -r | --resume-<id>\n",
+            "usage: y2 session resume [last|<id>] [--record] | session resume --id <id> [--record] | --resume [last|<id>] [--record] | resume [last|<id>] [--record] | resume --id <id> [--record] | --resume-last | --continue | -c | -r | --resume-<id>\n",
             capture.stderr.written(),
         );
     }
@@ -4735,7 +4690,7 @@ test "runIfRequested invalid resume writes usage" {
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{ @constCast("resume"), @constCast("a"), @constCast("b") }, testConfig(), capture.deps());
     try std.testing.expectEqual(RunResult.handled_failure, result);
     try std.testing.expectEqualStrings(
-        "usage: fx session resume [last|<id>] [--record] | session resume --id <id> [--record] | --resume [last|<id>] [--record] | resume [last|<id>] [--record] | resume --id <id> [--record] | --resume-last | --continue | -c | -r | --resume-<id>\n",
+        "usage: y2 session resume [last|<id>] [--record] | session resume --id <id> [--record] | --resume [last|<id>] [--record] | resume [last|<id>] [--record] | resume --id <id> [--record] | --resume-last | --continue | -c | -r | --resume-<id>\n",
         capture.stderr.written(),
     );
 }
@@ -4748,7 +4703,7 @@ test "runIfRequested unknown command writes header and help" {
         error.UnknownCliCommand,
         runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("wat")}, testConfig(), capture.deps()),
     );
-    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx: unknown subcommand: wat\n\nY2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal.\n"));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "y2: unknown subcommand: wat\n\nY2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal.\n"));
 }
 
 test "runIfRequested bare version subcommand remains unknown" {
@@ -4759,7 +4714,7 @@ test "runIfRequested bare version subcommand remains unknown" {
         error.UnknownCliCommand,
         runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("version")}, testConfig(), capture.deps()),
     );
-    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx: unknown subcommand: version\n\nY2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal.\n"));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "y2: unknown subcommand: version\n\nY2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal.\n"));
 }
 
 test "runIfRequested model fetch failure is handled" {
@@ -4776,7 +4731,7 @@ test "runIfRequested model fetch failure is handled" {
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("models")}, cfg, deps);
     try std.testing.expectEqual(RunResult.handled_failure, result);
     try std.testing.expectEqualStrings(
-        "fx models: could not list models: Unavailable\n",
+        "y2 models: could not list models: Unavailable\n",
         capture.stderr.written(),
     );
 }
@@ -4818,7 +4773,7 @@ test "runIfRequested model provider cancellation is handled" {
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("models")}, cfg, deps);
     try std.testing.expectEqual(RunResult.handled_failure, result);
     try std.testing.expectEqualStrings(
-        "fx models: could not list models: the request was cancelled\n",
+        "y2 models: could not list models: the request was cancelled\n",
         capture.stderr.written(),
     );
 }
@@ -4842,70 +4797,6 @@ test "runIfRequested models passes startup team to fetch seam" {
     );
 }
 
-test "runIfRequested credits renders through the configured provider" {
-    var capture = CaptureOutput.init(std.testing.allocator);
-    defer capture.deinit();
-    var probe = CreditsProviderProbe{ .outcome = .success };
-    var cfg = testConfig();
-    cfg.provider_set.gateway.credits = probe.provider();
-
-    var deps = capture.deps();
-    deps.load_startup_state = stubLoadStartupState;
-
-    const result = try runIfRequestedWithDeps(std.testing.allocator, &.{ @constCast("credits"), @constCast("--json") }, cfg, deps);
-    try std.testing.expectEqual(RunResult.handled_success, result);
-    try std.testing.expectEqual(@as(usize, 1), probe.calls);
-    try std.testing.expect(probe.saw_expected_input);
-    try std.testing.expectEqualStrings(
-        "{\"kind\":\"credits\",\"balance\":\"10\",\"used\":\"2\",\"plan\":\"pro\"}\n",
-        capture.stdout.written(),
-    );
-}
-
-test "runIfRequested credits failures use nonzero text and json contracts" {
-    var text_capture = CaptureOutput.init(std.testing.allocator);
-    defer text_capture.deinit();
-    var text_probe = CreditsProviderProbe{ .outcome = .failure };
-    var text_cfg = testConfig();
-    text_cfg.provider_set.gateway.credits = text_probe.provider();
-    var text_deps = text_capture.deps();
-    text_deps.load_startup_state = stubLoadStartupState;
-
-    const text_result = try runIfRequestedWithDeps(
-        std.testing.allocator,
-        &.{@constCast("credits")},
-        text_cfg,
-        text_deps,
-    );
-    try std.testing.expectEqual(RunResult.handled_failure, text_result);
-    try std.testing.expectEqualStrings("", text_capture.stdout.written());
-    try std.testing.expectEqualStrings(
-        "[credits] error: gateway unavailable\n",
-        text_capture.stderr.written(),
-    );
-
-    var json_capture = CaptureOutput.init(std.testing.allocator);
-    defer json_capture.deinit();
-    var json_probe = CreditsProviderProbe{ .outcome = .failure };
-    var json_cfg = testConfig();
-    json_cfg.provider_set.gateway.credits = json_probe.provider();
-    var json_deps = json_capture.deps();
-    json_deps.load_startup_state = stubLoadStartupState;
-
-    const json_result = try runIfRequestedWithDeps(
-        std.testing.allocator,
-        &.{ @constCast("credits"), @constCast("--json") },
-        json_cfg,
-        json_deps,
-    );
-    try std.testing.expectEqual(RunResult.handled_failure, json_result);
-    try std.testing.expectEqualStrings(
-        "{\"kind\":\"credits\",\"error\":\"gateway unavailable\"}\n",
-        json_capture.stdout.written(),
-    );
-    try std.testing.expectEqualStrings("", json_capture.stderr.written());
-}
-
 test "runIfRequested local json success appends exactly one newline" {
     var capture = CaptureOutput.init(std.testing.allocator);
     defer capture.deinit();
@@ -4916,7 +4807,7 @@ test "runIfRequested local json success appends exactly one newline" {
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{ @constCast("status"), @constCast("--json") }, testConfig(), deps);
     try std.testing.expectEqual(RunResult.handled_success, result);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"auto\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
+        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"auto\",\"workspace\":\"/tmp/y2\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
         capture.stdout.written(),
     );
     try std.testing.expect(!std.mem.endsWith(u8, capture.stdout.written(), "\n\n"));
@@ -4985,7 +4876,7 @@ test "status and doctor inspect the supplied MCP profile diagnostic once" {
     try std.testing.expect(std.mem.find(
         u8,
         doctor_capture.stdout.written(),
-        "\"detail\":\"failed to load ~/.fx/mcp.json: McpConfigInvalidJson\"",
+        "\"detail\":\"failed to load ~/.y2/mcp.json: McpConfigInvalidJson\"",
     ) != null);
 }
 
@@ -4995,7 +4886,7 @@ test "writeRenderedJsonLine falls back to heap and appends exactly one newline" 
 
     var tiny_buf: [8]u8 = undefined;
     const startup = app_lifecycle.StartupStatus{
-        .workspace_root = @constCast("/tmp/fx"),
+        .workspace_root = @constCast("/tmp/y2"),
         .selected_model = "test-model",
         .permission_mode = .ask,
         .agent_step_limit = 42,
@@ -5009,7 +4900,7 @@ test "writeRenderedJsonLine falls back to heap and appends exactly one newline" 
     );
 
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
+        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/y2\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
         capture.stdout.written(),
     );
 }
@@ -5023,7 +4914,7 @@ test "writeRenderedJsonLine renders doctor json through output contract" {
         .{ .name = "gh", .status = .warn, .detail = "GitHub CLI not found in PATH" },
     };
     const snapshot = doctor_runtime.Snapshot{
-        .workspace_root = @constCast("/tmp/fx"),
+        .workspace_root = @constCast("/tmp/y2"),
         .model = "test-model",
         .auth = .{ .active_source = .api_key },
         .permission_mode = .auto,
@@ -5040,7 +4931,7 @@ test "writeRenderedJsonLine renders doctor json through output contract" {
     );
 
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"doctor\",\"ok_count\":1,\"warn_count\":1,\"fail_count\":0,\"workspace\":\"/tmp/fx\",\"model\":\"test-model\",\"auth\":\"API key\",\"auth_refreshable\":false,\"permission_mode\":\"auto\",\"agent_step_limit\":42,\"checks\":[{\"name\":\"auth\",\"status\":\"ok\",\"detail\":\"Y2_API_KEY is configured\"},{\"name\":\"gh\",\"status\":\"warn\",\"detail\":\"GitHub CLI not found in PATH\"}]}\n",
+        "{\"kind\":\"doctor\",\"ok_count\":1,\"warn_count\":1,\"fail_count\":0,\"workspace\":\"/tmp/y2\",\"model\":\"test-model\",\"auth\":\"API key\",\"auth_refreshable\":false,\"permission_mode\":\"auto\",\"agent_step_limit\":42,\"checks\":[{\"name\":\"auth\",\"status\":\"ok\",\"detail\":\"Y2_API_KEY is configured\"},{\"name\":\"gh\",\"status\":\"warn\",\"detail\":\"GitHub CLI not found in PATH\"}]}\n",
         capture.stdout.written(),
     );
 }
@@ -5251,7 +5142,7 @@ fn stubLoadStartupState(
 ) !app_lifecycle.StartupState {
     var state = app_lifecycle.StartupState{ .agent_step_limit = default_agent_step_limit };
     errdefer state.deinit(alloc);
-    state.workspace_root = try alloc.dupe(u8, "/tmp/fx");
+    state.workspace_root = try alloc.dupe(u8, "/tmp/y2");
     state.selected_model = try alloc.dupe(u8, default_model);
     state.credential = .{
         .token = try alloc.dupe(u8, "test-key"),
@@ -5276,7 +5167,7 @@ fn stubLoadStartupStatus(
     default_model: []const u8,
     default_agent_step_limit: usize,
 ) !app_lifecycle.StartupStatus {
-    const workspace_root = try alloc.dupe(u8, "/tmp/fx");
+    const workspace_root = try alloc.dupe(u8, "/tmp/y2");
     errdefer alloc.free(workspace_root);
     const selected_model = try alloc.dupe(u8, default_model);
     errdefer alloc.free(selected_model);
@@ -5380,47 +5271,3 @@ const ChatUrlProbe = struct {
         return "http://127.0.0.1:43123/chat";
     }
 };
-
-const CreditsProviderProbe = struct {
-    outcome: enum { success, failure },
-    calls: usize = 0,
-    saw_expected_input: bool = false,
-
-    fn provider(self: *CreditsProviderProbe) gateway_provider.CreditsProvider {
-        return .{
-            .context = self,
-            .fetch_fn = fetch,
-        };
-    }
-
-    fn fetch(
-        raw: ?*anyopaque,
-        alloc: Allocator,
-        input: gateway_provider.CreditsLookupInput,
-    ) output_contracts.CreditsSnapshot {
-        const self: *CreditsProviderProbe = @ptrCast(@alignCast(raw.?));
-        self.calls += 1;
-        self.saw_expected_input =
-            std.mem.eql(u8, input.credential orelse "", "test-key") and
-            std.mem.eql(u8, input.tenant orelse "", "team_123");
-        if (self.outcome == .failure) {
-            return ownedCreditsErrorSnapshot(alloc, "gateway unavailable");
-        }
-
-        var snapshot = output_contracts.CreditsSnapshot{};
-        snapshot.balance = alloc.dupe(u8, "10") catch return ownedCreditsErrorSnapshot(alloc, "invalid JSON response from gateway");
-        snapshot.used = alloc.dupe(u8, "2") catch {
-            snapshot.deinit(alloc);
-            return ownedCreditsErrorSnapshot(alloc, "invalid JSON response from gateway");
-        };
-        snapshot.plan = alloc.dupe(u8, "pro") catch {
-            snapshot.deinit(alloc);
-            return ownedCreditsErrorSnapshot(alloc, "invalid JSON response from gateway");
-        };
-        return snapshot;
-    }
-};
-
-fn ownedCreditsErrorSnapshot(alloc: Allocator, message: []const u8) output_contracts.CreditsSnapshot {
-    return .{ .err_message = alloc.dupe(u8, message) catch null };
-}

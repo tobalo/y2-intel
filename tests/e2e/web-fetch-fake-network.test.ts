@@ -10,7 +10,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { FX_BIN, runFx } from "../evals/eval-helpers";
+import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 
 const TIMEOUT = 20_000;
 const FETCH_URL = "https://example.com/docs";
@@ -108,17 +108,17 @@ function startFakeGateway(
 function createIsolatedRoot(args: {
   webFetchPermission?: PermissionAction;
 } = {}) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), "fx-web-fetch-e2e-")));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), "y2-web-fetch-e2e-")));
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
 
   const permission: Record<string, Record<string, string>> = {};
   if (args.webFetchPermission) {
     permission.web_fetch = { "domain:example.com": args.webFetchPermission };
   }
-  writeFileSync(join(home, ".fx", "settings.json"), JSON.stringify({ permission }));
+  writeFileSync(join(home, ".y2", "settings.json"), JSON.stringify({ permission }));
   return { root, home, workspace: realpathSync(workspace) };
 }
 
@@ -130,15 +130,15 @@ function fakeGatewayEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-web-fetch-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: gateway.model,
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: gateway.model,
     ...extra,
   };
 }
 
-function parseFxJson(result: Awaited<ReturnType<typeof runFx>>) {
+function parseY2Json(result: Awaited<ReturnType<typeof runY2>>) {
   expect(result.code).toBe(0);
   return JSON.parse(result.stdout.trim()) as {
     output: string;
@@ -224,7 +224,7 @@ class AcpClient {
         (entry): entry is [string, string] => entry[1] !== undefined,
       ),
     );
-    return new AcpClient(nodeSpawn(FX_BIN, ["acp"], {
+    return new AcpClient(nodeSpawn(Y2_BIN, ["acp"], {
       cwd,
       env: definedEnv,
       stdio: ["pipe", "pipe", "pipe"],
@@ -296,7 +296,7 @@ describe("web_fetch Gateway fixture", () => {
         const root = createIsolatedRoot();
         const gateway = startFakeGateway([outerText(`schema ok for ${model}`)], model);
         try {
-          const result = await runFx(
+          const result = await runY2(
             ["ask", "--auto", "--json", "--no-save", "Say schema ok."],
             {
               cwd: root.workspace,
@@ -305,7 +305,7 @@ describe("web_fetch Gateway fixture", () => {
             },
           );
 
-          parseFxJson(result);
+          parseY2Json(result);
           expect(gateway.requests).toHaveLength(1);
           expect(gateway.requests[0].headers.get("ai-language-model-id")).toBe(model);
           expectWebFetchSchema(gateway.requests[0]);
@@ -330,7 +330,7 @@ describe("web_fetch Gateway fixture", () => {
         outerText("validation failure handled"),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "--json", "Issue invalid credentialed web_fetch."],
           {
             cwd: root.workspace,
@@ -339,7 +339,7 @@ describe("web_fetch Gateway fixture", () => {
           },
         );
 
-        const json = parseFxJson(result);
+        const json = parseY2Json(result);
         expect(json.tool_calls).toContainEqual({
           name: "web_fetch",
           status: "error",
@@ -349,7 +349,7 @@ describe("web_fetch Gateway fixture", () => {
         expectNoFetchProgress(result.stderr);
 
         const sessionEvents = readFileSync(
-          join(root.home, ".fx", "sessions", json.session_id, "events.jsonl"),
+          join(root.home, ".y2", "sessions", json.session_id, "events.jsonl"),
           "utf8",
         );
         expect(sessionEvents).toContain("web_fetch");
@@ -372,7 +372,7 @@ describe("web_fetch Gateway fixture", () => {
         outerText("validation failure handled"),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "--json", "--no-save", "Issue malformed web_fetch."],
           {
             cwd: root.workspace,
@@ -381,7 +381,7 @@ describe("web_fetch Gateway fixture", () => {
           },
         );
 
-        const json = parseFxJson(result);
+        const json = parseY2Json(result);
         expect(json.tool_calls).toContainEqual({ name: "web_fetch", status: "error" });
         expect(gateway.requests).toHaveLength(2);
         expect(gateway.requests[1].body).toContain("web_fetch field");
@@ -397,7 +397,7 @@ describe("web_fetch Gateway fixture", () => {
   );
 
   test(
-    "default fx ask validates malformed web_fetch before transport",
+    "default y2 ask validates malformed web_fetch before transport",
     async () => {
       const root = createIsolatedRoot();
       const gateway = startFakeGateway([
@@ -405,7 +405,7 @@ describe("web_fetch Gateway fixture", () => {
         outerText("direct validation handled"),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "Issue malformed web_fetch."],
           {
             cwd: root.workspace,
@@ -441,7 +441,7 @@ describe("web_fetch Gateway fixture", () => {
         outerText("parallel invalid handled"),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "--json", "--no-save", "Issue malformed web_fetch and a sibling read."],
           {
             cwd: root.workspace,
@@ -450,7 +450,7 @@ describe("web_fetch Gateway fixture", () => {
           },
         );
 
-        parseFxJson(result);
+        parseY2Json(result);
         expect(gateway.requests).toHaveLength(2);
         expect(gateway.requests[1].body).toContain("web_fetch field");
         expect(gateway.requests[1].body).toContain("prompt");
@@ -485,7 +485,7 @@ describe("web_fetch Gateway fixture", () => {
         outerText("parallel fallback handled"),
       ]);
       try {
-        const result = await runFx(
+        const result = await runY2(
           ["ask", "--auto", "--json", "--no-save", "Issue invalid fetch and repeated reads."],
           {
             cwd: root.workspace,
@@ -494,7 +494,7 @@ describe("web_fetch Gateway fixture", () => {
           },
         );
 
-        const json = parseFxJson(result);
+        const json = parseY2Json(result);
         expect(
           json.tool_calls.filter((call) => call.name === "web_fetch"),
         ).toEqual([{ name: "web_fetch", status: "error" }]);

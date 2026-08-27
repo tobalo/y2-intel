@@ -374,42 +374,42 @@ test "background headless and interactive launch notices preserve distinct contr
         .pid = "100",
         .command = "npm run dev",
         .cwd = "/tmp/app",
-        .log_path = "/tmp/fx-cmd.log",
+        .log_path = "/tmp/y2-cmd.log",
         .url = "http://localhost:3000",
         .expect_url = true,
     }, language);
     defer alloc.free(with_url);
-    try std.testing.expectEqualStrings("Background #7: server running at http://localhost:3000. Log: /tmp/fx-cmd.log", with_url);
+    try std.testing.expectEqualStrings("Background #7: server running at http://localhost:3000. Log: /tmp/y2-cmd.log", with_url);
 
     const waiting = try formatBackgroundCommandNotice(alloc, 8, .{
         .pid = "101",
         .command = "npm run dev",
         .cwd = "/tmp/app",
-        .log_path = "/tmp/fx-cmd.log",
+        .log_path = "/tmp/y2-cmd.log",
         .expect_url = true,
     }, language);
     defer alloc.free(waiting);
-    try std.testing.expectEqualStrings("Background #8: server started. Waiting for local URL. Log: /tmp/fx-cmd.log", waiting);
+    try std.testing.expectEqualStrings("Background #8: server started. Waiting for local URL. Log: /tmp/y2-cmd.log", waiting);
 
     const command = try formatBackgroundCommandNotice(alloc, 9, .{
         .pid = "102",
         .command = "zig build test",
         .cwd = "/tmp/app",
-        .log_path = "/tmp/fx-cmd.log",
+        .log_path = "/tmp/y2-cmd.log",
     }, language);
     defer alloc.free(command);
-    try std.testing.expectEqualStrings("Background #9: command started. Log: /tmp/fx-cmd.log", command);
+    try std.testing.expectEqualStrings("Background #9: command started. Log: /tmp/y2-cmd.log", command);
 
     const interactive = try backgroundLaunchNotice(alloc, 9, .{
         .pid = "102",
         .command = "zig build test",
         .cwd = "/tmp/app",
-        .log_path = "/tmp/fx-cmd.log",
+        .log_path = "/tmp/y2-cmd.log",
     }, language);
     defer alloc.free(interactive.body);
     try std.testing.expectEqualStrings("background", interactive.topic);
     try std.testing.expectEqual(types.NoticeTone.neutral, interactive.tone);
-    try std.testing.expectEqualStrings("Command #9 started. Log: /tmp/fx-cmd.log", interactive.body);
+    try std.testing.expectEqualStrings("Command #9 started. Log: /tmp/y2-cmd.log", interactive.body);
     try std.testing.expect(std.mem.find(u8, interactive.body, "Background") == null);
 }
 

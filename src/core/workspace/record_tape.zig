@@ -1,4 +1,4 @@
-//! FX_RECORD tape writer and replay reader.
+//! Y2_RECORD tape writer and replay reader.
 
 const std = @import("std");
 const debug_trace = @import("../shared/debug_trace.zig");
@@ -8,7 +8,7 @@ const profile_paths = @import("../shared/profile_paths.zig");
 const Allocator = std.mem.Allocator;
 const testing = std.testing;
 
-pub const magic = "FXTP\x01";
+pub const magic = "Y2TP\x01";
 
 pub const Kind = enum(u8) {
     stdout = 1,
@@ -56,27 +56,27 @@ pub fn configureFromEnv(
     workspace_root: []const u8,
     initial_cols: u16,
     initial_rows: u16,
-    fx_version: []const u8,
+    y2_version: []const u8,
     record_requested: bool,
 ) !void {
     _ = workspace_root;
 
-    const configured_path = if (io_mod.getenv("FX_RECORD")) |raw_path|
+    const configured_path = if (io_mod.getenv("Y2_RECORD")) |raw_path|
         std.mem.trim(u8, raw_path, " \t\r\n")
     else
         "";
     if (configured_path.len > 0) {
-        configure(alloc, configured_path, initial_cols, initial_rows, fx_version) catch |err| {
+        configure(alloc, configured_path, initial_cols, initial_rows, y2_version) catch |err| {
             if (record_requested) return err;
             return;
         };
     } else if (record_requested) {
-        try configureAutomatic(alloc, initial_cols, initial_rows, fx_version);
+        try configureAutomatic(alloc, initial_cols, initial_rows, y2_version);
     } else {
         return;
     }
 
-    if (io_mod.getenv("FX_RECORD_INPUT")) |raw_value| {
+    if (io_mod.getenv("Y2_RECORD_INPUT")) |raw_value| {
         const value = std.mem.trim(u8, raw_value, " \t\r\n");
         if (std.ascii.eqlIgnoreCase(value, "1") or
             std.ascii.eqlIgnoreCase(value, "true") or
@@ -95,16 +95,16 @@ pub fn configure(
     path: []const u8,
     initial_cols: u16,
     initial_rows: u16,
-    fx_version: []const u8,
+    y2_version: []const u8,
 ) !void {
-    try configureWithOptions(alloc, path, initial_cols, initial_rows, fx_version, false, false);
+    try configureWithOptions(alloc, path, initial_cols, initial_rows, y2_version, false, false);
 }
 
 fn configureAutomatic(
     alloc: Allocator,
     initial_cols: u16,
     initial_rows: u16,
-    fx_version: []const u8,
+    y2_version: []const u8,
 ) !void {
     const home = if (io_mod.getenv("HOME")) |value| blk: {
         const trimmed = std.mem.trim(u8, value, " \t\r\n");
@@ -113,7 +113,7 @@ fn configureAutomatic(
     const root = if (home) |value|
         try profile_paths.recordingsDir(alloc, value)
     else
-        try std.fs.path.join(alloc, &.{ io_mod.getenv("TMPDIR") orelse "/tmp", "fx-recordings" });
+        try std.fs.path.join(alloc, &.{ io_mod.getenv("TMPDIR") orelse "/tmp", "y2-recordings" });
     defer alloc.free(root);
     try io_mod.makeDirRecursive(root);
 
@@ -122,10 +122,10 @@ fn configureAutomatic(
         var random_bytes: [6]u8 = undefined;
         io_mod.getIo().random(&random_bytes);
         const random_hex = std.fmt.bytesToHex(random_bytes, .lower);
-        const path = try std.fmt.allocPrint(alloc, "{s}/fx-record-{d}-{s}.fxtape", .{ root, nowMs(), random_hex });
+        const path = try std.fmt.allocPrint(alloc, "{s}/y2-record-{d}-{s}.y2tape", .{ root, nowMs(), random_hex });
         defer alloc.free(path);
 
-        configureWithOptions(alloc, path, initial_cols, initial_rows, fx_version, true, true) catch |err| switch (err) {
+        configureWithOptions(alloc, path, initial_cols, initial_rows, y2_version, true, true) catch |err| switch (err) {
             error.PathAlreadyExists => continue,
             else => return err,
         };
@@ -139,7 +139,7 @@ fn configureWithOptions(
     path: []const u8,
     initial_cols: u16,
     initial_rows: u16,
-    fx_version: []const u8,
+    y2_version: []const u8,
     exclusive: bool,
     private: bool,
 ) !void {
@@ -157,7 +157,7 @@ fn configureWithOptions(
     const owned_path = try alloc.dupe(u8, path);
     errdefer alloc.free(owned_path);
 
-    const header = buildHeader(initial_cols, initial_rows, fx_version);
+    const header = buildHeader(initial_cols, initial_rows, y2_version);
     try file.writeStreamingAll(zio, &header.fixed);
     if (header.version_tail.len > 0) {
         try file.writeStreamingAll(zio, header.version_tail);
@@ -201,10 +201,10 @@ const Header = struct {
     version_tail: []const u8,
 };
 
-fn buildHeader(initial_cols: u16, initial_rows: u16, fx_version: []const u8) Header {
+fn buildHeader(initial_cols: u16, initial_rows: u16, y2_version: []const u8) Header {
     var header: Header = .{
         .fixed = undefined,
-        .version_tail = fx_version,
+        .version_tail = y2_version,
     };
     @memcpy(header.fixed[0..magic.len], magic);
     var idx: usize = magic.len;
@@ -214,7 +214,7 @@ fn buildHeader(initial_cols: u16, initial_rows: u16, fx_version: []const u8) Hea
     idx += 2;
     std.mem.writeInt(i64, header.fixed[idx..][0..8], nowMs(), .little);
     idx += 8;
-    header.fixed[idx] = @intCast(@min(fx_version.len, @as(usize, 255)));
+    header.fixed[idx] = @intCast(@min(y2_version.len, @as(usize, 255)));
     return header;
 }
 
@@ -435,7 +435,7 @@ test "header construction round-trips" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try tapePath(alloc, tmp.dir, "header.fxtape");
+    const path = try tapePath(alloc, tmp.dir, "header.y2tape");
     defer alloc.free(path);
 
     shutdown();
@@ -459,7 +459,7 @@ test "writer helper frames parse back through Parser" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try tapePath(alloc, tmp.dir, "frames.fxtape");
+    const path = try tapePath(alloc, tmp.dir, "frames.y2tape");
     defer alloc.free(path);
 
     shutdown();
@@ -528,7 +528,7 @@ test "missing writer disables capture" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try tapePath(alloc, tmp.dir, "write-failure.fxtape");
+    const path = try tapePath(alloc, tmp.dir, "write-failure.y2tape");
     defer alloc.free(path);
 
     shutdown();
@@ -629,7 +629,7 @@ test "recordStdin suppresses input by default" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try tapePath(alloc, tmp.dir, "stdin-default.fxtape");
+    const path = try tapePath(alloc, tmp.dir, "stdin-default.y2tape");
     defer alloc.free(path);
 
     shutdown();
@@ -699,7 +699,7 @@ test "requested recording uses the temporary fallback when HOME is empty" {
     defer status.deinit(alloc);
     switch (status) {
         .active => |path| {
-            try testing.expect(std.mem.startsWith(u8, path, "/tmp/fx-recordings/"));
+            try testing.expect(std.mem.startsWith(u8, path, "/tmp/y2-recordings/"));
             shutdown();
             if (std.fs.path.isAbsolute(path)) {
                 std.Io.Dir.deleteFileAbsolute(io_mod.getIo(), path) catch {};
@@ -721,15 +721,15 @@ test "configureFromEnv enables stdin for the accepted truthy values only" {
 
     const truthy_values = [_][]const u8{ "1", "TrUe", " ON " };
     for (truthy_values, 0..) |value, idx| {
-        const name = try std.fmt.allocPrint(alloc, "stdin-{d}.fxtape", .{idx});
+        const name = try std.fmt.allocPrint(alloc, "stdin-{d}.y2tape", .{idx});
         defer alloc.free(name);
         const path = try tapePath(alloc, tmp.dir, name);
         defer alloc.free(path);
 
         var env = std.process.Environ.Map.init(alloc);
         defer env.deinit();
-        try env.put("FX_RECORD", path);
-        try env.put("FX_RECORD_INPUT", value);
+        try env.put("Y2_RECORD", path);
+        try env.put("Y2_RECORD_INPUT", value);
 
         shutdown();
         io_mod.setEnvironMap(&env);
@@ -749,12 +749,12 @@ test "configureFromEnv enables stdin for the accepted truthy values only" {
         resetEnvForTest();
     }
 
-    const path = try tapePath(alloc, tmp.dir, "stdin-yes.fxtape");
+    const path = try tapePath(alloc, tmp.dir, "stdin-yes.y2tape");
     defer alloc.free(path);
     var env = std.process.Environ.Map.init(alloc);
     defer env.deinit();
-    try env.put("FX_RECORD", path);
-    try env.put("FX_RECORD_INPUT", "yes");
+    try env.put("Y2_RECORD", path);
+    try env.put("Y2_RECORD_INPUT", "yes");
 
     shutdown();
     io_mod.setEnvironMap(&env);
@@ -772,9 +772,9 @@ test "configure is idempotent while enabled and shutdown is idempotent" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const first = try tapePath(alloc, tmp.dir, "first.fxtape");
+    const first = try tapePath(alloc, tmp.dir, "first.y2tape");
     defer alloc.free(first);
-    const second = try tapePath(alloc, tmp.dir, "second.fxtape");
+    const second = try tapePath(alloc, tmp.dir, "second.y2tape");
     defer alloc.free(second);
 
     shutdown();
@@ -799,7 +799,7 @@ test "long versions keep the full written tail while declaring length 255" {
     var tmp = testing.tmpDir(.{});
     defer tmp.cleanup();
 
-    const path = try tapePath(alloc, tmp.dir, "long-version.fxtape");
+    const path = try tapePath(alloc, tmp.dir, "long-version.y2tape");
     defer alloc.free(path);
 
     var version: [300]u8 = undefined;

@@ -61,5 +61,5 @@ test "direct reviewer request uses standard Chat Completions tools" {
     try std.testing.expect(std.mem.find(u8, body, "\"messages\":[") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"tool_choice\":\"required\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "providerOptions") == null);
-    try std.testing.expect(std.mem.find(u8, body, "ai-gateway") == null);
+    try std.testing.expect(std.mem.find(u8, body, "retired-gateway") == null);
 }

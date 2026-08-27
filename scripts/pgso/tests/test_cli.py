@@ -21,7 +21,7 @@ from scripts.pgso.runner import CommandResult
 class PgsoCliTests(unittest.TestCase):
     def setUp(self) -> None:
         self.temporary_directory = tempfile.TemporaryDirectory(
-            prefix="fx-pgso-cli-"
+            prefix="y2-pgso-cli-"
         )
         self.root = pathlib.Path(self.temporary_directory.name)
 

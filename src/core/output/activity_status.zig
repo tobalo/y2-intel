@@ -34,7 +34,7 @@ pub fn buildThinkingLabel(buf: []u8, stream: StreamState, now_ms: i64) ?[]const 
 
 pub const thinking_blink_half_period_ms: i64 = 500;
 
-/// The instant the Thinking clock reads. While fx waits on user input the
+/// The instant the Thinking clock reads. While y2 waits on user input the
 /// clock is frozen at the moment the wait began, so time spent on an approval
 /// or question never counts as thinking.
 fn thinkingClockNow(stream: StreamState, now_ms: i64) i64 {
@@ -83,7 +83,7 @@ fn writeElapsed(writer: *std.Io.Writer, seconds: i64) !void {
     }
 }
 
-/// Tracks whether fx is waiting on user input (approval prompt or question)
+/// Tracks whether y2 is waiting on user input (approval prompt or question)
 /// and keeps the Thinking clock honest: the clock freezes when the wait
 /// begins, and on resume the whole wait is excluded by shifting
 /// turn_started_ms forward. Call whenever the waiting state may have changed.
@@ -118,7 +118,7 @@ pub fn buildStreamingLabel(buf: []u8, stream: StreamState) []const u8 {
 }
 
 /// The response stretch is open but nothing is printing: the model is still
-/// producing output fx cannot show yet, typically a large tool payload. The row
+/// producing output y2 cannot show yet, typically a large tool payload. The row
 /// takes the marker back so it blinks and carries the turn clock, and stays
 /// verbless because naming the work would mean guessing at it.
 pub fn buildQuietTurnLabel(buf: []u8, stream: StreamState, now_ms: i64) []const u8 {

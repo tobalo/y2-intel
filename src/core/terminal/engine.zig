@@ -9,7 +9,7 @@ const contracts = @import("contracts.zig");
 const Allocator = std.mem.Allocator;
 
 pub const checkpoint_schema_revision: u16 = 1;
-const checkpoint_magic = "FXTE";
+const checkpoint_magic = "Y2TE";
 pub const max_reply_effects: usize = 16;
 pub const max_reply_effect_bytes: usize = 256;
 pub const max_reply_effect_total_bytes: usize = 4096;
@@ -351,7 +351,7 @@ pub const Grid = struct {
     /// Resize the grid. Keeps top-left content, clips anything outside
     /// the new bounds, fills any grown area with blanks. Matches what a
     /// real terminal does when the pane shrinks or grows — content is
-    /// not auto-cleared, so the caller (fx) is responsible for
+    /// not auto-cleared, so the caller (y2) is responsible for
     /// repainting.
     pub fn resize(self: *Grid, cols: u16, rows: u16) !void {
         if (cols == 0 or rows == 0) return error.InvalidGridSize;
@@ -1506,7 +1506,7 @@ pub const Grid = struct {
 
     /// Produce a blank cell in the current erase-style — space
     /// glyph with default fg/flags but the cursor's active bg.
-    /// Real terminals extend the current bg into erased cells; fx's
+    /// Real terminals extend the current bg into erased cells; y2's
     /// user-message card relies on that behaviour to draw the bar
     /// without having to pad with literal spaces.
     fn blankCell(self: Grid) Cell {
@@ -2942,7 +2942,7 @@ fn renderColor(color: Color) contracts.CellColor {
 }
 
 /// Paint an immutable engine snapshot as the complete outer terminal
-/// viewport. This deliberately does not add fx chrome: every visible cell,
+/// viewport. This deliberately does not add y2 chrome: every visible cell,
 /// cursor fact, and interactive terminal mode comes from the hosted child.
 pub fn writeFullSnapshot(
     snapshot: contracts.RenderSnapshot,
@@ -3878,13 +3878,13 @@ test "presentation boundary resumes and steadies strikethrough" {
 test "presentation resume preserves OSC 8 parameters and close clears them" {
     var source = try Grid.init(testing.allocator, 4, 1);
     defer source.deinit();
-    try source.feed("\x1b]8;id=fx-42;https://example.com\x1b\\x");
+    try source.feed("\x1b]8;id=y2-42;https://example.com\x1b\\x");
 
     var resume_writer: std.Io.Writer.Allocating = .init(testing.allocator);
     defer resume_writer.deinit();
     try source.writePresentationResume(&resume_writer.writer);
     try testing.expectEqualStrings(
-        "\x1b]8;id=fx-42;https://example.com\x1b\\",
+        "\x1b]8;id=y2-42;https://example.com\x1b\\",
         resume_writer.written(),
     );
 
@@ -3905,13 +3905,13 @@ test "OSC 8 parameter replacement is atomic on allocation failure" {
     const alloc = failing.allocator();
     var source = try Grid.init(alloc, 4, 1);
     defer source.deinit();
-    try source.feed("\x1b]8;id=fx-old;https://example.com\x1b\\");
+    try source.feed("\x1b]8;id=y2-old;https://example.com\x1b\\");
     try source.osc_buffer.ensureTotalCapacity(alloc, 128);
 
     failing.fail_index = failing.alloc_index;
     try testing.expectError(
         error.OutOfMemory,
-        source.feed("\x1b]8;id=fx-new;https://example.com\x1b\\"),
+        source.feed("\x1b]8;id=y2-new;https://example.com\x1b\\"),
     );
     try testing.expect(source.atControlSequenceBoundary());
 
@@ -3919,19 +3919,19 @@ test "OSC 8 parameter replacement is atomic on allocation failure" {
     var old_resume: std.Io.Writer = .fixed(&old_resume_buf);
     try source.writePresentationResume(&old_resume);
     try testing.expectEqualStrings(
-        "\x1b]8;id=fx-old;https://example.com\x1b\\",
+        "\x1b]8;id=y2-old;https://example.com\x1b\\",
         old_resume.buffered(),
     );
 
     failing.fail_index = std.math.maxInt(usize);
-    try source.feed("\x1b]8;id=fx-new;https://example.com\x1b\\");
+    try source.feed("\x1b]8;id=y2-new;https://example.com\x1b\\");
     try testing.expectEqual(@as(usize, 1), source.hyperlink_pool.items.len);
 
     var new_resume_buf: [128]u8 = undefined;
     var new_resume: std.Io.Writer = .fixed(&new_resume_buf);
     try source.writePresentationResume(&new_resume);
     try testing.expectEqualStrings(
-        "\x1b]8;id=fx-new;https://example.com\x1b\\",
+        "\x1b]8;id=y2-new;https://example.com\x1b\\",
         new_resume.buffered(),
     );
 }
@@ -4167,7 +4167,7 @@ test "OSC 8 hyperlink round-trips through diffBand" {
     defer prev.deinit();
     var next = try prev.clone(testing.allocator);
     defer next.deinit();
-    try next.feed("\x1b]8;;https://x.com/vercel_dev\x1b\\@vercel_dev\x1b]8;;\x1b\\");
+    try next.feed("\x1b]8;;https://x.com/y2_dev\x1b\\@y2_dev\x1b]8;;\x1b\\");
 
     var buf: std.ArrayList(u8) = .empty;
     defer buf.deinit(testing.allocator);
@@ -4175,7 +4175,7 @@ test "OSC 8 hyperlink round-trips through diffBand" {
     try Grid.diffBand(prev, next, 1, 1, &writer.writer);
     buf = writer.toArrayList();
 
-    try testing.expect(std.mem.find(u8, buf.items, "\x1b]8;;https://x.com/vercel_dev\x1b\\") != null);
+    try testing.expect(std.mem.find(u8, buf.items, "\x1b]8;;https://x.com/y2_dev\x1b\\") != null);
     try testing.expect(std.mem.endsWith(u8, buf.items, "\x1b]8;;\x1b\\"));
 }
 
@@ -4527,7 +4527,7 @@ test "bounded deterministic corrupt checkpoint fuzz" {
     }
 }
 
-test "full snapshot painter owns the viewport without Fx chrome" {
+test "full snapshot painter owns the viewport without Y2 chrome" {
     const cells = [_]contracts.RenderCell{
         .{ .kind = .single, .text = "A", .style = .{
             .foreground = .{ .rgb = .{ .red = 1, .green = 2, .blue = 3 } },

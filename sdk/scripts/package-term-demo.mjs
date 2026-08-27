@@ -9,8 +9,8 @@ const repoRoot = resolve(scriptDir, "../..");
 const outputDir = resolve(process.argv[2] || resolve(repoRoot, "sdk/dist/term-demo"));
 const htmlPath = resolve(repoRoot, "sdk/term-demo.html");
 const browserPath = resolve(repoRoot, "sdk/browser.js");
-const sdkPath = resolve(repoRoot, "sdk/fx-sdk.js");
-const wasmPath = resolve(repoRoot, "zig-out/bin/fx-term.wasm");
+const sdkPath = resolve(repoRoot, "sdk/y2-sdk.js");
+const wasmPath = resolve(repoRoot, "zig-out/bin/y2-term.wasm");
 
 const [htmlSource, browserBytes, sdkBytes, wasmBytes] = await Promise.all([
   readFile(htmlPath, "utf8"),
@@ -23,17 +23,17 @@ const digest = (bytes) => createHash("sha256").update(bytes).digest("hex");
 const integrity = (bytes) => `sha256-${createHash("sha256").update(bytes).digest("base64")}`;
 const sdkHash = digest(sdkBytes);
 const wasmHash = digest(wasmBytes);
-const sdkName = `fx-sdk.${sdkHash}.js`;
-const wasmName = `fx-term.${wasmHash}.wasm`;
+const sdkName = `y2-sdk.${sdkHash}.js`;
+const wasmName = `y2-term.${wasmHash}.wasm`;
 const packagedBrowser = Buffer.from(
-  browserBytes.toString().replace('from "./fx-sdk.js";', `from "./${sdkName}";`),
+  browserBytes.toString().replace('from "./y2-sdk.js";', `from "./${sdkName}";`),
 );
 const browserHash = digest(packagedBrowser);
 const browserName = `browser.${browserHash}.js`;
 
 const replacements = [
-  ['const fxWasmAsset = "./fx-term.wasm";', `const fxWasmAsset = "./${wasmName}";`],
-  ['const fxWasmIntegrity = "";', `const fxWasmIntegrity = "${integrity(wasmBytes)}";`],
+  ['const y2WasmAsset = "./y2-term.wasm";', `const y2WasmAsset = "./${wasmName}";`],
+  ['const y2WasmIntegrity = "";', `const y2WasmIntegrity = "${integrity(wasmBytes)}";`],
   ['from "./browser.js";', `from "./${browserName}";`],
 ];
 let html = htmlSource;
@@ -47,40 +47,11 @@ for (const [source, replacement] of replacements) {
 
 await rm(outputDir, { recursive: true, force: true });
 await mkdir(outputDir, { recursive: true });
-const vercelConfig = {
-  headers: [
-    {
-      source: "/",
-      headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
-    },
-    {
-      source: "/index.html",
-      headers: [{ key: "Cache-Control", value: "public, max-age=0, must-revalidate" }],
-    },
-    {
-      source: `/${browserName}`,
-      headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-    },
-    {
-      source: `/${sdkName}`,
-      headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-    },
-    {
-      source: `/${wasmName}`,
-      headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
-    },
-    {
-      source: "/manifest.json",
-      headers: [{ key: "Cache-Control", value: "no-store" }],
-    },
-  ],
-};
 await Promise.all([
   writeFile(resolve(outputDir, "index.html"), html),
   writeFile(resolve(outputDir, browserName), packagedBrowser),
   writeFile(resolve(outputDir, sdkName), sdkBytes),
   writeFile(resolve(outputDir, wasmName), wasmBytes),
-  writeFile(resolve(outputDir, "vercel.json"), `${JSON.stringify(vercelConfig, null, 2)}\n`),
 ]);
 
 const manifest = {

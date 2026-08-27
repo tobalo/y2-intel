@@ -126,7 +126,7 @@ test "resume screen places composer catalog and controls without transcript chro
     const session_store = @import("../core/session/session_store.zig");
     const sessions = [_]session_store.SessionSummary{.{
         .id = @constCast("one"),
-        .workspace_root = @constCast("/Users/example/Developer/Fx/worktrees/resume-catalog"),
+        .workspace_root = @constCast("/Users/example/Developer/Y2/worktrees/resume-catalog"),
         .title = @constCast("Redesign resume menu"),
         .created_at_ms = 1,
         .updated_at_ms = 1_000,
@@ -168,7 +168,7 @@ test "resume screen places composer catalog and controls without transcript chro
     try std.testing.expect(std.mem.find(
         u8,
         row.items,
-        "This session is open in another Fx. Close it there, then press Enter to retry.",
+        "This session is open in another Y2. Close it there, then press Enter to retry.",
     ) != null);
     row.clearRetainingCapacity();
     try grid.rowTextTrimmed(5, &row);

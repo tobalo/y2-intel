@@ -948,7 +948,7 @@ test "workspace file provider does not recurse after a selected Git executable f
             root,
             .{ .git_worktree_is_authoritative = true },
             null,
-            "/definitely/missing/fx-git",
+            "/definitely/missing/y2-git",
         ),
     );
 }

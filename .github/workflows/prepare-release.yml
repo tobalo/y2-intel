@@ -102,7 +102,7 @@ jobs:
           Rules:
           - Base your changelog ONLY on what the diff actually shows. Do not trust commit messages or PR descriptions as authoritative — they go stale. The diff is the source of truth.
           - Write public, user-facing product notes. Describe observable behavior and outcomes, not how the work was implemented or delivered.
-          - Spell the product name Y2 Information Dominance. Preserve fx only for exact compatibility identifiers such as the fx executable or FX_MODEL.
+          - Spell the product name Y2 Information Dominance. Preserve y2 only for exact compatibility identifiers such as the y2 executable or Y2_MODEL.
           - Group changes under ### Breaking Changes, ### New Features, ### Improvements, ### Bug Fixes, and ### Security as appropriate. Omit empty sections.
           - Bold a short feature or fix name, then describe the user-visible change after a colon.
           - Do not include pull request or issue numbers, links to trackers, commit hashes, contributor names, author attribution, or a Contributors section.
@@ -182,12 +182,12 @@ jobs:
           forbidden = {
               "contributor attribution": r"(?im)^###\s+contributors\b|\bcontributors?\b|\bauthors?\b",
               "tracker references": r"(?i)#[0-9]+\b|\bPRs?\s*#?[0-9]+\b|\bpull requests?\b|github\.com/[^\s)]+/(?:pull|issues|commit)/",
-              "internal web or delivery details": r"(?i)\b(?:fx-web|website|marketing|CDN|deployments?|repository moves?|repository split|repo(?:sitory)? migration)\b|vercel-labs/[A-Za-z0-9_.-]+",
+              "internal web or delivery details": r"(?i)\b(?:y2-web|website|marketing|CDN|deployments?|repository moves?|repository split|repo(?:sitory)? migration)\b",
               "internal engineering details": r"(?i)\b(?:CI|workflows?|tests?|fixtures?|branch history|Git history|commit hashes?|implementation-only refactors?|refactors?)\b",
           }
           errors = [label for label, pattern in forbidden.items() if re.search(pattern, body)]
-          if re.search(r"(?<![A-Za-z0-9_])(?:Fx|FX)(?![A-Za-z0-9_])", body):
-              errors.append("product name is not lowercase fx")
+          if re.search(r"(?<![A-Za-z0-9_])(?:Y2|FX)(?![A-Za-z0-9_])", body):
+              errors.append("product name is not lowercase y2")
 
           allowed_headings = {
               "### Breaking Changes",
@@ -234,7 +234,7 @@ jobs:
 
           entry = f"## {new_version}\n\n<!-- release:start -->\n{body}\n<!-- release:end -->\n"
 
-          marker = "# fx\n\n"
+          marker = "# y2\n\n"
           idx = content.find(marker)
           if idx >= 0:
               pos = idx + len(marker)

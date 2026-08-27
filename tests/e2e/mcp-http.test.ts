@@ -9,7 +9,7 @@ import {
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runFx } from "../evals/eval-helpers";
+import { runY2 } from "../evals/eval-helpers";
 import {
   MODERN_HTTP_TOOL_RESULT,
   MODERN_MCP_VERSION,
@@ -57,18 +57,18 @@ function createRoot(
   operationTimeoutMs = 5_000,
   required = false,
 ) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), `fx-mcp-http-${label}-`)));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), `y2-mcp-http-${label}-`)));
   cleanupRoot = root;
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({}),
   );
   writeFileSync(
-    join(home, ".fx", "mcp.json"),
+    join(home, ".y2", "mcp.json"),
     JSON.stringify({
       mcp: {
         fixture: {
@@ -82,19 +82,19 @@ function createRoot(
       },
     }),
   );
-  return { root, home, workspace, traceLogPath: join(root, "fx-trace.log") };
+  return { root, home, workspace, traceLogPath: join(root, "y2-trace.log") };
 }
 
 function createEmptyRoot(label: string) {
-  const root = realpathSync(mkdtempSync(join(tmpdir(), `fx-mcp-http-${label}-`)));
+  const root = realpathSync(mkdtempSync(join(tmpdir(), `y2-mcp-http-${label}-`)));
   cleanupRoot = root;
   const home = join(root, "home");
   const workspace = join(root, "workspace");
-  mkdirSync(join(home, ".fx"), { recursive: true });
+  mkdirSync(join(home, ".y2"), { recursive: true });
   mkdirSync(workspace, { recursive: true });
-  writeFileSync(join(home, ".fx", "settings.json"), JSON.stringify({}));
-  writeFileSync(join(home, ".fx", "mcp.json"), JSON.stringify({ mcp: {} }));
-  return { root, home, workspace, traceLogPath: join(root, "fx-trace.log") };
+  writeFileSync(join(home, ".y2", "settings.json"), JSON.stringify({}));
+  writeFileSync(join(home, ".y2", "mcp.json"), JSON.stringify({ mcp: {} }));
+  return { root, home, workspace, traceLogPath: join(root, "y2-trace.log") };
 }
 
 function fixtureEnv(
@@ -104,15 +104,15 @@ function fixtureEnv(
   return {
     HOME: root.home,
     Y2_API_KEY: "fake-mcp-http-key",
-    VERCEL_OIDC_TOKEN: undefined,
-    FX_AUTO_UPGRADE: "0",
-    FX_PERMISSION_MODE: "auto",
-    FX_GATEWAY_BASE_URL: activeGateway.baseUrl,
-    FX_API_CHAT_URL: activeGateway.chatUrl,
-    FX_E2E_GATEWAY_CHAT_URL: activeGateway.chatUrl,
-    FX_MODEL: MODEL,
-    FX_TRACE_LOG: root.traceLogPath,
-    FX_TRACE_SCOPES: "mcp",
+    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    Y2_AUTO_UPGRADE: "0",
+    Y2_PERMISSION_MODE: "auto",
+    Y2_GATEWAY_BASE_URL: activeGateway.baseUrl,
+    Y2_API_CHAT_URL: activeGateway.chatUrl,
+    Y2_API_CHAT_URL: activeGateway.chatUrl,
+    Y2_MODEL: MODEL,
+    Y2_TRACE_LOG: root.traceLogPath,
+    Y2_TRACE_SCOPES: "mcp",
   };
 }
 
@@ -146,15 +146,15 @@ function toolResultText(body: string, toolCallId: string): string {
 function preserveHttpFailure(
   label: string,
   root: ReturnType<typeof createRoot>,
-  result: Awaited<ReturnType<typeof runFx>>,
+  result: Awaited<ReturnType<typeof runY2>>,
   activeFixture: ReturnType<typeof startModernMcpHttpFixture>,
   activeGateway: ReturnType<typeof startFakeGateway>,
   force = false,
 ): void {
   if (result.code === 0 && !force) return;
   cleanupRoot = null;
-  writeFileSync(join(root.root, "fx-stdout.log"), result.stdout);
-  writeFileSync(join(root.root, "fx-stderr.log"), result.stderr);
+  writeFileSync(join(root.root, "y2-stdout.log"), result.stdout);
+  writeFileSync(join(root.root, "y2-stderr.log"), result.stderr);
   writeFileSync(
     join(root.root, "failure.json"),
     JSON.stringify({
@@ -164,7 +164,7 @@ function preserveHttpFailure(
       gatewayRequests: activeGateway.requests.map((request) => request.body),
     }, null, 2),
   );
-  throw new Error(`fx ${label} failed; retained artifacts: ${root.root}`);
+  throw new Error(`y2 ${label} failed; retained artifacts: ${root.root}`);
 }
 
 function assertModernWire(
@@ -227,7 +227,7 @@ describe("modern MCP Streamable HTTP", () => {
       expect(health).toMatch(/prisma[\s\S]{0,240}transport=http state=ready/);
 
       const profile = JSON.parse(
-        readFileSync(join(root.home, ".fx", "mcp.json"), "utf8"),
+        readFileSync(join(root.home, ".y2", "mcp.json"), "utf8"),
       );
       expect(profile.mcp.prisma).toMatchObject({
         type: "http",
@@ -264,7 +264,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Refresh after the MCP resource update storm."],
       {
         cwd: root.workspace,
@@ -309,7 +309,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Recover the failed MCP resource refresh."],
       {
         cwd: root.workspace,
@@ -347,7 +347,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Refresh the expired MCP resource catalog."],
       {
         cwd: root.workspace,
@@ -406,7 +406,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Try the removed MCP identities."],
       {
         cwd: root.workspace,
@@ -450,7 +450,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Reject the invalid MCP resource template match."],
       {
         cwd: root.workspace,
@@ -485,7 +485,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Read the deeply nested MCP catalog."],
       {
         cwd: root.workspace,
@@ -549,7 +549,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Use the modern HTTP MCP resource and prompt features."],
       {
         cwd: root.workspace,
@@ -619,7 +619,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Read the stalled HTTP MCP resource."],
       {
         cwd: root.workspace,
@@ -666,7 +666,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Complete the stalled HTTP MCP prompt argument."],
       {
         cwd: root.workspace,
@@ -705,7 +705,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Use the live MCP tool."],
       {
         cwd: root.workspace,
@@ -763,7 +763,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Use the stale MCP tool."],
       {
         cwd: root.workspace,
@@ -813,7 +813,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Use TTL after the unsupported filter."],
       {
         cwd: root.workspace,
@@ -848,7 +848,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Use TTL after server cancellation."],
       {
         cwd: root.workspace,
@@ -886,7 +886,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Use TTL after the unexpected filter."],
       {
         cwd: root.workspace,
@@ -931,7 +931,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Do not send the invalidated tool."],
       {
         cwd: root.workspace,
@@ -986,7 +986,7 @@ describe("modern MCP Streamable HTTP", () => {
         models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
       });
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "--no-save", "Search the MCP cache."],
         {
           cwd: root.workspace,
@@ -1026,7 +1026,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Search the delayed MCP catalog."],
       {
         cwd: root.workspace,
@@ -1071,7 +1071,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Search the empty-cursor MCP catalog."],
       {
         cwd: root.workspace,
@@ -1090,12 +1090,12 @@ describe("modern MCP Streamable HTTP", () => {
   }, 30_000);
 
   for (const mode of ["json", "sse"] as ModernHttpMode[]) {
-    test(`fresh fx ask calls the request-scoped ${mode.toUpperCase()} fixture`, async () => {
+    test(`fresh y2 ask calls the request-scoped ${mode.toUpperCase()} fixture`, async () => {
       fixture = startModernMcpHttpFixture(mode);
       const root = createRoot(`ask-${mode}`, fixture);
       gateway = startToolGateway(`${mode} MCP HTTP complete.`);
 
-      const result = await runFx(
+      const result = await runY2(
         ["ask", "--json", "--auto", "--no-save", `Call the ${mode} HTTP fixture.`],
         {
           cwd: root.workspace,
@@ -1115,12 +1115,12 @@ describe("modern MCP Streamable HTTP", () => {
     }, 30_000);
   }
 
-  test("fresh fx ask delegates unsupported input and output schema assertions", async () => {
+  test("fresh y2 ask delegates unsupported input and output schema assertions", async () => {
     fixture = startModernMcpHttpFixture("server_authoritative_schema");
     const root = createRoot("server-authoritative-schema", fixture, 5_000, true);
     gateway = startToolGateway("Server-authoritative schema complete.");
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Call the schema fixture."],
       {
         cwd: root.workspace,
@@ -1216,7 +1216,7 @@ describe("modern MCP Streamable HTTP", () => {
     const root = createRoot("mixed-sse-delimiters", fixture, 1_000);
     gateway = startToolGateway("Mixed SSE delimiters complete.");
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Call the mixed SSE fixture."],
       {
         cwd: root.workspace,
@@ -1243,7 +1243,7 @@ describe("modern MCP Streamable HTTP", () => {
     fixture = startModernMcpHttpFixture("json");
     const root = createRoot("environment-headers", fixture);
     writeFileSync(
-      join(root.home, ".fx", "mcp.json"),
+      join(root.home, ".y2", "mcp.json"),
       JSON.stringify({
         mcp: {
           fixture: {
@@ -1257,7 +1257,7 @@ describe("modern MCP Streamable HTTP", () => {
     );
     gateway = startToolGateway("Environment-backed MCP complete.");
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Call the environment-backed fixture."],
       {
         cwd: root.workspace,
@@ -1280,7 +1280,7 @@ describe("modern MCP Streamable HTTP", () => {
     }
     expect(result.stdout).not.toContain("environment-bearer-secret");
     expect(result.stderr).not.toContain("environment-bearer-secret");
-    expect(readFileSync(join(root.home, ".fx", "mcp.json"), "utf8")).not
+    expect(readFileSync(join(root.home, ".y2", "mcp.json"), "utf8")).not
       .toContain("environment-bearer-secret");
   }, 30_000);
 
@@ -1296,7 +1296,7 @@ describe("modern MCP Streamable HTTP", () => {
       models: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
     });
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Do not call the invalid tool."],
       {
         cwd: root.workspace,
@@ -1319,7 +1319,7 @@ describe("modern MCP Streamable HTTP", () => {
     const root = createRoot("held-open-final", fixture, 1_000);
     gateway = startToolGateway("Held-open SSE complete.");
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Call the held-open HTTP fixture."],
       {
         cwd: root.workspace,
@@ -1348,7 +1348,7 @@ describe("modern MCP Streamable HTTP", () => {
     const root = createRoot("timeout", fixture, 100);
     gateway = startToolGateway("HTTP timeout recovered.");
 
-    const result = await runFx(
+    const result = await runY2(
       ["ask", "--json", "--auto", "--no-save", "Call the stalled HTTP fixture."],
       {
         cwd: root.workspace,

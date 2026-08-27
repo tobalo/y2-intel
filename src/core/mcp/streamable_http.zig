@@ -1107,7 +1107,7 @@ test "modern MCP request headers include protocol metadata and direct scalar pro
         .{ .name = @constCast("X-Workspace"), .value = @constCast("one") },
     };
     const request_body =
-        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"region":"us-west1","priority":42,"verbose":false,"unsafe":"Hello, 世界","padding":" padded ","empty":"","ignored":3.14,"nullable":null}}}
+        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"region":"us-west1","priority":42,"verbose":false,"unsafe":"Hello, 世界","padding":" padded ","empty":"","ignored":3.14,"nullable":null}}}
     ;
     const schema_json =
         \\{"type":"object","properties":{"region":{"type":"string","x-mcp-header":"Region"},"priority":{"type":"integer","x-mcp-header":"Priority"},"verbose":{"type":"boolean","x-mcp-header":"Verbose"},"unsafe":{"type":"string","x-mcp-header":"Unsafe"},"padding":{"type":"string","x-mcp-header":"Padding"},"empty":{"type":"string","x-mcp-header":"Empty"},"ignored":{"type":"number"},"nullable":{"type":"string","x-mcp-header":"Nullable"}}}
@@ -1140,7 +1140,7 @@ test "modern MCP request headers include protocol metadata and direct scalar pro
 test "modern MCP request headers include feature identities" {
     const alloc = std.testing.allocator;
     const meta =
-        \\{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}
+        \\{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}
     ;
     const cases = [_]struct {
         body: []const u8,
@@ -1166,16 +1166,16 @@ test "modern MCP request headers include feature identities" {
     }
 
     const list_body =
-        \\{"jsonrpc":"2.0","id":3,"method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}}}
+        \\{"jsonrpc":"2.0","id":3,"method":"resources/list","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}}}
     ;
     var list = try prepareRequest(alloc, &.{}, list_body, null);
     defer list.deinit(alloc);
     try std.testing.expect(findHeader(&list.headers, "Mcp-Name") == null);
 
     const invalid_bodies = [_][]const u8{
-        \\{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}}}
+        \\{"jsonrpc":"2.0","id":4,"method":"resources/read","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}}}
         ,
-        \\{"jsonrpc":"2.0","id":5,"method":"prompts/get","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":7}}
+        \\{"jsonrpc":"2.0","id":5,"method":"prompts/get","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":7}}
         ,
     };
     for (invalid_bodies) |body| {
@@ -1189,7 +1189,7 @@ test "modern MCP request headers include feature identities" {
 test "HTTP discovery carries required protocol metadata" {
     const alloc = std.testing.allocator;
     const request_body =
-        \\{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}}}
+        \\{"jsonrpc":"2.0","id":1,"method":"server/discover","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}}}}
     ;
 
     var initial = try prepareRequest(alloc, &.{}, request_body, null);
@@ -1201,7 +1201,7 @@ test "HTTP discovery carries required protocol metadata" {
 test "modern MCP request headers project nested properties" {
     const alloc = std.testing.allocator;
     const request_body =
-        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"routing":{"region":"us-east1","options":{"verbose":true}}}}}
+        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"routing":{"region":"us-east1","options":{"verbose":true}}}}}
     ;
     const schema_json =
         \\{"type":"object","properties":{"routing":{"type":"object","allOf":[],"if":{"type":"object"},"properties":{"region":{"type":"string","x-mcp-header":"Region"},"options":{"type":"object","properties":{"verbose":{"type":"boolean","x-mcp-header":"Verbose"}}}}}}}
@@ -1220,7 +1220,7 @@ test "modern MCP projected integers stay within the JSON safe range" {
         \\{"type":"object","properties":{"minimum":{"type":"integer","x-mcp-header":"Minimum"},"maximum":{"type":"integer","x-mcp-header":"Maximum"}}}
     ;
     const boundary_request =
-        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"minimum":-9007199254740991,"maximum":9007199254740991}}}
+        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"minimum":-9007199254740991,"maximum":9007199254740991}}}
     ;
     var prepared = try prepareRequest(alloc, &.{}, boundary_request, schema_json);
     defer prepared.deinit(alloc);
@@ -1228,9 +1228,9 @@ test "modern MCP projected integers stay within the JSON safe range" {
     try expectHeader(&prepared.headers, "Mcp-Param-Maximum", "9007199254740991");
 
     const outside_requests = [_][]const u8{
-        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"minimum":-9007199254740992}}}
+        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"minimum":-9007199254740992}}}
         ,
-        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"maximum":9007199254740992}}}
+        \\{"jsonrpc":"2.0","id":7,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"maximum":9007199254740992}}}
         ,
     };
     for (outside_requests) |request_body| {
@@ -1260,7 +1260,7 @@ test "modern MCP request metadata and projected values are validated before netw
     );
 
     const call =
-        \\{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"fx","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"region":12}}}
+        \\{"jsonrpc":"2.0","id":1,"method":"tools/call","params":{"_meta":{"io.modelcontextprotocol/protocolVersion":"2026-07-28","io.modelcontextprotocol/clientInfo":{"name":"y2","version":"test"},"io.modelcontextprotocol/clientCapabilities":{}},"name":"echo","arguments":{"region":12}}}
     ;
     try std.testing.expectError(
         error.MissingToolInputSchema,

@@ -5583,7 +5583,7 @@ test "core.app_render_runtime main skill menu origins share the inline footer" {
         .{ .label = "Keep going", .description = null },
     };
     const entries = [_]types.QuestionBatchEntry{
-        .{ .question = "What should fx do next?", .options = &options },
+        .{ .question = "What should y2 do next?", .options = &options },
     };
     try app.question_prompt.syncFrom(alloc, &entries);
     app.shell.render_requests.request(.modal);
@@ -6255,7 +6255,7 @@ test "core.app_render_runtime question prompt exits the full transcript screen b
         .{ .label = "Keep going", .description = null },
     };
     const entries = [_]types.QuestionBatchEntry{
-        .{ .question = "What should fx do next?", .options = &options },
+        .{ .question = "What should y2 do next?", .options = &options },
     };
     try app.question_prompt.syncFrom(alloc, &entries);
 
@@ -6767,7 +6767,7 @@ test "core.app_render_runtime coordinator physically scrolls preserved shell row
 
     var terminal = try vt_emulator.Grid.init(alloc, layout.cols, layout.rows);
     defer terminal.deinit();
-    const shell_markers = "\x1b[1;1HSHELL01\nSHELL02\nSHELL03\nSHELL04\nSHELL05\nSHELL06\nSHELL07\n$ fx";
+    const shell_markers = "\x1b[1;1HSHELL01\nSHELL02\nSHELL03\nSHELL04\nSHELL05\nSHELL06\nSHELL07\n$ y2";
     try terminal.feed(shell_markers);
     try app.shell.shadow_vt.?.feed(shell_markers);
 

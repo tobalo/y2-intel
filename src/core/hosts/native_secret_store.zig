@@ -48,7 +48,7 @@ fn store(alloc: Allocator, value: []const u8) StoreError!void {
 }
 
 /// Let the platform credential store own terminal input when it supports a
-/// secure prompt, keeping plaintext out of the fx process.
+/// secure prompt, keeping plaintext out of the y2 process.
 fn storeInteractive() StoreError!bool {
     if (comptime builtin.os.tag == .macos) {
         keychain.storeInteractive() catch |err| return writeFailed("keychain_interactive", err);
@@ -96,7 +96,7 @@ fn loadFromProfile(alloc: Allocator) LoadError!?[]u8 {
     };
     defer home_dir.close(io_mod.getIo());
 
-    var fx_dir = home_dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
+    var y2_dir = home_dir.openDir(io_mod.getIo(), profile_paths.root_dir_name, .{
         .iterate = true,
         .follow_symlinks = false,
     }) catch |err| switch (err) {
@@ -106,13 +106,13 @@ fn loadFromProfile(alloc: Allocator) LoadError!?[]u8 {
             return error.StoredKeyUnreadable;
         },
     };
-    defer fx_dir.close(io_mod.getIo());
+    defer y2_dir.close(io_mod.getIo());
 
-    return loadFromDir(alloc, &fx_dir);
+    return loadFromDir(alloc, &y2_dir);
 }
 
-fn loadFromDir(alloc: Allocator, fx_dir: *std.Io.Dir) LoadError!?[]u8 {
-    var file = fx_dir.openFile(io_mod.getIo(), profile_paths.api_key_file_name, .{
+fn loadFromDir(alloc: Allocator, y2_dir: *std.Io.Dir) LoadError!?[]u8 {
+    var file = y2_dir.openFile(io_mod.getIo(), profile_paths.api_key_file_name, .{
         .mode = .read_only,
         .allow_directory = false,
         .follow_symlinks = false,
@@ -163,18 +163,18 @@ fn storeInProfile(alloc: Allocator, value: []const u8) StoreError!void {
     };
     defer home_dir.close();
 
-    var fx_dir = io_mod.openOrCreateVerifiedPrivateDir(&home_dir, profile_paths.root_dir_name) catch |err| {
+    var y2_dir = io_mod.openOrCreateVerifiedPrivateDir(&home_dir, profile_paths.root_dir_name) catch |err| {
         return writeFailed("open_profile", err);
     };
-    defer fx_dir.close();
+    defer y2_dir.close();
 
-    return storeInDir(alloc, &fx_dir, value);
+    return storeInDir(alloc, &y2_dir, value);
 }
 
 /// `durableReplaceVerified` creates the file at 0600 and re-stats it after the rename,
 /// so the mode this store depends on is enforced rather than assumed.
-fn storeInDir(alloc: Allocator, fx_dir: *io_mod.VerifiedDir, value: []const u8) StoreError!void {
-    io_mod.durableReplaceVerified(alloc, fx_dir, profile_paths.api_key_file_name, value) catch |err| switch (err) {
+fn storeInDir(alloc: Allocator, y2_dir: *io_mod.VerifiedDir, value: []const u8) StoreError!void {
+    io_mod.durableReplaceVerified(alloc, y2_dir, profile_paths.api_key_file_name, value) catch |err| switch (err) {
         error.OutOfMemory => return error.OutOfMemory,
         else => return writeFailed("replace", err),
     };
@@ -197,18 +197,18 @@ test "stored key backend label names the platform store" {
 test "stored key file round-trips byte-identically at mode 0600" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fx_dir = io_mod.VerifiedDir{
+    var y2_dir = io_mod.VerifiedDir{
         .dir = try tmp.dir.openDir(io_mod.getIo(), ".", .{ .iterate = true, .follow_symlinks = false }),
     };
-    defer fx_dir.close();
+    defer y2_dir.close();
 
     const written = "vt1-file-round-trip-value";
-    try storeInDir(std.testing.allocator, &fx_dir, written);
+    try storeInDir(std.testing.allocator, &y2_dir, written);
 
     const stat = try tmp.dir.statFile(std.testing.io, profile_paths.api_key_file_name, .{});
     try std.testing.expect(stat.permissions.toMode() & 0o777 == 0o600);
 
-    const read_back = (try loadFromDir(std.testing.allocator, &fx_dir.dir)) orelse
+    const read_back = (try loadFromDir(std.testing.allocator, &y2_dir.dir)) orelse
         return error.TestUnexpectedMissingStoredKey;
     defer secret.zeroAndFree(std.testing.allocator, read_back);
     try std.testing.expectEqualStrings(written, read_back);
@@ -217,14 +217,14 @@ test "stored key file round-trips byte-identically at mode 0600" {
 test "stored key file refusal stays distinguishable from absence" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fx_dir = io_mod.VerifiedDir{
+    var y2_dir = io_mod.VerifiedDir{
         .dir = try tmp.dir.openDir(io_mod.getIo(), ".", .{ .iterate = true, .follow_symlinks = false }),
     };
-    defer fx_dir.close();
+    defer y2_dir.close();
 
-    try std.testing.expect((try loadFromDir(std.testing.allocator, &fx_dir.dir)) == null);
+    try std.testing.expect((try loadFromDir(std.testing.allocator, &y2_dir.dir)) == null);
 
-    try storeInDir(std.testing.allocator, &fx_dir, "vt2-secret-value");
+    try storeInDir(std.testing.allocator, &y2_dir, "vt2-secret-value");
     for ([_]std.posix.mode_t{ 0o640, 0o604, 0o644 }) |mode| {
         var file = try tmp.dir.openFile(std.testing.io, profile_paths.api_key_file_name, .{ .mode = .read_write });
         try file.setPermissions(std.testing.io, std.Io.File.Permissions.fromMode(mode));
@@ -232,30 +232,30 @@ test "stored key file refusal stays distinguishable from absence" {
 
         try std.testing.expectError(
             error.StoredKeyInsecure,
-            loadFromDir(std.testing.allocator, &fx_dir.dir),
+            loadFromDir(std.testing.allocator, &y2_dir.dir),
         );
     }
 
     try tmp.dir.deleteFile(std.testing.io, profile_paths.api_key_file_name);
-    try std.testing.expect((try loadFromDir(std.testing.allocator, &fx_dir.dir)) == null);
+    try std.testing.expect((try loadFromDir(std.testing.allocator, &y2_dir.dir)) == null);
 }
 
 test "stored key file tolerates a trailing newline and rejects an empty value" {
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    var fx_dir = io_mod.VerifiedDir{
+    var y2_dir = io_mod.VerifiedDir{
         .dir = try tmp.dir.openDir(io_mod.getIo(), ".", .{ .iterate = true, .follow_symlinks = false }),
     };
-    defer fx_dir.close();
+    defer y2_dir.close();
 
-    try storeInDir(std.testing.allocator, &fx_dir, "hand-edited-value\n");
-    const read_back = (try loadFromDir(std.testing.allocator, &fx_dir.dir)) orelse
+    try storeInDir(std.testing.allocator, &y2_dir, "hand-edited-value\n");
+    const read_back = (try loadFromDir(std.testing.allocator, &y2_dir.dir)) orelse
         return error.TestUnexpectedMissingStoredKey;
     defer secret.zeroAndFree(std.testing.allocator, read_back);
     try std.testing.expectEqualStrings("hand-edited-value", read_back);
 
-    try storeInDir(std.testing.allocator, &fx_dir, "\n\n");
-    try std.testing.expect((try loadFromDir(std.testing.allocator, &fx_dir.dir)) == null);
+    try storeInDir(std.testing.allocator, &y2_dir, "\n\n");
+    try std.testing.expect((try loadFromDir(std.testing.allocator, &y2_dir.dir)) == null);
 
     try std.testing.expectError(error.StoredKeyWriteFailed, store(std.testing.allocator, ""));
 }

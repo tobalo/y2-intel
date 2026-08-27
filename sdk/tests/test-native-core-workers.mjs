@@ -7,7 +7,7 @@ import { Worker } from "node:worker_threads";
 
 const require = createRequire(import.meta.url);
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const addonPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/libfx.node"));
+const addonPath = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/liby2.node"));
 
 function runWorker(index) {
   return new Promise((resolveWorker, reject) => {

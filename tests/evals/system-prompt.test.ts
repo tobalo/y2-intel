@@ -2,7 +2,7 @@ import { afterEach, describe, expect, test } from "bun:test";
 import {
   cleanupWorkDir,
   createWorkDir,
-  runFx,
+  runY2,
 } from "./eval-helpers";
 
 const TIMEOUT = 120_000;
@@ -18,7 +18,7 @@ describe("eval: system prompt override", () => {
     async () => {
       workDir = createWorkDir();
 
-      const result = await runFx(
+      const result = await runY2(
         [
           "ask", "--auto", "--json", "--no-save",
           "--system", "You are a pirate. You must use pirate language like 'Arrr', 'matey', 'ye', 'ahoy', or 'shiver me timbers' in every response.",

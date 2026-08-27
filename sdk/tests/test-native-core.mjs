@@ -2,13 +2,13 @@
 import { strict as assert } from "node:assert";
 import { relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxAgent } from "../node.js";
+import { createY2Agent } from "../node.js";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const defaultAddon = resolve(scriptDir, "../../zig-out/lib/libfx.node");
+const defaultAddon = resolve(scriptDir, "../../zig-out/lib/liby2.node");
 const addon = process.argv[2] || `./${relative(process.cwd(), defaultAddon)}`;
 const events = [];
-const agent = await createFxAgent({
+const agent = await createY2Agent({
   nativeAddon: addon,
   backend: "native",
   env: { Y2_API_KEY: "native-core-test-key" },

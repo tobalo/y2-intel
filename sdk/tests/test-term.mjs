@@ -2,10 +2,10 @@
 import { readFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxTerminal, supportsJspi } from "../node.js";
+import { createY2Terminal, supportsJspi } from "../node.js";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const defaultWasm = resolve(scriptDir, "../../zig-out/bin/fx-term.wasm");
+const defaultWasm = resolve(scriptDir, "../../zig-out/bin/y2-term.wasm");
 const wasmPath = resolve(process.argv[2] || defaultWasm);
 
 if (!supportsJspi()) {
@@ -106,7 +106,7 @@ const mockFetch = async (_url, init) => {
     },
   }), { status: 200, headers: { "content-type": "text/event-stream" } });
 };
-const runtime = await createFxTerminal({
+const runtime = await createY2Terminal({
   backend: "wasm",
   wasm: await readFile(wasmPath),
   terminal,
@@ -117,12 +117,12 @@ const runtime = await createFxTerminal({
     set(configId, value) { persistedConfig.set(configId, value); },
   },
   onEvent(event) { events.push(event); },
-  traceWasi: process.env.FX_WASI_TRACE === "1",
+  traceWasi: process.env.Y2_WASI_TRACE === "1",
   stderr(bytes) { process.stderr.write(bytes); },
 });
 await Promise.race([
   runtime.interactive,
-  new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for fx-term to become interactive")), 5000)),
+  new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for y2-term to become interactive")), 5000)),
 ]);
 const startupDeadline = performance.now() + 5000;
 while (!streamedText.includes("Run /help for commands")) {
@@ -137,7 +137,7 @@ runtime.write("\x7f");
 runtime.write("\r");
 const deadline = performance.now() + 5000;
 while (streamStartedAt === undefined) {
-  if (performance.now() >= deadline) throw new Error("timed out waiting for continuous fx-term response");
+  if (performance.now() >= deadline) throw new Error("timed out waiting for continuous y2-term response");
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
 observeZeroTimeouts = true;
@@ -157,25 +157,25 @@ observeZeroTimeouts = false;
 if (secondRequestAt !== undefined) throw new Error("queued follow-up started before the active response finished");
 releaseFirstStream();
 while (streamFinishedAt === undefined) {
-  if (performance.now() >= deadline) throw new Error("timed out waiting for streamed fx-term response");
+  if (performance.now() >= deadline) throw new Error("timed out waiting for streamed y2-term response");
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
 const queuedDeadline = performance.now() + 5000;
 while (secondRequestAt === undefined || !streamedText.includes(queuedAnswer)) {
-  if (performance.now() >= queuedDeadline) throw new Error("timed out waiting for queued fx-term response");
+  if (performance.now() >= queuedDeadline) throw new Error("timed out waiting for queued y2-term response");
   await new Promise((resolve) => setTimeout(resolve, 10));
 }
 runtime.write("/exit\r");
 const exitCode = await Promise.race([
   runtime.exited,
-  new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for fx-term exit")), 5000)),
+  new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for y2-term exit")), 5000)),
 ]);
 globalThis.setTimeout = originalSetTimeout;
 const text = new TextDecoder().decode(Buffer.concat(output.map((chunk) => Buffer.from(chunk))));
 
-if (exitCode !== 0) throw new Error(`fx-term exited with code ${exitCode}`);
+if (exitCode !== 0) throw new Error(`y2-term exited with code ${exitCode}`);
 if (!text.includes("Y2 INFORMATION DOMINANCE")) throw new Error("Y2 welcome frame was not observed");
-if (!text.includes("Run /help for commands")) throw new Error("shared Fx welcome guidance was not observed");
+if (!text.includes("Run /help for commands")) throw new Error("shared Y2 welcome guidance was not observed");
 if (requestedModel !== "sdk/term-model") throw new Error(`terminal prompt did not use the host-restored model: ${requestedModel}`);
 if (!(streamStartedAt < streamFinishedAt)) throw new Error("terminal fetch did not remain active for continuous streaming");
 if (!(draftVisibleAt < streamFinishedAt)) throw new Error("terminal rendered follow-up input only after continuous streaming finished");

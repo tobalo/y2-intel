@@ -1089,8 +1089,8 @@ test "saved record roundtrip preserves every field" {
         .id = 7,
         .pid = try alloc.dupe(u8, "1234"),
         .command = try alloc.dupe(u8, "npm run dev"),
-        .cwd = try alloc.dupe(u8, "/tmp/fx"),
-        .log_path = try alloc.dupe(u8, "/tmp/fx.log"),
+        .cwd = try alloc.dupe(u8, "/tmp/y2"),
+        .log_path = try alloc.dupe(u8, "/tmp/y2.log"),
         .expect_url = true,
         .server_url = try alloc.dupe(u8, "http://localhost:3000"),
         .started_at_ms = 100,
@@ -1108,8 +1108,8 @@ test "saved record roundtrip preserves every field" {
     try std.testing.expectEqual(@as(u64, 7), loaded.id);
     try std.testing.expectEqualStrings("1234", loaded.pid);
     try std.testing.expectEqualStrings("npm run dev", loaded.command);
-    try std.testing.expectEqualStrings("/tmp/fx", loaded.cwd);
-    try std.testing.expectEqualStrings("/tmp/fx.log", loaded.log_path);
+    try std.testing.expectEqualStrings("/tmp/y2", loaded.cwd);
+    try std.testing.expectEqualStrings("/tmp/y2.log", loaded.log_path);
     try std.testing.expect(loaded.expect_url);
     try std.testing.expectEqualStrings("http://localhost:3000", loaded.server_url.?);
     try std.testing.expectEqual(@as(i64, 100), loaded.started_at_ms);
@@ -1138,10 +1138,10 @@ test "schema v2 roundtrip preserves stable identity token and managed log author
         ),
         .pid = try alloc.dupe(u8, "1234"),
         .command = try alloc.dupe(u8, "npm run dev"),
-        .cwd = try alloc.dupe(u8, "/tmp/fx"),
-        .log_path = try alloc.dupe(u8, "/tmp/fx.log"),
+        .cwd = try alloc.dupe(u8, "/tmp/y2"),
+        .log_path = try alloc.dupe(u8, "/tmp/y2.log"),
         .log_storage = .{ .managed_session = .{
-            .managed_log_name = try alloc.dupe(u8, "fx-cmd-test.log"),
+            .managed_log_name = try alloc.dupe(u8, "y2-cmd-test.log"),
         } },
         .expect_url = true,
         .started_at_ms = 100,
@@ -1158,7 +1158,7 @@ test "schema v2 roundtrip preserves stable identity token and managed log author
     try std.testing.expectEqualStrings(record.process_token.?, loaded.process_token.?);
     switch (loaded.log_storage.?) {
         .managed_session => |managed| try std.testing.expectEqualStrings(
-            "fx-cmd-test.log",
+            "y2-cmd-test.log",
             managed.managed_log_name,
         ),
         .external => return error.ExpectedManagedSessionStorage,
@@ -1222,7 +1222,7 @@ test "Record.fromTaskSnapshot deep-copies fields and optional server URL" {
         .pid = try alloc.dupe(u8, "1234"),
         .command = try alloc.dupe(u8, "vite"),
         .cwd = try alloc.dupe(u8, "/workspace"),
-        .log_path = try alloc.dupe(u8, "/tmp/fx.log"),
+        .log_path = try alloc.dupe(u8, "/tmp/y2.log"),
         .expect_url = true,
         .server_url = try alloc.dupe(u8, "http://localhost:5173"),
         .started_at_ms = 10,
@@ -1244,7 +1244,7 @@ test "Record.fromTaskSnapshot deep-copies fields and optional server URL" {
     try std.testing.expectEqualStrings("1234", record.pid);
     try std.testing.expectEqualStrings("vite", record.command);
     try std.testing.expectEqualStrings("/workspace", record.cwd);
-    try std.testing.expectEqualStrings("/tmp/fx.log", record.log_path);
+    try std.testing.expectEqualStrings("/tmp/y2.log", record.log_path);
     try std.testing.expect(record.expect_url);
     try std.testing.expectEqualStrings("http://localhost:5173", record.server_url.?);
     try std.testing.expectEqual(@as(i64, 10), record.started_at_ms);

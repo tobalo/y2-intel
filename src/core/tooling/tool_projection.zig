@@ -839,7 +839,7 @@ fn appendBuiltinTool(
 
 /// A provider-executed tool is never dispatched locally, so an unsettled `ask`
 /// hides it exactly like a `deny`. The tool name doubles as the target pattern
-/// because the provider owns the call and fx never sees its arguments.
+/// because the provider owns the call and y2 never sees its arguments.
 fn providerExecutionIsAllowed(tool_name: []const u8, rules: types.PermissionRuleSet) bool {
     const permission = permissions.permissionNameForTool(tool_name);
     return switch (permissions.ruleDecisionForPermissionPattern(rules, permission, tool_name, .none)) {

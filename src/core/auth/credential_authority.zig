@@ -18,12 +18,12 @@ pub fn derive(
     account_id: ?[]const u8,
 ) ?Identity {
     var hash = Sha256.init(.{});
-    hash.update("fx-credential-authority-v1\x00");
+    hash.update("y2-credential-authority-v1\x00");
     hash.update(@tagName(source));
     switch (source) {
-        .vercel_oidc_token,
+        .retired_oidc_token,
         .api_key,
-        .fx_login,
+        .retired_login,
         .stored_key,
         => hash.update("\x00slot\x00"),
         .chatgpt_subscription,
@@ -58,6 +58,6 @@ test "credential authority uses non-secret Gateway credential slots" {
     const stored_key = derive(.stored_key, null).?;
     try std.testing.expect(api_key.eql(same_slot));
     try std.testing.expect(!api_key.eql(stored_key));
-    try std.testing.expect(derive(.vercel_oidc_token, null) != null);
-    try std.testing.expect(derive(.fx_login, null) != null);
+    try std.testing.expect(derive(.retired_oidc_token, null) != null);
+    try std.testing.expect(derive(.retired_login, null) != null);
 }

@@ -16,16 +16,16 @@ import {
 
 const INITIAL_OR_RUNNABLE_PROMPTS = [
   "Investigate how this repo changelog works in the GitHub repo.",
-  "Look for changes/last commits in fx.",
+  "Look for changes/last commits in y2.",
   "Find where slash commands are defined.",
   "Find every use of command policy.",
   "Investigate how command policy is wired in this repo.",
   "What does the MCP feature do in this repo?",
   "Investigate how the current GitHub repo changelog works; do not ask me for my GitHub handle.",
-  "Read https://github.com/vercel-labs/fx/pull/57 comments, and if gh is missing or unauthenticated report the blocker.",
+  "Read https://github.com/tobalo/y2-intel/pull/57 comments, and if gh is missing or unauthenticated report the blocker.",
   "Remove either the logs directory or the session cache, whichever you think is safer.",
   "Prepare release notes, but first choose whether this should be a patch, minor, or major release.",
-  "Read https://github.com/vercel-labs/fx/pull/57 comments.",
+  "Read https://github.com/tobalo/y2-intel/pull/57 comments.",
   "A command failed, retry it.",
   "Continue.",
   "What are you doing right now?",
@@ -256,7 +256,7 @@ describe("agent quality baseline matrix", () => {
 
     expect(firstToolMatchesExpectation(ghBlockerRow!, {
       name: "terminal",
-      command_result: { command: "gh pr view 57 --repo vercel-labs/fx --comments" },
+      command_result: { command: "gh pr view 57 --repo tobalo/y2-intel --comments" },
     })).toBe(true);
     expect(firstToolMatchesExpectation(ghBlockerRow!, {
       name: "terminal",
@@ -297,7 +297,7 @@ describe("agent quality baseline matrix", () => {
     expect(headlessFailure.tool_calls).toEqual([]);
     expect(releaseBumpChoiceBlockerSurfaced(headlessFailure.output)).toBe(true);
     expect(releaseBumpChoiceBlockerSurfaced(
-      "fx ask: repeated identical tool call requires approval",
+      "y2 ask: repeated identical tool call requires approval",
     )).toBe(false);
   });
 
@@ -307,7 +307,7 @@ describe("agent quality baseline matrix", () => {
 
     expect(commandPolicyProgressSummarySurfaced(usefulSummary)).toBe(true);
     expect(commandPolicyProgressSummarySurfaced(
-      "fx ask: repeated identical tool call requires approval\nreason=tool-call-cycle",
+      "y2 ask: repeated identical tool call requires approval\nreason=tool-call-cycle",
     )).toBe(false);
   });
 
@@ -339,7 +339,7 @@ describe("agent quality baseline matrix", () => {
       "Ran `bun test tests/evals/agent-quality-matrix.test.ts` (exit 0, pass). Remaining unverified: full Zig suite.",
     )).toBe(true);
     expect(focusedVerificationSummarySurfaced(
-      "fx ask: repeated identical tool call requires approval\nreason=tool-call-cycle",
+      "y2 ask: repeated identical tool call requires approval\nreason=tool-call-cycle",
     )).toBe(false);
     expect(focusedVerificationSummarySurfaced(
       "Agent stopped: detected repeating tool call cycle.",
@@ -375,7 +375,7 @@ describe("agent quality baseline matrix", () => {
     expect(broadWeb?.expectedUserVisibleBehavior).toContain("linked sources");
     expect(firstToolMatchesExpectation(githubMetadata!, {
       name: "terminal",
-      command_result: { command: "gh pr view 57 --repo vercel-labs/fx --comments" },
+      command_result: { command: "gh pr view 57 --repo tobalo/y2-intel --comments" },
     })).toBe(true);
     expect(firstToolMatchesExpectation(githubMetadata!, { name: "web_fetch" })).toBe(false);
   });

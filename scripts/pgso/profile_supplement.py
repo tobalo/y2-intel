@@ -311,7 +311,7 @@ def map_production_profile(
             compatible.append(function_name)
         else:
             destination_name = (
-                f"{destination_prefix}__fx_profile_summary."
+                f"{destination_prefix}__y2_profile_summary."
                 f"{index}.{record.function_hash}"
             )
         blocks.append("\n".join((destination_name, *record.lines[1:])))

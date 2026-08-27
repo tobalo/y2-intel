@@ -884,7 +884,7 @@ const StreamTraceEntry = union(enum) {
 };
 
 fn fixtureLinkId(span: []const u8) !u32 {
-    const prefix = "\x1b]8;id=fx-";
+    const prefix = "\x1b]8;id=y2-";
     if (!std.mem.startsWith(u8, span, prefix)) return error.TestExpectedHyperlink;
     const end = std.mem.findPos(u8, span, prefix.len, ";") orelse
         return error.TestExpectedHyperlink;
@@ -938,13 +938,13 @@ fn assert_frozen_ansi_span_fixture() !void {
     try std.testing.expectEqual(first_link_id +% 1, second_link_id);
     const first_link = try std.fmt.allocPrint(
         alloc,
-        "\x1b]8;id=fx-{d};https://example.com\x1b\\\x1b[4mdocs\x1b[24m\x1b]8;;\x1b\\\n",
+        "\x1b]8;id=y2-{d};https://example.com\x1b\\\x1b[4mdocs\x1b[24m\x1b]8;;\x1b\\\n",
         .{first_link_id},
     );
     defer alloc.free(first_link);
     const second_link = try std.fmt.allocPrint(
         alloc,
-        "\x1b]8;id=fx-{d};https://example.com/docs\x1b\\\x1b[4mhttps://example.com/docs\x1b[24m\x1b]8;;\x1b\\,\n",
+        "\x1b]8;id=y2-{d};https://example.com/docs\x1b\\\x1b[4mhttps://example.com/docs\x1b[24m\x1b]8;;\x1b\\,\n",
         .{second_link_id},
     );
     defer alloc.free(second_link);

@@ -1,4 +1,4 @@
-name: Publish libfx
+name: Publish liby2
 
 on:
   workflow_run:
@@ -19,7 +19,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: publish-libfx-${{ (github.event.workflow_run.name == 'Release' || inputs.channel == 'stable') && 'stable' || 'dev' }}
+  group: publish-liby2-${{ (github.event.workflow_run.name == 'Release' || inputs.channel == 'stable') && 'stable' || 'dev' }}
   cancel-in-progress: false
 
 jobs:
@@ -79,7 +79,7 @@ jobs:
                   echo "::error::Stable tag ${TAG} points to ${TAG_SHA}, not ${SHA}"
                   exit 1
                 fi
-                echo "Release workflow did not publish ${SHA}; skipping libfx stable publish"
+                echo "Release workflow did not publish ${SHA}; skipping liby2 stable publish"
                 SHOULD_PUBLISH=false
               fi
             else
@@ -87,7 +87,7 @@ jobs:
                 echo "::error::Stable tag ${TAG} does not exist"
                 exit 1
               fi
-              echo "Release workflow did not create ${TAG}; skipping libfx stable publish"
+              echo "Release workflow did not create ${TAG}; skipping liby2 stable publish"
               SHOULD_PUBLISH=false
             fi
             VERSION="$BASE_VERSION"
@@ -103,7 +103,7 @@ jobs:
           echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
           echo "should_publish=${SHOULD_PUBLISH}" >> "$GITHUB_OUTPUT"
           echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "Publishing libfx@${VERSION} on the ${CHANNEL} channel (${NPM_TAG})"
+          echo "Publishing liby2@${VERSION} on the ${CHANNEL} channel (${NPM_TAG})"
 
   native:
     needs: metadata
@@ -147,13 +147,13 @@ jobs:
         shell: bash
         run: |
           mkdir -p native-addons
-          cp zig-out/lib/libfx.node native-addons/libfx.${{ matrix.package_platform }}.node
+          cp zig-out/lib/liby2.node native-addons/liby2.${{ matrix.package_platform }}.node
 
       - name: Upload native addon
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: libfx-native-${{ matrix.package_platform }}
-          path: native-addons/libfx.${{ matrix.package_platform }}.node
+          name: liby2-native-${{ matrix.package_platform }}
+          path: native-addons/liby2.${{ matrix.package_platform }}.node
           if-no-files-found: error
 
   wasm:
@@ -190,10 +190,10 @@ jobs:
       - name: Upload WebAssembly artifacts
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
-          name: libfx-wasm
+          name: liby2-wasm
           path: |
-            zig-out/bin/fx-core.wasm
-            zig-out/bin/fx-term.wasm
+            zig-out/bin/y2-core.wasm
+            zig-out/bin/y2-term.wasm
           if-no-files-found: error
 
   publish:
@@ -221,34 +221,34 @@ jobs:
       - name: Download native addons
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          pattern: libfx-native-*
+          pattern: liby2-native-*
           path: native-addons
           merge-multiple: true
 
       - name: Download WebAssembly artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
         with:
-          name: libfx-wasm
+          name: liby2-wasm
           path: wasm-artifacts
 
       - name: Restore package artifact layout
         run: |
           mkdir -p zig-out/bin
-          cp wasm-artifacts/fx-core.wasm zig-out/bin/fx-core.wasm
-          cp wasm-artifacts/fx-term.wasm zig-out/bin/fx-term.wasm
+          cp wasm-artifacts/y2-core.wasm zig-out/bin/y2-core.wasm
+          cp wasm-artifacts/y2-term.wasm zig-out/bin/y2-term.wasm
 
       - name: Stage package without executing repository code
         env:
-          LIBFX_VERSION: ${{ needs.metadata.outputs.version }}
+          LIBY2_VERSION: ${{ needs.metadata.outputs.version }}
         run: |
           set -euo pipefail
           test "$(find native-addons -type f -name '*.node' | wc -l | tr -d ' ')" = 4
           for name in linux-x64 linux-arm64 darwin-x64 darwin-arm64; do
-            test -f "native-addons/libfx.${name}.node"
+            test -f "native-addons/liby2.${name}.node"
           done
 
           jq -e '
-            .name == "libfx" and
+            .name == "liby2" and
             .type == "module" and
             .scripts != null and
             (.scripts | keys | all(startswith("test:"))) and
@@ -259,27 +259,27 @@ jobs:
             (.bin == null)
           ' sdk/package.json >/dev/null
 
-          rm -rf sdk/dist/libfx
-          mkdir -p sdk/dist/libfx
-          cp sdk/package.json sdk/README.md sdk/browser.js sdk/node.js sdk/fx-sdk.js LICENSE sdk/dist/libfx/
-          cp wasm-artifacts/fx-core.wasm wasm-artifacts/fx-term.wasm sdk/dist/libfx/
-          cp native-addons/*.node sdk/dist/libfx/
-          jq --arg version "$LIBFX_VERSION" '.version = $version | del(.files)' \
-            sdk/dist/libfx/package.json > sdk/dist/libfx/package.json.tmp
-          mv sdk/dist/libfx/package.json.tmp sdk/dist/libfx/package.json
+          rm -rf sdk/dist/liby2
+          mkdir -p sdk/dist/liby2
+          cp sdk/package.json sdk/README.md sdk/browser.js sdk/node.js sdk/y2-sdk.js LICENSE sdk/dist/liby2/
+          cp wasm-artifacts/y2-core.wasm wasm-artifacts/y2-term.wasm sdk/dist/liby2/
+          cp native-addons/*.node sdk/dist/liby2/
+          jq --arg version "$LIBY2_VERSION" '.version = $version | del(.files)' \
+            sdk/dist/liby2/package.json > sdk/dist/liby2/package.json.tmp
+          mv sdk/dist/liby2/package.json.tmp sdk/dist/liby2/package.json
 
       - name: Validate package archive
         run: |
           set -euo pipefail
-          npm pack --ignore-scripts --dry-run --json sdk/dist/libfx > /tmp/libfx-pack.json
+          npm pack --ignore-scripts --dry-run --json sdk/dist/liby2 > /tmp/liby2-pack.json
           node -e '
-            const report = require("/tmp/libfx-pack.json")[0];
+            const report = require("/tmp/liby2-pack.json")[0];
             const names = new Set(report.files.map(({ path }) => path));
             const required = [
-              "package.json", "README.md", "LICENSE", "browser.js", "node.js", "fx-sdk.js",
-              "fx-core.wasm", "fx-term.wasm",
-              "libfx.linux-x64.node", "libfx.linux-arm64.node",
-              "libfx.darwin-x64.node", "libfx.darwin-arm64.node",
+              "package.json", "README.md", "LICENSE", "browser.js", "node.js", "y2-sdk.js",
+              "y2-core.wasm", "y2-term.wasm",
+              "liby2.linux-x64.node", "liby2.linux-arm64.node",
+              "liby2.darwin-x64.node", "liby2.darwin-arm64.node",
             ];
             if (names.size !== required.length) throw new Error(`unexpected package file count: ${names.size}`);
             for (const name of required) {
@@ -301,12 +301,12 @@ jobs:
 
       - name: Publish with npm trusted publishing
         env:
-          LIBFX_VERSION: ${{ needs.metadata.outputs.version }}
+          LIBY2_VERSION: ${{ needs.metadata.outputs.version }}
           NPM_TAG: ${{ needs.metadata.outputs.npm_tag }}
         run: |
           set -euo pipefail
-          if npm view "libfx@${LIBFX_VERSION}" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
-            echo "libfx@${LIBFX_VERSION} is already published; leaving ${NPM_TAG} unchanged"
+          if npm view "liby2@${LIBY2_VERSION}" version --registry=https://registry.npmjs.org/ >/dev/null 2>&1; then
+            echo "liby2@${LIBY2_VERSION} is already published; leaving ${NPM_TAG} unchanged"
             exit 0
           fi
-          npm publish sdk/dist/libfx --ignore-scripts --access public --tag "$NPM_TAG" --provenance
+          npm publish sdk/dist/liby2 --ignore-scripts --access public --tag "$NPM_TAG" --provenance

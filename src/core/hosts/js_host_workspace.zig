@@ -25,9 +25,9 @@ comptime {
     std.debug.assert(@sizeOf(ResultRecord) == 32);
 }
 
-extern "fx" fn fx_workspace_available() i32;
-extern "fx" fn fx_workspace_info(out_ptr: [*]u8, out_cap: usize) i32;
-extern "fx" fn fx_workspace_exec(
+extern "y2" fn y2_workspace_available() i32;
+extern "y2" fn y2_workspace_info(out_ptr: [*]u8, out_cap: usize) i32;
+extern "y2" fn y2_workspace_exec(
     command_ptr: [*]const u8,
     command_len: usize,
     timeout_ms: u32,
@@ -38,11 +38,11 @@ extern "fx" fn fx_workspace_exec(
 
 const ImportedHost = struct {
     fn workspaceAvailable() i32 {
-        return fx_workspace_available();
+        return y2_workspace_available();
     }
 
     fn workspaceInfo(out_ptr: [*]u8, out_cap: usize) i32 {
-        return fx_workspace_info(out_ptr, out_cap);
+        return y2_workspace_info(out_ptr, out_cap);
     }
 
     fn workspaceExec(
@@ -53,7 +53,7 @@ const ImportedHost = struct {
         output_cap: usize,
         result_ptr: *ResultRecord,
     ) i32 {
-        return fx_workspace_exec(
+        return y2_workspace_exec(
             command_ptr,
             command_len,
             timeout_ms,

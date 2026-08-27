@@ -164,7 +164,7 @@ pub fn run(
     routed_config.tool_context.model = admission.model;
     routed_config.tool_context.provider = admission.provider;
     routed_config.tool_context.provider_capabilities = config.provider_set.select(admission.provider).capabilities;
-    if (!routed_config.tool_context.provider_capabilities.fx_search) {
+    if (!routed_config.tool_context.provider_capabilities.y2_search) {
         routed_config.tool_context.web_search_backend = null;
         routed_config.tool_context.web_search_runtime_ready = false;
     }

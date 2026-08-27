@@ -23,7 +23,7 @@ import {
 const TIMEOUT = 20_000;
 const REJECTED_GATEWAY_AUTH = {
   Y2_API_KEY: "e2e-placeholder",
-  VERCEL_OIDC_TOKEN: "",
+  REMOVED_LEGACY_OIDC_TOKEN: "",
   NO_COLOR: "1",
 };
 
@@ -36,9 +36,9 @@ function rejectedGatewayEnv(
   return {
     ...REJECTED_GATEWAY_AUTH,
     HOME: home,
-    FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_API_CHAT_URL: gateway.chatUrl,
-    FX_MODEL: FAKE_GATEWAY_MODEL,
+    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    Y2_API_CHAT_URL: gateway.chatUrl,
+    Y2_MODEL: FAKE_GATEWAY_MODEL,
   };
 }
 
@@ -87,7 +87,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
   serialTest(
     "accepted prompts and slash commands survive restart",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-prompt-history-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-prompt-history-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -116,7 +116,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
         await session.waitForSessionEnd(TIMEOUT);
         session = null;
 
-        const historyPath = join(home, ".fx", "history.jsonl");
+        const historyPath = join(home, ".y2", "history.jsonl");
         const history = readFileSync(historyPath, "utf8");
         expect(history).toContain("PLAN10_PROMPT_HISTORY_SENTINEL");
         expect(history).toContain("/help");
@@ -157,7 +157,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
   serialTest(
     "read-only prompt-history bootstrap does not create state in an unwritable home",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-prompt-history-no-create-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-prompt-history-no-create-"));
       try {
         const home = join(root, "home");
         const workspace = join(root, "workspace");
@@ -174,7 +174,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
             },
           });
           await session.waitForText("Run /help", TIMEOUT);
-          expect(existsSync(join(home, ".fx"))).toBe(false);
+          expect(existsSync(join(home, ".y2"))).toBe(false);
         } finally {
           chmodSync(home, 0o700);
         }
@@ -188,7 +188,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
   serialTest(
     "recording can be disabled from settings",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-prompt-history-scope-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-prompt-history-scope-"));
       try {
         const home = join(root, "home");
         const workspaceA = join(root, "workspace-a");
@@ -219,7 +219,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
           session = null;
         }
 
-        const historyPath = join(home, ".fx", "history.jsonl");
+        const historyPath = join(home, ".y2", "history.jsonl");
         expect(readFileSync(historyPath, "utf8")).toContain(
           "PLAN10_HISTORY_WORKSPACE_A",
         );
@@ -232,7 +232,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
           env: rejectedGatewayEnv(home, gateway),
         });
         await session.waitForText("Run /help", TIMEOUT);
-        await disablePromptHistory(session, join(home, ".fx", "settings.json"));
+        await disablePromptHistory(session, join(home, ".y2", "settings.json"));
         await session.sendText("PLAN10_HISTORY_DISABLED");
         await session.waitForText("HTTP 401", TIMEOUT);
         await session.waitForPane(hasEmptyComposer, TIMEOUT);
@@ -300,12 +300,12 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
   serialTest(
     "startup scans beyond one mebibyte of newer interleaved workspace records",
     async () => {
-      const root = mkdtempSync(join(tmpdir(), "fx-prompt-history-large-"));
+      const root = mkdtempSync(join(tmpdir(), "y2-prompt-history-large-"));
       try {
         const home = join(root, "home");
         const workspaceA = join(root, "workspace-a");
         const workspaceB = join(root, "workspace-b");
-        mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+        mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
         mkdirSync(workspaceA);
         mkdirSync(workspaceB);
         const workspaceARoot = realpathSync(workspaceA);
@@ -330,11 +330,11 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
           }));
         }
         writeFileSync(
-          join(home, ".fx", "history.jsonl"),
+          join(home, ".y2", "history.jsonl"),
           records.join("\n") + "\n",
           { mode: 0o600 },
         );
-        writeFileSync(join(home, ".fx", "sessions"), "blocked\n", {
+        writeFileSync(join(home, ".y2", "sessions"), "blocked\n", {
           mode: 0o600,
         });
 

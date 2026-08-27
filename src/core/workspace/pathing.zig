@@ -1602,27 +1602,27 @@ test "external resolver expands home and canonicalizes relative and absolute ali
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     try tmp.dir.createDirPath(io_mod.getIo(), "home");
     try tmp.dir.createDirPath(io_mod.getIo(), "external");
-    try writeTestFile(tmp.dir, "home/fx-path-fixture.txt", "home");
-    try writeTestFile(tmp.dir, "external/fx-path-fixture.txt", "external");
+    try writeTestFile(tmp.dir, "home/y2-path-fixture.txt", "home");
+    try writeTestFile(tmp.dir, "external/y2-path-fixture.txt", "external");
 
     const workspace = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "workspace");
     defer alloc.free(workspace);
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home);
-    const home_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "home/fx-path-fixture.txt");
-    const external_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "external/fx-path-fixture.txt");
+    const home_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "home/y2-path-fixture.txt");
+    const external_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "external/y2-path-fixture.txt");
 
     const from_home = try resolveWorkspaceOrExternalPathWithHome(
         arena,
         workspace,
-        "~/fx-path-fixture.txt",
+        "~/y2-path-fixture.txt",
         home,
         .existing,
     );
     const from_relative = try resolveWorkspaceOrExternalPathWithHome(
         arena,
         workspace,
-        "../external/fx-path-fixture.txt",
+        "../external/y2-path-fixture.txt",
         home,
         .existing,
     );
@@ -1700,29 +1700,29 @@ test "external resolver handles exact home root and normalized home escapes" {
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     try tmp.dir.createDirPath(io_mod.getIo(), "home");
     try tmp.dir.createDirPath(io_mod.getIo(), "external");
-    try writeTestFile(tmp.dir, "home/fx-path-fixture.txt", "home");
-    try writeTestFile(tmp.dir, "external/fx-path-fixture.txt", "external");
+    try writeTestFile(tmp.dir, "home/y2-path-fixture.txt", "home");
+    try writeTestFile(tmp.dir, "external/y2-path-fixture.txt", "external");
 
     const workspace = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "workspace");
     defer alloc.free(workspace);
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home);
-    const home_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "home/fx-path-fixture.txt");
-    const external_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "external/fx-path-fixture.txt");
+    const home_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "home/y2-path-fixture.txt");
+    const external_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "external/y2-path-fixture.txt");
 
     const exact_home = try resolveWorkspaceOrExternalPathWithHome(arena, workspace, "~", home, .existing);
     const slash_home = try resolveWorkspaceOrExternalPathWithHome(arena, workspace, "~/", home, .existing);
     const escaped_home = try resolveWorkspaceOrExternalPathWithHome(
         arena,
         workspace,
-        "~/../external/fx-path-fixture.txt",
+        "~/../external/y2-path-fixture.txt",
         home,
         .existing,
     );
     const redundant_separator = try resolveWorkspaceOrExternalPathWithHome(
         arena,
         workspace,
-        "~//fx-path-fixture.txt",
+        "~//y2-path-fixture.txt",
         home,
         .existing,
     );
@@ -1791,7 +1791,7 @@ test "external resolver follows home symlinks but rejects workspace-relative sym
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     try tmp.dir.createDirPath(io_mod.getIo(), "home");
     try tmp.dir.createDirPath(io_mod.getIo(), "external");
-    try writeTestFile(tmp.dir, "external/fx-path-fixture.txt", "external");
+    try writeTestFile(tmp.dir, "external/y2-path-fixture.txt", "external");
 
     const workspace = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "workspace");
     defer alloc.free(workspace);
@@ -1799,7 +1799,7 @@ test "external resolver follows home symlinks but rejects workspace-relative sym
     defer alloc.free(home);
     const external = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "external");
     defer alloc.free(external);
-    const external_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "external/fx-path-fixture.txt");
+    const external_file = try io_mod.dirRealpathAlloc(arena, tmp.dir, "external/y2-path-fixture.txt");
 
     try createTestSymlinkOrSkip(tmp.dir, external, "home/external-link", true);
     try createTestSymlinkOrSkip(tmp.dir, external, "workspace/external-link", true);
@@ -1807,7 +1807,7 @@ test "external resolver follows home symlinks but rejects workspace-relative sym
     const from_home_link = try resolveWorkspaceOrExternalPathWithHome(
         arena,
         workspace,
-        "~/external-link/fx-path-fixture.txt",
+        "~/external-link/y2-path-fixture.txt",
         home,
         .existing,
     );
@@ -1818,7 +1818,7 @@ test "external resolver follows home symlinks but rejects workspace-relative sym
         resolveWorkspaceOrExternalPathWithHome(
             arena,
             workspace,
-            "external-link/fx-path-fixture.txt",
+            "external-link/y2-path-fixture.txt",
             home,
             .existing,
         ),
@@ -1939,7 +1939,7 @@ test "external resolver accepts deep lexical traversal to filesystem root" {
 
     const resolved = try resolveWorkspaceOrExternalPathWithHome(
         arena,
-        "/tmp/fx/deep/workspace",
+        "/tmp/y2/deep/workspace",
         input.items,
         null,
         .existing,

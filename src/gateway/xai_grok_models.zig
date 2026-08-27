@@ -6,7 +6,7 @@ const gateway_provider = @import("../core/gateway/gateway_provider.zig");
 const io_mod = @import("../core/shared/io.zig");
 const secret = @import("../core/auth/secret.zig");
 const types = @import("../core/shared/types.zig");
-const gateway_client = @import("client.zig");
+const http_runtime = @import("http_runtime.zig");
 
 const max_catalog_models: usize = 128;
 const max_model_id_bytes: usize = 256;
@@ -14,8 +14,8 @@ const max_catalog_bytes: usize = 1024 * 1024;
 const fetch_timeout_ms: i64 = 30_000;
 const default_models_endpoint = "https://cli-chat-proxy.grok.com/v1/models";
 const default_modalities_endpoint = "https://api.x.ai/v1/language-models";
-const e2e_models_endpoint_env = "FX_E2E_XAI_GROK_MODELS_URL";
-const e2e_modalities_endpoint_env = "FX_E2E_XAI_GROK_MODALITIES_URL";
+const e2e_models_endpoint_env = "Y2_E2E_XAI_GROK_MODELS_URL";
+const e2e_modalities_endpoint_env = "Y2_E2E_XAI_GROK_MODALITIES_URL";
 
 pub const model_catalog_provider = model_catalog.Provider{
     .fetch_fn = fetchCatalogForProvider,
@@ -167,7 +167,7 @@ const FetchOperation = struct {
             .method = .GET,
             .headers = .{
                 .authorization = .{ .override = auth_header },
-                .user_agent = .{ .override = gateway_client.user_agent },
+                .user_agent = .{ .override = http_runtime.user_agent },
                 .accept_encoding = .omit,
             },
             .extra_headers = extra_headers_buffer[0..extra_headers_len],
@@ -200,7 +200,7 @@ fn fetchCatalogResponse(
         .credential = credential,
         .account_id = account_id,
     };
-    return gateway_client.runBoundedHttpOperation(
+    return http_runtime.runBoundedHttpOperation(
         FetchResponse,
         alloc,
         cancel_flag,
@@ -211,7 +211,7 @@ fn fetchCatalogResponse(
 
 fn modelsUrl(alloc: std.mem.Allocator) ![]u8 {
     const base = io_mod.getenv(e2e_models_endpoint_env) orelse default_models_endpoint;
-    if (io_mod.getenv(e2e_models_endpoint_env) != null and !gateway_client.isLoopbackHttpUrl(base)) {
+    if (io_mod.getenv(e2e_models_endpoint_env) != null and !http_runtime.isLoopbackHttpUrl(base)) {
         return error.InvalidE2EGrokModelsEndpoint;
     }
     return alloc.dupe(u8, base);
@@ -219,7 +219,7 @@ fn modelsUrl(alloc: std.mem.Allocator) ![]u8 {
 
 fn modalitiesUrl(alloc: std.mem.Allocator) ![]u8 {
     const base = io_mod.getenv(e2e_modalities_endpoint_env) orelse default_modalities_endpoint;
-    if (io_mod.getenv(e2e_modalities_endpoint_env) != null and !gateway_client.isLoopbackHttpUrl(base)) {
+    if (io_mod.getenv(e2e_modalities_endpoint_env) != null and !http_runtime.isLoopbackHttpUrl(base)) {
         return error.InvalidE2EGrokModalitiesEndpoint;
     }
     return alloc.dupe(u8, base);

@@ -708,7 +708,7 @@ test "denied web_search performs zero backend search requests" {
     const alloc = std.testing.allocator;
     var fake = FakeProvider{};
     var runtime = fakeRuntime(&fake);
-    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.web_search} };
+    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.test_web_search} };
 
     permission_decider_calls = 0;
     var result = try tool_dispatch.dispatchToolCall(.{
@@ -731,7 +731,7 @@ test "invalid web_search performs zero backend search requests" {
     const alloc = std.testing.allocator;
     var fake = FakeProvider{};
     var runtime = fakeRuntime(&fake);
-    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.web_search} };
+    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.test_web_search} };
 
     permission_decider_calls = 0;
     var result = try tool_dispatch.dispatchToolCall(.{
@@ -752,7 +752,7 @@ test "invalid web_search performs zero backend search requests" {
 
 test "missing runtime web_search performs zero backend search requests" {
     const alloc = std.testing.allocator;
-    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.web_search} };
+    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.test_web_search} };
 
     permission_decider_calls = 0;
     var result = try tool_dispatch.dispatchToolCall(.{
@@ -772,7 +772,7 @@ test "allowed web_search invokes selected backend exactly once" {
     const alloc = std.testing.allocator;
     var fake = FakeProvider{ .response_kind = .source };
     var runtime = fakeRuntime(&fake);
-    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.web_search} };
+    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.test_web_search} };
 
     permission_decider_calls = 0;
     var result = try tool_dispatch.dispatchToolCall(.{
@@ -799,7 +799,7 @@ test "cancelled registered web_search performs zero backend requests" {
     const alloc = std.testing.allocator;
     var fake = FakeProvider{};
     var runtime = fakeRuntime(&fake);
-    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.web_search} };
+    const registry = tool_dispatch.Registry{ .tools = &.{test_builtin_tools.test_web_search} };
     var cancel_flag = std.atomic.Value(bool).init(true);
 
     permission_decider_calls = 0;

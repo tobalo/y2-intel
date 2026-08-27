@@ -2,12 +2,12 @@
 import { strict as assert } from "node:assert";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxAgent } from "../node.js";
+import { createY2Agent } from "../node.js";
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const addon = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/libfx.node"));
+const addon = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/liby2.node"));
 let timeoutId;
-const agent = await createFxAgent({
+const agent = await createY2Agent({
   nativeAddon: addon,
   backend: "native",
   fetch() {
@@ -18,7 +18,7 @@ const agent = await createFxAgent({
   env: {
     OPENAI_BASE_URL: "https://models.example/v1",
     OPENAI_API_KEY: "native-core-fetch-failure-key",
-    FX_MODEL: "native/test-model",
+    Y2_MODEL: "native/test-model",
   },
 });
 

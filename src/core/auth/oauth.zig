@@ -4,9 +4,9 @@ const secret = @import("secret.zig");
 
 const Allocator = std.mem.Allocator;
 
-// Sign in with Vercel supports exactly openid, email, profile and offline_access,
-// and silently filters anything else. fx only needs identity plus a refresh token,
-// so it asks for those two and nothing more. An earlier `use:ai-gateway` entry was
+// Sign in with Retired credential supports exactly openid, email, profile and offline_access,
+// and silently filters anything else. y2 only needs identity plus a refresh token,
+// so it asks for those two and nothing more. An earlier `use:retired-gateway` entry was
 // never a real scope: it was dropped on every grant and bought nothing.
 pub const default_scope = "openid offline_access";
 
@@ -382,7 +382,7 @@ fn requiredInteger(object: std.json.ObjectMap, key: []const u8) !i64 {
 fn check_metadata_allocation_failures(alloc: Allocator) !void {
     var metadata = try parseMetadata(
         alloc,
-        "{\"issuer\":\"https://vercel.com\",\"device_authorization_endpoint\":\"https://vercel.com/device\",\"token_endpoint\":\"https://vercel.com/token\",\"revocation_endpoint\":\"https://vercel.com/revoke\"}",
+        "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\",\"revocation_endpoint\":\"https://identity.example/revoke\"}",
     );
     defer metadata.deinit(alloc);
 }
@@ -390,7 +390,7 @@ fn check_metadata_allocation_failures(alloc: Allocator) !void {
 fn check_device_authorization_allocation_failures(alloc: Allocator) !void {
     var device = try parseDeviceAuthorization(
         alloc,
-        "{\"device_code\":\"device\",\"user_code\":\"user\",\"verification_uri\":\"https://vercel.com/verify\",\"verification_uri_complete\":\"https://vercel.com/verify?code=user\",\"expires_in\":600,\"interval\":5}",
+        "{\"device_code\":\"device\",\"user_code\":\"user\",\"verification_uri\":\"https://identity.example/verify\",\"verification_uri_complete\":\"https://identity.example/verify?code=user\",\"expires_in\":600,\"interval\":5}",
     );
     defer device.deinit(alloc);
 }
@@ -444,31 +444,31 @@ fn optionalBytesEqual(left: ?[]const u8, right: ?[]const u8) bool {
 }
 
 test "oauth discovery maps protocol input through the injected transport" {
-    const issuer = "https://vercel.test";
+    const issuer = "https://identity.example";
     var probe = TransportProbe{
         .expected_method = .get,
         .expected_url = issuer ++ "/.well-known/openid-configuration",
-        .response_body = "{\"issuer\":\"https://vercel.test\",\"device_authorization_endpoint\":\"https://vercel.test/device\",\"token_endpoint\":\"https://vercel.test/token\"}",
+        .response_body = "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\"}",
     };
 
     var metadata = try discover(std.testing.allocator, probe.provider(), issuer);
     defer metadata.deinit(std.testing.allocator);
 
     try std.testing.expect(probe.matched);
-    try std.testing.expectEqualStrings("https://vercel.test/token", metadata.token_endpoint);
+    try std.testing.expectEqualStrings("https://identity.example/token", metadata.token_endpoint);
 }
 
 test "oauth device authorization owns form mapping while transport owns execution" {
     var probe = TransportProbe{
         .expected_method = .post_form,
-        .expected_url = "https://vercel.test/device",
+        .expected_url = "https://identity.example/device",
         .expected_payload = "client_id=client%20id&scope=openid%20offline_access",
-        .response_body = "{\"device_code\":\"device\",\"user_code\":\"CODE\",\"verification_uri\":\"https://vercel.test/verify\",\"expires_in\":600,\"interval\":5}",
+        .response_body = "{\"device_code\":\"device\",\"user_code\":\"CODE\",\"verification_uri\":\"https://identity.example/verify\",\"expires_in\":600,\"interval\":5}",
     };
     const metadata = Metadata{
-        .issuer = @constCast("https://vercel.test"),
-        .device_authorization_endpoint = @constCast("https://vercel.test/device"),
-        .token_endpoint = @constCast("https://vercel.test/token"),
+        .issuer = @constCast("https://identity.example"),
+        .device_authorization_endpoint = @constCast("https://identity.example/device"),
+        .token_endpoint = @constCast("https://identity.example/token"),
     };
 
     var device = try requestDeviceAuthorization(
@@ -491,7 +491,7 @@ test "oauth polling forwards bounds and preserves pending responses" {
     });
     var probe = TransportProbe{
         .expected_method = .post_form,
-        .expected_url = "https://vercel.test/token",
+        .expected_url = "https://identity.example/token",
         .expected_payload = "client_id=client&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=device",
         .response_disposition = .rejected,
         .response_body = "{\"error\":\"authorization_pending\"}",
@@ -499,9 +499,9 @@ test "oauth polling forwards bounds and preserves pending responses" {
         .expect_deadline = true,
     };
     const metadata = Metadata{
-        .issuer = @constCast("https://vercel.test"),
-        .device_authorization_endpoint = @constCast("https://vercel.test/device"),
-        .token_endpoint = @constCast("https://vercel.test/token"),
+        .issuer = @constCast("https://identity.example"),
+        .device_authorization_endpoint = @constCast("https://identity.example/device"),
+        .token_endpoint = @constCast("https://identity.example/token"),
     };
 
     const result = try pollDeviceTokenBounded(
@@ -525,10 +525,10 @@ test "a reduced grant names the scope the issuer withheld" {
         "offline_access",
         missingGrantedScope("openid offline_access", "openid").?,
     );
-    // The scope fx used to request was never advertised, so every grant dropped it.
+    // The scope y2 used to request was never advertised, so every grant dropped it.
     try std.testing.expectEqualStrings(
-        "use:ai-gateway",
-        missingGrantedScope("openid offline_access use:ai-gateway", "openid offline_access").?,
+        "use:retired-gateway",
+        missingGrantedScope("openid offline_access use:retired-gateway", "openid offline_access").?,
     );
     try std.testing.expect(missingGrantedScope("", "openid") == null);
 }
@@ -536,11 +536,11 @@ test "a reduced grant names the scope the issuer withheld" {
 test "oauth parses metadata" {
     var metadata = try parseMetadata(
         std.testing.allocator,
-        "{\"issuer\":\"https://vercel.com\",\"device_authorization_endpoint\":\"https://vercel.com/device\",\"token_endpoint\":\"https://vercel.com/token\",\"revocation_endpoint\":\"https://vercel.com/revoke\"}",
+        "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\",\"revocation_endpoint\":\"https://identity.example/revoke\"}",
     );
     defer metadata.deinit(std.testing.allocator);
-    try std.testing.expectEqualStrings("https://vercel.com", metadata.issuer);
-    try std.testing.expectEqualStrings("https://vercel.com/device", metadata.device_authorization_endpoint);
+    try std.testing.expectEqualStrings("https://identity.example", metadata.issuer);
+    try std.testing.expectEqualStrings("https://identity.example/device", metadata.device_authorization_endpoint);
 }
 
 test "oauth maps provider errors" {

@@ -61,7 +61,7 @@ pub fn Runtime(comptime App: type) type {
             app.prepareResumeHandoffForUpgrade() catch |err| {
                 const notice = try std.fmt.allocPrint(
                     app.alloc,
-                    "upgrade paused because this conversation is not safely resumable: {s}; run `fx doctor` for recovery guidance",
+                    "upgrade paused because this conversation is not safely resumable: {s}; run `y2 doctor` for recovery guidance",
                     .{@errorName(err)},
                 );
                 defer app.alloc.free(notice);
@@ -76,7 +76,7 @@ pub fn Runtime(comptime App: type) type {
             ) catch |err| {
                 const notice = try std.fmt.allocPrint(
                     app.alloc,
-                    "upgrade installed, but the executable path could not be resolved: {s}; restart fx manually",
+                    "upgrade installed, but the executable path could not be resolved: {s}; restart y2 manually",
                     .{@errorName(err)},
                 );
                 defer app.alloc.free(notice);
@@ -87,7 +87,7 @@ pub fn Runtime(comptime App: type) type {
             app.requestUpgradeRelaunch(executable_path) catch |err| {
                 const notice = try std.fmt.allocPrint(
                     app.alloc,
-                    "upgrade installed, but relaunch could not be prepared: {s}; restart fx manually",
+                    "upgrade installed, but relaunch could not be prepared: {s}; restart y2 manually",
                     .{@errorName(err)},
                 );
                 defer app.alloc.free(notice);
@@ -295,7 +295,7 @@ fn currentExecutablePathForTest(
     const state: *TestDepsState = @ptrCast(@alignCast(ctx.?));
     state.path_count += 1;
     if (state.path_error) |err| return err;
-    const executable_path = "/tmp/fx-upgraded";
+    const executable_path = "/tmp/y2-upgraded";
     if (executable_path.len > executable_buf.len) return error.PathTooLong;
     @memcpy(executable_buf[0..executable_path.len], executable_path);
     return executable_buf[0..executable_path.len];
@@ -312,7 +312,7 @@ test "app_upgrade_runtime validates then requests normal relaunch handoff" {
     try std.testing.expectEqual(@as(usize, 1), app.prepare_count);
     try std.testing.expectEqual(@as(usize, 1), deps_state.path_count);
     try std.testing.expectEqualStrings(
-        "/tmp/fx-upgraded",
+        "/tmp/y2-upgraded",
         app.relaunch_path[0..app.relaunch_path_len],
     );
     try std.testing.expectEqual(@as(usize, 1), app.request_handoff_count);

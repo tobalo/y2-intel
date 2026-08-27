@@ -212,7 +212,7 @@ fn duplicateHistoryPage(alloc: Allocator, turns: []const session.HistoryTurn) ![
 fn historyPrefixDigest(turns: []const session.HistoryTurn) error{ WriteFailed, NoSpaceLeft }![32]u8 {
     var buffer: [256]u8 = undefined;
     var hashing: std.Io.Writer.Hashing(std.crypto.hash.sha2.Sha256) = .init(&buffer);
-    try hashing.writer.writeAll("fx.history-page-prefix.v2\x00");
+    try hashing.writer.writeAll("y2.history-page-prefix.v2\x00");
     for (turns) |turn| {
         try session_codec.writeHistoryTurn(&hashing.writer, turn);
         // Canonical JSON never contains a literal NUL, so this makes the
@@ -4620,16 +4620,16 @@ test "session snapshot locators resolve through their owning store" {
     try resolveSessionSnapshotLocators(
         alloc,
         history,
-        "/new/fx-home/sessions",
+        "/new/y2-home/sessions",
         "id",
     );
 
     try std.testing.expectEqualStrings(
-        "/new/fx-home/sessions/id/images/image-1-aaaaaaaaaaaaaaaa.bin",
+        "/new/y2-home/sessions/id/images/image-1-aaaaaaaaaaaaaaaa.bin",
         history[0].assistant.user.images[0].snapshot_path.?,
     );
     try std.testing.expectEqualStrings(
-        "/new/fx-home/sessions/id/images/image-2-bbbbbbbbbbbbbbbb.bin",
+        "/new/y2-home/sessions/id/images/image-2-bbbbbbbbbbbbbbbb.bin",
         history[0].assistant.user.images[1].snapshot_path.?,
     );
     try std.testing.expect(history[0].assistant.user.images[2].snapshot_path == null);
@@ -4653,7 +4653,7 @@ test "current session snapshot locators reject absolute paths" {
         resolveSessionSnapshotLocators(
             alloc,
             history,
-            "/new/fx-home/sessions",
+            "/new/y2-home/sessions",
             "id",
         ),
     );
@@ -4692,7 +4692,7 @@ test "session snapshot locator resolver rejects noncanonical tampering" {
             resolveSessionSnapshotLocators(
                 alloc,
                 history,
-                "/new/fx-home/sessions",
+                "/new/y2-home/sessions",
                 "id",
             ),
         );
@@ -4993,7 +4993,7 @@ const TempStore = struct {
 };
 
 fn initTempStore(alloc: Allocator, tmp: *std.testing.TmpDir) !TempStore {
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     errdefer alloc.free(home);
@@ -5479,7 +5479,7 @@ fn writeWritableManagedHistoryFixture(
     defer alloc.free(output_handle);
     const replay_payload = "recovered command replay";
     var replay_bytes: [8 + 9 + replay_payload.len]u8 = undefined;
-    @memcpy(replay_bytes[0..8], "FXRPLY01");
+    @memcpy(replay_bytes[0..8], "Y2RPLY01");
     replay_bytes[8] = 0;
     std.mem.writeInt(
         u64,
@@ -5495,15 +5495,15 @@ fn writeWritableManagedHistoryFixture(
         .lower,
     );
     const replay_handle = if (artifacts.legacy_replay)
-        try alloc.dupe(u8, "fx-command-replay-legacy.bin")
+        try alloc.dupe(u8, "y2-command-replay-legacy.bin")
     else
         try std.fmt.allocPrint(
             alloc,
-            "fx-command-replay-test-{s}.bin",
+            "y2-command-replay-test-{s}.bin",
             .{&replay_digest_hex},
         );
     defer alloc.free(replay_handle);
-    const interrupted_artifact_handle = "fx-command-cancelled.log";
+    const interrupted_artifact_handle = "y2-command-cancelled.log";
     const interrupted_artifact = "interrupted command artifact";
     if (write_sidecars) {
         var output_file = try capability.createExclusiveFile(
@@ -7270,7 +7270,7 @@ test "a writable session publishes latest after its Store is deinitialized" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
     defer alloc.free(home);
@@ -7349,7 +7349,7 @@ test "workspace rebind invalidates the old latest pointer before publishing the 
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -7404,7 +7404,7 @@ fn expectWorkspaceRebindPublicationFailureRepair(
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -7493,7 +7493,7 @@ test "workspace rebind honors an immediate commit lock deadline" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -7560,7 +7560,7 @@ test "workspace rebind honors an immediate latest cache lock deadline" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -8511,7 +8511,7 @@ test "workspace latest pointer bypasses unrelated authority repair" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -9782,7 +9782,7 @@ test "cross-workspace recovery preserves each workspace latest pointer" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -10494,7 +10494,7 @@ test "recovery reports legacy artifact mutations as unverified" {
             .replay => {
                 const payload = "recovered command replaX";
                 var replay: [8 + 9 + payload.len]u8 = undefined;
-                @memcpy(replay[0..8], "FXRPLY01");
+                @memcpy(replay[0..8], "Y2RPLY01");
                 replay[8] = 0;
                 std.mem.writeInt(
                     u64,
@@ -10540,7 +10540,7 @@ test "recovery authenticates content-addressed command artifacts" {
     std.crypto.hash.sha2.Sha256.hash(contents, &digest, .{});
     const handle = try artifact_digest.contentAddressedHandle(
         alloc,
-        "fx-command-cancelled.log",
+        "y2-command-cancelled.log",
         ".log",
         digest,
     );
@@ -10633,7 +10633,7 @@ test "recovery rejects corrupt managed children without leaking a target" {
             .replay_content => {
                 const replay_payload = "recovered command replaX";
                 var replay_bytes: [8 + 9 + replay_payload.len]u8 = undefined;
-                @memcpy(replay_bytes[0..8], "FXRPLY01");
+                @memcpy(replay_bytes[0..8], "Y2RPLY01");
                 replay_bytes[8] = 0;
                 std.mem.writeInt(
                     u64,
@@ -12177,7 +12177,7 @@ test "workspace latest pointer ignores a mutated session from another workspace"
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -12336,7 +12336,7 @@ test "writable last ignores unavailable boundary from another workspace" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -12471,7 +12471,7 @@ test "empty home read only operations create nothing" {
 
     try std.testing.expectError(
         error.FileNotFound,
-        tmp.dir.access(io_mod.getIo(), "home/.fx", .{}),
+        tmp.dir.access(io_mod.getIo(), "home/.y2", .{}),
     );
 }
 
@@ -12504,7 +12504,7 @@ test "missing home is empty for reads and bootstrapped privately for writes" {
     const home_stat = try home_dir.stat(io_mod.getIo());
     try std.testing.expectEqual(std.Io.File.Kind.directory, home_stat.kind);
     try std.testing.expectEqual(@as(u32, 0o700), home_stat.permissions.toMode() & 0o777);
-    const sessions_path = try std.fs.path.join(alloc, &.{ missing_home, ".fx", "sessions" });
+    const sessions_path = try std.fs.path.join(alloc, &.{ missing_home, ".y2", "sessions" });
     defer alloc.free(sessions_path);
     try std.Io.Dir.accessAbsolute(io_mod.getIo(), sessions_path, .{});
 }
@@ -12553,7 +12553,7 @@ test "first write traces and maps shared layout failure" {
     try std.testing.expect(std.mem.find(u8, trace, workspace) == null);
     try std.testing.expectError(
         error.FileNotFound,
-        tmp.dir.access(io_mod.getIo(), "home/.fx", .{}),
+        tmp.dir.access(io_mod.getIo(), "home/.y2", .{}),
     );
 }
 
@@ -12588,10 +12588,10 @@ test "first write creates only the private session layout" {
     var home_iter = home_dir.iterate();
     const durable_entry = (try home_iter.next(io_mod.getIo())) orelse
         return error.TestExpectedEqual;
-    try std.testing.expectEqualStrings(".fx", durable_entry.name);
+    try std.testing.expectEqualStrings(".y2", durable_entry.name);
     try std.testing.expect((try home_iter.next(io_mod.getIo())) == null);
 
-    var durable_dir = try home_dir.openDir(io_mod.getIo(), ".fx", .{
+    var durable_dir = try home_dir.openDir(io_mod.getIo(), ".y2", .{
         .iterate = true,
     });
     defer durable_dir.close(io_mod.getIo());
@@ -12659,7 +12659,7 @@ test "malformed settings do not block legacy detail or migration" {
     defer tmp.cleanup();
     var ctx = try initTempStore(alloc, &tmp);
     defer ctx.deinit(alloc);
-    const settings_path = try std.fs.path.join(alloc, &.{ ctx.home, ".fx", "settings.json" });
+    const settings_path = try std.fs.path.join(alloc, &.{ ctx.home, ".y2", "settings.json" });
     defer alloc.free(settings_path);
     try writeRawFile(settings_path, "{broken");
     try writeLegacyFixture(alloc, ctx.store, "legacy-with-bad-settings", ctx.workspace, 20);
@@ -12679,7 +12679,7 @@ test "explicit schema v3 resume rebinds workspace" {
     const alloc = std.testing.allocator;
     var tmp = std.testing.tmpDir(.{});
     defer tmp.cleanup();
-    try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+    try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-a");
     try tmp.dir.createDirPath(io_mod.getIo(), "workspace-b");
     const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
@@ -13602,7 +13602,7 @@ test "history page maps missing unsafe unavailable unsupported and corrupt sessi
     tmp.dir.symLink(
         io_mod.getIo(),
         "../../../outside-history-session",
-        "home/.fx/sessions/history-unsafe",
+        "home/.y2/sessions/history-unsafe",
         .{ .is_directory = true },
     ) catch |err| switch (err) {
         error.AccessDenied => return error.SkipZigTest,

@@ -2346,7 +2346,7 @@ const ProjectionTestEnvironment = struct {
     fn init(alloc: Allocator) !ProjectionTestEnvironment {
         var tmp = std.testing.tmpDir(.{});
         errdefer tmp.cleanup();
-        try tmp.dir.createDirPath(io_mod.getIo(), "home/.fx");
+        try tmp.dir.createDirPath(io_mod.getIo(), "home/.y2");
         try tmp.dir.createDirPath(io_mod.getIo(), "workspace");
         const home = try io_mod.dirRealpathAlloc(alloc, tmp.dir, "home");
         errdefer alloc.free(home);
@@ -2443,8 +2443,8 @@ test "child chat source provenance uses only work id joins" {
 }
 
 test "child chat source provenance preserves manager human and model identity" {
-    const model_id = "fxop:2:m:1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
-    const human_id = "fxop:2:h:2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
+    const model_id = "y2op:2:m:1:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+    const human_id = "y2op:2:h:2:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb";
     const messages = [_]domain.QueuedMessage{
         .{
             .id = @constCast(model_id),

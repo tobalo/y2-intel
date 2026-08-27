@@ -3509,7 +3509,7 @@ fn currentExecutablePathForRouting(
     _: ?*anyopaque,
     executable_buf: []u8,
 ) upgrade_helpers.ExecutablePathError![]const u8 {
-    const executable_path = "/tmp/fx-routing-upgraded";
+    const executable_path = "/tmp/y2-routing-upgraded";
     if (executable_path.len > executable_buf.len) return error.PathTooLong;
     @memcpy(executable_buf[0..executable_path.len], executable_path);
     return executable_buf[0..executable_path.len];
@@ -3771,7 +3771,7 @@ test "app_input_runtime routes auth picker navigation before composer history" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).routeModifiedHistory(&app, .down, 1);
@@ -3784,7 +3784,7 @@ test "app_input_runtime Tab cycles the active auth picker" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\t', 4096, 100);
@@ -3886,7 +3886,7 @@ test "app_input_runtime connections picker delegates typed acquisition actions" 
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\r', 4096, 100);
@@ -4208,7 +4208,7 @@ test "api key entry bypasses composer paste and zeroes on cancellation" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    const sentinel = "FX_API_KEY_HISTORY_SENTINEL";
+    const sentinel = "Y2_API_KEY_HISTORY_SENTINEL";
     app.auth.openApiKeyPicker(alloc);
 
     try feedRoutingBytes(&app, "\x1b[200~");
@@ -4383,7 +4383,7 @@ test "app_input_runtime Tab cycles skills menu sources before autocomplete" {
     try Runtime(RoutingFakeApp).handleByte(&app, '\t', 4096, 100);
 
     try std.testing.expect(app.skills.menu.active);
-    try std.testing.expectEqual(skill_runtime.SkillMenuSourceFilter.fx, app.skills.menu.source_filter);
+    try std.testing.expectEqual(skill_runtime.SkillMenuSourceFilter.y2, app.skills.menu.source_filter);
     try std.testing.expectEqualStrings("/sk", app.input_runtime.edit_state.input.items);
 }
 
@@ -4401,7 +4401,7 @@ test "app_input_runtime Tab cycles skills menu sources while streaming" {
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\t', 4096, 100);
 
-    try std.testing.expectEqual(skill_runtime.SkillMenuSourceFilter.fx, app.skills.menu.source_filter);
+    try std.testing.expectEqual(skill_runtime.SkillMenuSourceFilter.y2, app.skills.menu.source_filter);
 }
 
 test "app_input_runtime Tab toggles session picker scope before autocomplete" {
@@ -5021,7 +5021,7 @@ test "app_input_runtime enter on tab-filtered empty dollar menu submits raw" {
     try feedRoutingBytes(&app, "$man");
     try std.testing.expect(app.skills.selectedMenuSkill() != null);
 
-    // .all -> .fx: the codex-sourced skill vanishes, nothing is selectable.
+    // .all -> .y2: the codex-sourced skill vanishes, nothing is selectable.
     try feedRoutingBytes(&app, "\t");
     try std.testing.expect(app.skills.menu.active);
     try std.testing.expect(app.skills.selectedMenuSkill() == null);
@@ -7589,7 +7589,7 @@ fn openRoutingModelMenu(app: *RoutingFakeApp, model_ids: []const []const u8) !vo
 }
 
 fn openRoutingAuthPicker(app: *RoutingFakeApp) !void {
-    app.auth.source_inventory.insert(.vercel_oidc_token);
+    app.auth.source_inventory.insert(.retired_oidc_token);
     app.auth.source_inventory.insert(.api_key);
     app.auth.openPicker(app.alloc);
     try std.testing.expect(app.auth.movePicker(1));
@@ -10645,7 +10645,7 @@ test "route recovery question submit does not write agent question transcript" {
         .{ .label = "Try again later", .description = null },
     };
     const entries = [_]types.QuestionBatchEntry{
-        .{ .question = "Route failed after 3 attempts. What should fx do?", .options = &opts },
+        .{ .question = "Route failed after 3 attempts. What should y2 do?", .options = &opts },
     };
     try app.question_prompt.syncFrom(alloc, &entries);
     try std.testing.expectEqual(
@@ -10661,7 +10661,7 @@ test "route recovery question submit does not write agent question transcript" {
         app.worker.submitted_question_answers[0][0..app.worker.submitted_question_answer_lens[0]],
     );
     try std.testing.expect(!app.question_prompt.isActive());
-    try std.testing.expectEqual(@as(usize, 0), countOccurrences(app.transcript.items, "Route failed after 3 attempts. What should fx do?"));
+    try std.testing.expectEqual(@as(usize, 0), countOccurrences(app.transcript.items, "Route failed after 3 attempts. What should y2 do?"));
 }
 
 test "route recovery question cancel stays local" {
@@ -10675,7 +10675,7 @@ test "route recovery question cancel stays local" {
         .{ .label = "Try again later", .description = null },
     };
     const entries = [_]types.QuestionBatchEntry{
-        .{ .question = "Route failed. What should fx do?", .options = &opts },
+        .{ .question = "Route failed. What should y2 do?", .options = &opts },
     };
     try app.question_prompt.syncFrom(alloc, &entries);
 
@@ -10686,7 +10686,7 @@ test "route recovery question cancel stays local" {
     try std.testing.expect(!app.worker.cancel_requested);
     try std.testing.expect(!app.question_prompt.isActive());
     try std.testing.expect(!app.stream.active);
-    try std.testing.expectEqual(@as(usize, 0), countOccurrences(app.transcript.items, "Route failed. What should fx do?"));
+    try std.testing.expectEqual(@as(usize, 0), countOccurrences(app.transcript.items, "Route failed. What should y2 do?"));
 }
 
 test "app_input_runtime submits multi-question answers in entry order" {
@@ -12958,7 +12958,7 @@ test "app_input_runtime submits nonexistent relative and absolute image paths as
     const absolute_path = try std.fs.path.join(alloc, &.{ root, "missing.png" });
     defer alloc.free(absolute_path);
 
-    for ([_][]const u8{ "fx-missing-image.png", absolute_path }) |missing_path| {
+    for ([_][]const u8{ "y2-missing-image.png", absolute_path }) |missing_path| {
         var app = FakeSubmitApp{ .alloc = alloc };
         defer app.deinit();
         try app.input_runtime.edit_state.input.appendSlice(alloc, missing_path);
@@ -13448,13 +13448,13 @@ test "app_input_runtime multi dollar paste preserves spaces and opens first matc
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{.{
-        .name = "fx-test-strategy",
+        .name = "y2-test-strategy",
         .description = "",
-        .path = "/tmp/fx-test-strategy/SKILL.md",
+        .path = "/tmp/y2-test-strategy/SKILL.md",
         .source = .global_fx,
     }};
     app.skills.items = @constCast(&skills);
-    const pasted = "Need $fx-test and $notaskill in pasted text";
+    const pasted = "Need $y2-test and $notaskill in pasted text";
     try app.input_runtime.paste.buffer.appendSlice(alloc, pasted);
 
     try Runtime(RoutingFakeApp).finalizePastedBlock(&app, 4096);
@@ -13462,9 +13462,9 @@ test "app_input_runtime multi dollar paste preserves spaces and opens first matc
     try std.testing.expectEqualStrings(pasted, app.input_runtime.edit_state.input.items);
     try std.testing.expect(app.skills.menu.active);
     try std.testing.expectEqual(skill_runtime.SkillMenuOrigin.paste, app.skills.menu.origin);
-    try std.testing.expectEqualStrings("fx-test", app.skills.menu.query());
+    try std.testing.expectEqualStrings("y2-test", app.skills.menu.query());
     try std.testing.expectEqual(@as(usize, "Need ".len), app.skills.menu.target.?.start);
-    try std.testing.expectEqual(@as(usize, "Need $fx-test".len), app.skills.menu.target.?.end);
+    try std.testing.expectEqual(@as(usize, "Need $y2-test".len), app.skills.menu.target.?.end);
 
     try Runtime(RoutingFakeApp).resolveEscape(&app, false, 1);
     try std.testing.expect(!app.skills.menu.active);

@@ -202,7 +202,7 @@ pub fn Runtime(comptime App: type) type {
                 else
                     host.unavailable_secret_store,
                 .resize_handler = resize_handler,
-                .fx_version = App.app_version,
+                .y2_version = App.app_version,
                 .record_requested = record_requested,
             });
             defer startup.deinit(app.alloc);
@@ -234,7 +234,7 @@ pub fn Runtime(comptime App: type) type {
                 app.auth.openOnboardingPicker(app.alloc);
             }
             if (comptime @hasField(App, "terminal_input_runtime") and @hasField(App, "terminal")) {
-                // Own theme protocol bytes even under FX_THEME; probing stays gated.
+                // Own theme protocol bytes even under Y2_THEME; probing stays gated.
                 app.terminal_input_runtime.terminal_theme_monitor.start();
                 if (startup.theme_monitor_enabled) {
                     app.terminal.enableThemeNotifications() catch |err| {
@@ -378,7 +378,7 @@ pub fn Runtime(comptime App: type) type {
                     try app.writeDomainNotice(.{
                         .topic = "keychain",
                         .tone = .warning,
-                        .body = "fx could not access " ++ credentials.stored_key_backend_label ++ ". Continuing without an API key.",
+                        .body = "y2 could not access " ++ credentials.stored_key_backend_label ++ ". Continuing without an API key.",
                     }, true);
                 }
             }
@@ -473,7 +473,7 @@ const TestCapture = struct {
     footer_rows: u16 = 0,
     default_model: []const u8 = "",
     default_agent_step_limit: usize = 0,
-    fx_version: []const u8 = "",
+    y2_version: []const u8 = "",
     configured_model: [64]u8 = undefined,
     configured_model_len: usize = 0,
     configured_model_source: config_runtime.ModelSource = .compiled_default,
@@ -660,7 +660,7 @@ fn bootstrapInteractiveAppForTest(cfg: app_lifecycle.BootstrapConfig) !app_lifec
     capture.footer_rows = cfg.footer_rows;
     capture.default_model = cfg.default_model;
     capture.default_agent_step_limit = cfg.default_agent_step_limit;
-    capture.fx_version = cfg.fx_version;
+    capture.y2_version = cfg.y2_version;
     try std.testing.expect(cfg.terminal == &active_app_for_pointer_check.?.terminal);
     active_app_for_pointer_check.?.shell.layout = .{
         .rows = 24,
@@ -882,7 +882,7 @@ test "app_bootstrap_runtime transfers startup state and starts a fresh session" 
     try std.testing.expectEqual(@as(u16, 4), capture.footer_rows);
     try std.testing.expectEqualStrings("default-model", capture.default_model);
     try std.testing.expectEqual(@as(usize, 24), capture.default_agent_step_limit);
-    try std.testing.expectEqualStrings(TestApp.app_version, capture.fx_version);
+    try std.testing.expectEqualStrings(TestApp.app_version, capture.y2_version);
     try std.testing.expectEqualStrings(
         "configured-model",
         capture.configuredModel(),

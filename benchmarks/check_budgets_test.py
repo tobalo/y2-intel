@@ -25,7 +25,7 @@ class BudgetContractTests(unittest.TestCase):
             for index, result in enumerate(results):
                 (result_dir / f"{index}.json").write_text(json.dumps({"results": [result]}))
             env = os.environ.copy()
-            env["FX_BENCH_RESULTS_GLOB"] = str(result_dir / "*.json")
+            env["Y2_BENCH_RESULTS_GLOB"] = str(result_dir / "*.json")
             return subprocess.run(
                 [sys.executable, str(MODULE_PATH)],
                 cwd=REPO_ROOT,
@@ -37,13 +37,13 @@ class BudgetContractTests(unittest.TestCase):
 
     def test_linux_keeps_two_millisecond_raw_budget(self) -> None:
         self.assertEqual(
-            check_budgets.command_budget("Linux", "fx sessions --json"),
+            check_budgets.command_budget("Linux", "y2 sessions --json"),
             0.002,
         )
 
     def test_darwin_has_no_local_product_budget(self) -> None:
         self.assertIsNone(
-            check_budgets.command_budget("Darwin", "fx sessions --json"),
+            check_budgets.command_budget("Darwin", "y2 sessions --json"),
         )
 
     def test_budget_check_uses_raw_mean(self) -> None:

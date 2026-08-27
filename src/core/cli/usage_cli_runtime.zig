@@ -51,6 +51,6 @@ test "usage CLI collection does not create profile state for an empty home" {
     try std.testing.expectEqual(usage_report.Coverage.not_started, report.coverage);
     try std.testing.expectError(
         error.FileNotFound,
-        tmp.dir.access(io_mod.getIo(), ".fx", .{}),
+        tmp.dir.access(io_mod.getIo(), ".y2", .{}),
     );
 }

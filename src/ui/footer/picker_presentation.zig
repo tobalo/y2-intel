@@ -13,7 +13,7 @@ const input_presentation = @import("input_presentation.zig");
 const row_text = @import("row_text.zig");
 
 const Allocator = std.mem.Allocator;
-const team_query_prefix = "Vercel team · Search: ";
+const team_query_prefix = "Retired credential team · Search: ";
 const compact_team_query_prefix = "Search: ";
 
 const TeamQueryProjection = struct {
@@ -81,7 +81,7 @@ fn setupChoiceLabel(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
         },
         .connections => switch (choice) {
             .action => |action| switch (action) {
-                .login => "Vercel sign-in removed",
+                .login => "Retired credential sign-in removed",
                 .chatgpt_login => "Codex subscription",
                 .grok_login => "Grok subscription",
                 .setup => "Y2 / OpenAI API key",
@@ -100,7 +100,7 @@ fn setupChoiceValue(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
             .action => |action| switch (action) {
                 .connections => if (view.available_sources.count() > 0) "connected" else "not connected",
                 .switch_provider => view.choiceLabel(.{ .provider = view.active_provider }),
-                .change_team => if (!view.fx_login_session_available)
+                .change_team => if (!view.retired_login_session_available)
                     "sign in to manage"
                 else if (view.current_team != null)
                     "selected"
@@ -116,7 +116,7 @@ fn setupChoiceValue(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
         },
         .connections => switch (choice) {
             .action => |action| switch (action) {
-                .login => if (view.fx_login_session_available) "connected" else "not connected",
+                .login => if (view.retired_login_session_available) "connected" else "not connected",
                 .chatgpt_login => if (view.available_sources.contains(.chatgpt_subscription)) "connected" else "not connected",
                 .grok_login => if (view.available_sources.contains(.grok_subscription)) "connected" else "not connected",
                 .setup => if (view.available_sources.contains(.stored_key))
@@ -218,9 +218,9 @@ fn composeSetupEmptyRow(
     try row_text.appendClipped(alloc, &row, switch (view.stage) {
         .provider => "  No providers available",
         .change_team => if (view.team_query.len == 0)
-            "  No Vercel teams available"
+            "  No Retired credential teams available"
         else
-            "  No matching Vercel teams",
+            "  No matching Retired credential teams",
         .switch_credential => "  No credentials available",
         .root, .connections, .sign_in, .api_key => "",
     }, width);
@@ -415,7 +415,7 @@ fn composeSignInPickerRow(
         const used: u16 = @intCast(@min(display_width.visibleWidth(prefix), width));
         const remaining = width -| used;
         if (remaining > 0) {
-            try row.appendSlice(alloc, "\x1b]8;id=fx-codex-auth;");
+            try row.appendSlice(alloc, "\x1b]8;id=y2-codex-auth;");
             try row.appendSlice(alloc, snapshot.verification_uri);
             try row.appendSlice(alloc, "\x1b\\\x1b[4m");
             try row_text.appendClipped(alloc, &row, "Authorize with Codex", remaining);
@@ -455,7 +455,7 @@ fn composeSignInPickerRow(
         else if (source == .grok_subscription)
             "   Sign in with Grok"
         else
-            "   Sign in with Vercel",
+            "   Sign in with Retired credential",
         1, 4 => "",
         2 => std.fmt.bufPrint(
             &label_buf,
@@ -466,7 +466,7 @@ fn composeSignInPickerRow(
         else if (source == .grok_subscription)
             "   Open the Grok authorization page"
         else
-            "   Open the Vercel device authorization page",
+            "   Open the Retired credential device authorization page",
         3 => if (snapshot.user_code.len == 0)
             ""
         else
@@ -1193,7 +1193,7 @@ const picker_test_slash_specs = [_]command_specs.SlashSpec{
     .{ .kind = .models, .command = "/models", .help_entry = "/models", .completion_description = "browse available models", .presentation_category = .model },
     .{ .kind = .mcp, .command = "/mcp", .help_entry = "/mcp [list|resource|prompt|add|remove]", .completion_description = "manage MCP servers, resources, and prompts", .presentation_category = .extensions, .has_args = true },
     .{ .kind = .permissions, .command = "/permissions", .help_entry = "/permissions [ask|auto|remember|revoke|yolo|reset]", .completion_description = "choose permission behavior", .presentation_category = .security, .has_args = true },
-    .{ .kind = .credits, .command = "/credits", .aliases = &.{"/balance"}, .help_entry = "/credits (/balance)", .completion_description = "show gateway credits balance", .presentation_category = .account },
+    .{ .kind = .usage, .command = "/usage", .aliases = &.{"/cost"}, .help_entry = "/usage (/cost)", .completion_description = "show local harness usage", .presentation_category = .account },
 };
 const picker_test_slash_registry = command_specs.SlashRegistry{ .commands = picker_test_slash_specs[0..] };
 
@@ -1309,14 +1309,14 @@ test "slash menu hides metadata for commands and skills" {
     try std.testing.expect(std.mem.find(u8, command.items, "Model") == null);
 
     const skills = [_]skill_runtime.Skill{.{
-        .name = "fx-test-strategy",
+        .name = "y2-test-strategy",
         .description = "choose focused regression coverage",
-        .path = "/tmp/.codex/skills/fx-test-strategy",
+        .path = "/tmp/.codex/skills/y2-test-strategy",
         .source = .global_codex,
     }};
-    const skill_layout = slashMenuLayout(picker_test_slash_registry, "/fx-test", &skills, 0, 0, 24, 0, 0).?;
-    const skill_widths = mixedSlashMenuColumnWidths(picker_test_slash_registry, "/fx-test", &skills, skill_layout.window, false);
-    var skill = try composeSlashMenuOptionRow(std.testing.allocator, picker_test_slash_registry, "/fx-test", &skills, 0, true, skill_widths, 64, false);
+    const skill_layout = slashMenuLayout(picker_test_slash_registry, "/y2-test", &skills, 0, 0, 24, 0, 0).?;
+    const skill_widths = mixedSlashMenuColumnWidths(picker_test_slash_registry, "/y2-test", &skills, skill_layout.window, false);
+    var skill = try composeSlashMenuOptionRow(std.testing.allocator, picker_test_slash_registry, "/y2-test", &skills, 0, true, skill_widths, 64, false);
     defer skill.deinit(std.testing.allocator);
     try std.testing.expect(std.mem.find(u8, skill.items, "choose focused regression coverage") != null);
     try std.testing.expect(std.mem.find(u8, skill.items, "codex") == null);
@@ -1324,23 +1324,23 @@ test "slash menu hides metadata for commands and skills" {
 
 test "slash menu keeps matching skill source labels" {
     const skills = [_]skill_runtime.Skill{.{
-        .name = "fx-test-strategy",
-        .description = "choose focused regression coverage for the affected Fx behavior",
-        .path = "/tmp/.codex/skills/fx-test-strategy",
+        .name = "y2-test-strategy",
+        .description = "choose focused regression coverage for the affected Y2 behavior",
+        .path = "/tmp/.codex/skills/y2-test-strategy",
         .source = .global_codex,
     }};
-    const layout = slashMenuLayout(picker_test_slash_registry, "/fx-test", &skills, 0, 0, 24, 0, 0).?;
+    const layout = slashMenuLayout(picker_test_slash_registry, "/y2-test", &skills, 0, 0, 24, 0, 0).?;
     try std.testing.expectEqual(@as(usize, 0), layout.command_count);
     try std.testing.expectEqual(@as(usize, 1), layout.result_count);
 
-    var header = try composeSlashMenuHeaderRow(std.testing.allocator, "/fx-test", layout, 80);
+    var header = try composeSlashMenuHeaderRow(std.testing.allocator, "/y2-test", layout, 80);
     defer header.deinit(std.testing.allocator);
     try std.testing.expect(std.mem.find(u8, header.items, "Results 1") != null);
 
-    const column_widths = mixedSlashMenuColumnWidths(picker_test_slash_registry, "/fx-test", &skills, layout.window, true);
-    var row = try composeSlashMenuOptionRow(std.testing.allocator, picker_test_slash_registry, "/fx-test", &skills, 0, true, column_widths, 64, true);
+    const column_widths = mixedSlashMenuColumnWidths(picker_test_slash_registry, "/y2-test", &skills, layout.window, true);
+    var row = try composeSlashMenuOptionRow(std.testing.allocator, picker_test_slash_registry, "/y2-test", &skills, 0, true, column_widths, 64, true);
     defer row.deinit(std.testing.allocator);
-    try std.testing.expect(std.mem.find(u8, row.items, "fx-test-strategy") != null);
+    try std.testing.expect(std.mem.find(u8, row.items, "y2-test-strategy") != null);
     try std.testing.expect(std.mem.find(u8, row.items, "choose focused") != null);
     try std.testing.expect(std.mem.find(u8, row.items, "…") != null);
     try std.testing.expect(std.mem.find(u8, row.items, "codex") != null);
@@ -1373,19 +1373,19 @@ test "slash completion option row aligns argument labels without command prefix"
 test "mixed slash completion includes matching skills with source labels" {
     const alloc = std.testing.allocator;
     const skills = [_]skill_runtime.Skill{.{
-        .name = "fx-test-strategy",
+        .name = "y2-test-strategy",
         .description = "coverage help",
-        .path = "/tmp/.codex/skills/fx-test-strategy",
+        .path = "/tmp/.codex/skills/y2-test-strategy",
         .source = .global_codex,
     }};
 
-    try std.testing.expect(mixedSlashCompletionCount(picker_test_slash_registry, "/fx-test", &skills) > 0);
-    const skill = nthMixedSlashCompletionSkill(picker_test_slash_registry, "/fx-test", &skills, 0) orelse return error.TestExpectedEqual;
-    try std.testing.expectEqualStrings("fx-test-strategy", skill.name);
+    try std.testing.expect(mixedSlashCompletionCount(picker_test_slash_registry, "/y2-test", &skills) > 0);
+    const skill = nthMixedSlashCompletionSkill(picker_test_slash_registry, "/y2-test", &skills, 0) orelse return error.TestExpectedEqual;
+    try std.testing.expectEqualStrings("y2-test-strategy", skill.name);
 
-    var row = try composeMixedSlashCompletionOptionRow(alloc, picker_test_slash_registry, "/fx-test", &skills, 0, true, 1, 8, 50);
+    var row = try composeMixedSlashCompletionOptionRow(alloc, picker_test_slash_registry, "/y2-test", &skills, 0, true, 1, 8, 50);
     defer row.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, row.items, "fx-test-strategy") != null);
+    try std.testing.expect(std.mem.find(u8, row.items, "y2-test-strategy") != null);
     try std.testing.expect(std.mem.find(u8, row.items, "codex") != null);
     try std.testing.expect(display_width.visibleWidthIgnoringAnsi(row.items) <= 50);
 }
@@ -1395,7 +1395,7 @@ test "mixed slash completion uses skill relevance order" {
         .{
             .name = "metadata-first",
             .description = "zig workflow",
-            .path = "/tmp/.fx/skills/metadata-first",
+            .path = "/tmp/.y2/skills/metadata-first",
             .source = .global_fx,
         },
         .{
@@ -1465,11 +1465,11 @@ test "registry-aware mixed slash completion maps skills after injected commands"
 test "registry-aware slash presentation preserves aliases" {
     try std.testing.expectEqual(
         @as(usize, 1),
-        mixedSlashCompletionCount(picker_test_slash_registry, "/bal", &.{}),
+        mixedSlashCompletionCount(picker_test_slash_registry, "/cos", &.{}),
     );
     try std.testing.expectEqualStrings(
-        "/balance",
-        nthMixedSlashCompletionText(picker_test_slash_registry, "/bal", &.{}, 0).?,
+        "/cost",
+        nthMixedSlashCompletionText(picker_test_slash_registry, "/cos", &.{}, 0).?,
     );
 }
 
@@ -1787,7 +1787,7 @@ test "auth onboarding composes the welcome copy and setup choices" {
     try std.testing.expect(std.mem.find(u8, screen.items, "You can change this anytime with /setup.") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Note: Y2 Information Dominance defaults to auto mode. \x1b]8;id=y2-onboarding;https://y2.dev/docs/api\x1b\\\x1b[4mAPI docs\x1b[24m\x1b]8;;\x1b\\") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Learn more: https://") == null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "Sign in with Vercel") == null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Sign in with Retired credential") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Add an API key") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Esc to set up later · Explore all commands with /help") != null);
 
@@ -1823,7 +1823,7 @@ test "auth onboarding composes the welcome copy and setup choices" {
         try compact_screen.appendSlice(alloc, row.items);
         try compact_screen.append(alloc, '\n');
     }
-    try std.testing.expect(std.mem.find(u8, compact_screen.items, "Sign in with Vercel") == null);
+    try std.testing.expect(std.mem.find(u8, compact_screen.items, "Sign in with Retired credential") == null);
     try std.testing.expect(std.mem.find(u8, compact_screen.items, "Add an API key") != null);
     try std.testing.expect(std.mem.find(u8, compact_screen.items, "Sign in with Codex") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Sign in with Grok") != null);
@@ -1880,12 +1880,12 @@ test "setup root fits the inline picker with status and controls" {
 
     try std.testing.expect(std.mem.find(u8, screen.items, "Connections") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Model provider") != null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "Vercel team") == null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Retired credential team") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Credential source") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Enter Open") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Esc Close") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Routing") == null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "Vercel account") == null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Retired credential account") == null);
 
     var gap = try composeAuthPickerRow(alloc, view, 1, row_count, 100);
     defer gap.deinit(alloc);
@@ -1912,7 +1912,7 @@ test "compact auth picker keeps the selected hub action visible" {
     const alloc = std.testing.allocator;
     const view = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login }),
+        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login }),
         .selected_choice = .{ .action = .switch_credential },
         .active_source = .api_key,
         .include_skip = false,
@@ -1993,7 +1993,7 @@ test "auth picker renders the staged switch and disabled team screens" {
     try std.testing.expectEqual(@as(u16, 3), team_rows);
     var team_header = try composeAuthPickerRow(alloc, team_view, 0, team_rows, 80);
     defer team_header.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, team_header.items, "Vercel team · Search:") != null);
+    try std.testing.expect(std.mem.find(u8, team_header.items, "Retired credential team · Search:") != null);
 
     var team_gap = try composeAuthPickerRow(alloc, team_view, 1, team_rows, 80);
     defer team_gap.deinit(alloc);
@@ -2001,7 +2001,7 @@ test "auth picker renders the staged switch and disabled team screens" {
 
     var no_teams = try composeAuthPickerRow(alloc, team_view, 2, team_rows, 80);
     defer no_teams.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, no_teams.items, "No Vercel teams available") != null);
+    try std.testing.expect(std.mem.find(u8, no_teams.items, "No Retired credential teams available") != null);
 
     var search_view = team_view;
     search_view.team_query = "play";
@@ -2020,7 +2020,7 @@ test "auth picker renders the staged switch and disabled team screens" {
 
     var no_matches = try composeAuthPickerRow(alloc, search_view, 2, team_rows, 80);
     defer no_matches.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, no_matches.items, "No matching Vercel teams") != null);
+    try std.testing.expect(std.mem.find(u8, no_matches.items, "No matching Retired credential teams") != null);
 }
 
 test "api key stage renders only a bounded mask and the configured backend label" {
@@ -2039,7 +2039,7 @@ test "api key stage renders only a bounded mask and the configured backend label
     var field = try composeAuthPickerRow(alloc, view, 1, 4, 80);
     defer field.deinit(alloc);
     try std.testing.expectEqual(@as(usize, 9), std.mem.count(u8, field.items, "•"));
-    try std.testing.expect(std.mem.find(u8, field.items, "FX_API_KEY_RENDER_SENTINEL") == null);
+    try std.testing.expect(std.mem.find(u8, field.items, "Y2_API_KEY_RENDER_SENTINEL") == null);
 
     var backend = try composeAuthPickerRow(alloc, view, 3, 4, 80);
     defer backend.deinit(alloc);
@@ -2085,7 +2085,7 @@ test "sign-in stage renders the complete device authorization screen" {
         .stage = .sign_in,
         .sign_in = .{
             .state = .polling,
-            .verification_uri = "https://vercel.test/verify",
+            .verification_uri = "https://identity.example/verify",
             .user_code = "TEST-CODE",
         },
     };
@@ -2100,8 +2100,8 @@ test "sign-in stage renders the complete device authorization screen" {
         try screen.append(alloc, '\n');
     }
     for ([_][]const u8{
-        "Sign in with Vercel",
-        "Open   https://vercel.test/verify",
+        "Sign in with Retired credential",
+        "Open   https://identity.example/verify",
         "Code   TEST-CODE",
         "Waiting for authorization",
         "Enter reopens browser · Esc cancels",

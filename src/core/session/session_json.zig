@@ -1418,7 +1418,7 @@ test "session JSON round-trips images summaries and background commands" {
     var images = [_]session.ImageAttachment{.{
         .path = @constCast("/tmp/core.png"),
         .media_type = @constCast("image/png"),
-        .snapshot_path = @constCast("/tmp/fx-session/images/image-1.bin"),
+        .snapshot_path = @constCast("/tmp/y2-session/images/image-1.bin"),
         .snapshot_sha256 = @constCast("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef"),
     }};
     var completed_tool_names = [_][]u8{ @constCast("list_files"), @constCast("glob_files") };

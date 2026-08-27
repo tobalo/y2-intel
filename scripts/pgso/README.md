@@ -1,6 +1,6 @@
 # macOS arm64 PGSO candidate pipeline
 
-This directory owns the non-publishing Stage 1 build for a smaller macOS arm64 `fx` candidate. It preserves Zig ReleaseSafe semantics and the complete product feature set, then uses native LLVM profiles to keep measured hot code speed-oriented and compile profile-proven cold functions for size.
+This directory owns the non-publishing Stage 1 build for a smaller macOS arm64 `y2` candidate. It preserves Zig ReleaseSafe semantics and the complete product feature set, then uses native LLVM profiles to keep measured hot code speed-oriented and compile profile-proven cold functions for size.
 
 The candidate is accepted only when it is no larger than **7.800 MiB**, has the preferred **0.250 MiB** of size headroom, passes the deterministic product corpus, and stays within a **10%** p50 and p95 performance regression limit. The ordinary ReleaseSafe binary remains the control and recovery path.
 
@@ -25,15 +25,15 @@ Every mutating command requires a fresh or empty output directory. State from se
 ```bash
 python3 -m scripts.pgso build \
   --llvm-bin "$(brew --prefix llvm@21)/bin" \
-  --output-dir /tmp/fx-pgso-build
+  --output-dir /tmp/y2-pgso-build
 
 python3 -m scripts.pgso train \
   --llvm-bin "$(brew --prefix llvm@21)/bin" \
-  --output-dir /tmp/fx-pgso-train
+  --output-dir /tmp/y2-pgso-train
 
 python3 -m scripts.pgso all \
   --llvm-bin "$(brew --prefix llvm@21)/bin" \
-  --output-dir /tmp/fx-pgso-candidate \
+  --output-dir /tmp/y2-pgso-candidate \
   --target aarch64-macos \
   --update-channel stable \
   --samples 50
@@ -67,7 +67,7 @@ command requires all 36 training scenarios, all 53 behavior scenarios, and all
 
 Every root `tests/e2e/*.test.ts` file must be classified as training, verification-only, or intentionally excluded. The corpus loader fails on missing, duplicate, stale, or unclassified files, so a new E2E owner cannot silently bypass release qualification. New tests added to an already classified file inherit that file's classification.
 
-Sound-bearing `notifications.test.ts` and `tui-command-permissions.test.ts` are explicitly excluded. The credential-dependent `tui-agent.test.ts` suite is replaced by deterministic fake-Gateway permission-error coverage. Live-model and live-network files are forbidden. Corpus processes receive per-scenario homes and isolated tmux sockets and cannot inherit model credentials, the caller's tmux session, an external LLVM profile destination, or caller-selected fx tracing. The CLI and MCP authentication suites explicitly link the host Keychains directory into only their scenario homes so their uniquely named fake macOS Keychain assertions can run; no other scenario receives that access.
+Sound-bearing `notifications.test.ts` and `tui-command-permissions.test.ts` are explicitly excluded. The credential-dependent `tui-agent.test.ts` suite is replaced by deterministic fake-Gateway permission-error coverage. Live-model and live-network files are forbidden. Corpus processes receive per-scenario homes and isolated tmux sockets and cannot inherit model credentials, the caller's tmux session, an external LLVM profile destination, or caller-selected y2 tracing. The CLI and MCP authentication suites explicitly link the host Keychains directory into only their scenario homes so their uniquely named fake macOS Keychain assertions can run; no other scenario receives that access.
 
 Each training scenario must create a new nonempty raw profile. The driver merges that batch into the accumulator atomically, deletes only the successfully merged raw files, and stops before profile use on any missing scenario, timeout, warning, merge failure, or cleanup failure.
 
@@ -75,7 +75,7 @@ Candidate behavior qualification records each scenario's debug trace under `cand
 
 ## Qualification policy
 
-Startup compares `help`, `--version`, `status --json`, `background --json`, `doctor --json`, and `sessions --json`. It first executes each verified immutable artifact once to require successful output and empty stderr. Timing then uses pinned Hyperfine with no intermediate shell, ten warmups per artifact in each of at least 100 alternating rounds, and at least 1,000 measured samples per artifact. No contiguous block exceeds ten measured runs, so short machine-noise bursts are distributed between control and candidate while p95 retains 50 tail observations. Startup measurement sets `FX_DISABLE_KEYCHAIN=1` so the compiler comparison cannot be dominated by host-global macOS Keychain subprocess latency; the deterministic behavior corpus remains responsible for exercising Keychain integration. No per-sample Python process management or evidence-file write is included in the timed boundary, and measurement never replaces `zig-out/bin/fx`. Heavy qualification compares file indexing at 100,000 paths, UI activity, and approval transcript, diff, combined, and large-payload workloads.
+Startup compares `help`, `--version`, `status --json`, `background --json`, `doctor --json`, and `sessions --json`. It first executes each verified immutable artifact once to require successful output and empty stderr. Timing then uses pinned Hyperfine with no intermediate shell, ten warmups per artifact in each of at least 100 alternating rounds, and at least 1,000 measured samples per artifact. No contiguous block exceeds ten measured runs, so short machine-noise bursts are distributed between control and candidate while p95 retains 50 tail observations. Startup measurement sets `Y2_DISABLE_KEYCHAIN=1` so the compiler comparison cannot be dominated by host-global macOS Keychain subprocess latency; the deterministic behavior corpus remains responsible for exercising Keychain integration. No per-sample Python process management or evidence-file write is included in the timed boundary, and measurement never replaces `zig-out/bin/y2`. Heavy qualification compares file indexing at 100,000 paths, UI activity, and approval transcript, diff, combined, and large-payload workloads.
 
 Heavy comparisons use at least 50 measured samples for each artifact and alternate pair order AB then BA. Command failures and timeouts fail qualification and are never replaced. A candidate fails when either p50 or p95 is more than 10% slower than its matching control. The existing Linux startup workflow remains the authority for the repository's absolute 2 ms command budget.
 
@@ -101,9 +101,9 @@ supplement, and binary hashes, and aggregation rejects any mismatch.
 The output root contains:
 
 ```text
-control/bin/fx
-instrumented/fx
-candidate/fx
+control/bin/y2
+instrumented/y2
+candidate/y2
 profiles/merged.profdata
 profiles/supplements/
 heavy/
@@ -117,11 +117,11 @@ Generated binaries, bitcode, objects, profiles, caches, measurements, and logs a
 
 The driver also streams operational progress to the invoking terminal or GitHub Actions log. Every stage announces its start and terminal status with elapsed time, every child command announces its start and terminal status, and child stdout and stderr remain visible while the process runs. A silent child emits a heartbeat every 30 seconds. JSON evidence retains at most the last 1,048,576 characters from each output stream per command and records the total character counts and truncation status; no environment variables are printed.
 
-Corpus scenarios inherit only a small operating-system environment allowlist. Credentials, live-test flags, tracing settings, and repository dotenv files are excluded unless a value is explicitly declared in the versioned corpus. The runner temporarily installs the assigned artifact at `zig-out/bin/fx` for E2E compatibility, then restores the prior file (or prior absence) after success, failure, timeout, or cancellation.
+Corpus scenarios inherit only a small operating-system environment allowlist. Credentials, live-test flags, tracing settings, and repository dotenv files are excluded unless a value is explicitly declared in the versioned corpus. The runner temporarily installs the assigned artifact at `zig-out/bin/y2` for E2E compatibility, then restores the prior file (or prior absence) after success, failure, timeout, or cancellation.
 
 The native workflow uploads bounded phase evidence rather than caches or
 intermediate compiler objects. Pull requests and manual runs have read-only
 repository permissions and do not change release, dev-channel, CDN, tag, or
 GitHub Release state. The stable release workflow may call the same gate with
 release packaging enabled; only the candidate copied by the successful final
-aggregate is packaged as `fx-macos-aarch64.tar.gz`.
+aggregate is packaged as `y2-macos-aarch64.tar.gz`.

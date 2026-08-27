@@ -12,7 +12,7 @@ import {
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
-export const FX_BIN = resolve(import.meta.dirname, "../../zig-out/bin/fx");
+export const Y2_BIN = resolve(import.meta.dirname, "../../zig-out/bin/y2");
 export const REPO_ROOT = resolve(import.meta.dirname, "../..");
 
 export const EVAL_MODELS = [
@@ -49,7 +49,7 @@ function loadDotEnv(): Record<string, string> {
 export function shouldLoadDotEnv(
   environment: NodeJS.ProcessEnv = process.env,
 ): boolean {
-  return environment.FX_E2E_DISABLE_DOTENV !== "1";
+  return environment.Y2_E2E_DISABLE_DOTENV !== "1";
 }
 
 const dotEnvVars = shouldLoadDotEnv() ? loadDotEnv() : {};
@@ -98,9 +98,9 @@ export interface EvalOptions {
   setup?: (dir: string) => Promise<void>;
 }
 
-const PREFIX = "fx-eval-";
-const HOME_PREFIX = "fx-eval-home-";
-const TEST_HOME_PREFIX = "fx-test-home-";
+const PREFIX = "y2-eval-";
+const HOME_PREFIX = "y2-eval-home-";
+const TEST_HOME_PREFIX = "y2-test-home-";
 
 export function createWorkDir(): string {
   return mkdtempSync(join(tmpdir(), PREFIX));
@@ -122,9 +122,9 @@ export function cleanupIsolatedTestHome(home: string): void {
 
 function createEvalHome(): string {
   const home = mkdtempSync(join(tmpdir(), HOME_PREFIX));
-  mkdirSync(join(home, ".fx"), { recursive: true, mode: 0o700 });
+  mkdirSync(join(home, ".y2"), { recursive: true, mode: 0o700 });
   writeFileSync(
-    join(home, ".fx", "settings.json"),
+    join(home, ".y2", "settings.json"),
     JSON.stringify({
       permission_mode: "auto",
       permission: {
@@ -156,7 +156,7 @@ export function buildEvalProcessEnv(
     NO_COLOR: "1",
     HOME: home,
     PATH: process.env.PATH ?? "",
-    FX_MODEL: model,
+    Y2_MODEL: model,
   };
 }
 
@@ -174,9 +174,9 @@ export async function runEval(
       await setup(workDir);
     }
 
-    if (!existsSync(FX_BIN)) {
+    if (!existsSync(Y2_BIN)) {
       throw new Error(
-        `fx binary not found at ${FX_BIN}. Run 'zig build' first.`,
+        `y2 binary not found at ${Y2_BIN}. Run 'zig build' first.`,
       );
     }
 
@@ -196,7 +196,7 @@ export async function runEval(
       code: number | null;
     }>((resolvePromise) => {
       const env = buildEvalProcessEnv(home, model);
-      const child = nodeSpawn(FX_BIN, args, {
+      const child = nodeSpawn(Y2_BIN, args, {
         env,
         cwd: workDir,
         stdio: ["pipe", "pipe", "pipe"],
@@ -222,7 +222,7 @@ export async function runEval(
       json = JSON.parse(result.stdout.trim());
     } catch {
       throw new Error(
-        `Failed to parse fx JSON output.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
+        `Failed to parse y2 JSON output.\nstdout: ${result.stdout}\nstderr: ${result.stderr}`,
       );
     }
 
@@ -244,7 +244,7 @@ export async function runEval(
 
     if (json.error) {
       throw new Error(
-        `fx returned error: ${json.error}\nstderr: ${result.stderr.slice(-1000)}`,
+        `y2 returned error: ${json.error}\nstderr: ${result.stderr.slice(-1000)}`,
       );
     }
 
@@ -425,9 +425,9 @@ export function assertFirstTerminalExecMatches(
   expect(pattern.test(first?.command_result?.command ?? "")).toBe(true);
 }
 
-// Generic fx CLI runner for deterministic command coverage.
+// Generic y2 CLI runner for deterministic command coverage.
 
-export interface FxRunResult {
+export interface Y2RunResult {
   stdout: string;
   stderr: string;
   code: number | null;
@@ -440,12 +440,12 @@ export interface FxRunResult {
   processStateAfterClose: string;
 }
 
-function captureFxProcessState(): string {
+function captureY2ProcessState(): string {
   try {
     return execFileSync("ps", ["-axo", "pid,ppid,stat,etime,command"], {
       encoding: "utf8",
     }).split("\n").filter((line) =>
-      line.includes("/zig-out/bin/fx") ||
+      line.includes("/zig-out/bin/y2") ||
       line.includes("mcp-modern-") ||
       line.includes("mcp-legacy-") ||
       line.includes("bun test")
@@ -455,7 +455,7 @@ function captureFxProcessState(): string {
   }
 }
 
-export async function runFx(
+export async function runY2(
   args: string[],
   opts: {
     cwd?: string;
@@ -463,14 +463,14 @@ export async function runFx(
     stdin?: string | Uint8Array;
     timeoutMs?: number;
   } = {},
-): Promise<FxRunResult> {
-  if (!existsSync(FX_BIN)) {
-    throw new Error(`fx binary not found at ${FX_BIN}. Run 'zig build' first.`);
+): Promise<Y2RunResult> {
+  if (!existsSync(Y2_BIN)) {
+    throw new Error(`y2 binary not found at ${Y2_BIN}. Run 'zig build' first.`);
   }
 
   const { cwd, timeoutMs = 15_000 } = opts;
 
-  return new Promise<FxRunResult>((resolvePromise) => {
+  return new Promise<Y2RunResult>((resolvePromise) => {
     const env: Record<string, string | undefined> = {
       ...dotEnvVars,
       ...process.env,
@@ -485,7 +485,7 @@ export async function runFx(
         env[key] = value;
       }
     }
-    const child = nodeSpawn(FX_BIN, args, {
+    const child = nodeSpawn(Y2_BIN, args, {
       env,
       cwd: cwd ?? REPO_ROOT,
       stdio: ["pipe", "pipe", "pipe"],
@@ -503,7 +503,7 @@ export async function runFx(
     let processStateAtTimeout = "";
     const timer = setTimeout(() => {
       timedOut = true;
-      processStateAtTimeout = captureFxProcessState();
+      processStateAtTimeout = captureY2ProcessState();
       killSent = child.kill("SIGKILL");
     }, timeoutMs);
 
@@ -519,7 +519,7 @@ export async function runFx(
         elapsedMs: performance.now() - startedAtMs,
         pid: child.pid ?? null,
         processStateAtTimeout,
-        processStateAfterClose: code === 0 && !timedOut ? "" : captureFxProcessState(),
+        processStateAfterClose: code === 0 && !timedOut ? "" : captureY2ProcessState(),
       });
     });
   });
@@ -528,5 +528,5 @@ export async function runFx(
 export const HAS_API_KEY: boolean = Boolean(
   process.env.Y2_API_KEY ||
     (process.env.OPENAI_API_KEY &&
-      (process.env.OPENAI_BASE_URL || process.env.FX_API_CHAT_URL)),
+      (process.env.OPENAI_BASE_URL || process.env.Y2_API_CHAT_URL)),
 );

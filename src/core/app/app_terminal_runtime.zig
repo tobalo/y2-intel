@@ -27,7 +27,7 @@ pub fn Runtime(comptime App: type) type {
                 return;
             };
             const durable_session_id = app_session_runtime.Runtime(App).activeSessionId(app) orelse {
-                try writeAdmissionFailure(app, "no durable Fx session");
+                try writeAdmissionFailure(app, "no durable Y2 session");
                 return;
             };
             _ = app_session_runtime.Runtime(App).childCapability(app) orelse {
@@ -240,7 +240,7 @@ pub fn Runtime(comptime App: type) type {
 fn gracefulExitWaitCeilingMs() i64 {
     const default: i64 = @intCast(direct_runtime.start_wait_ceiling_ms);
     const raw = io_mod.getenv(
-        "FX_TERMINAL_TEST_GRACEFUL_EXIT_WAIT_CEILING_MS",
+        "Y2_TERMINAL_TEST_GRACEFUL_EXIT_WAIT_CEILING_MS",
     ) orelse return default;
     const configured = std.fmt.parseInt(u64, raw, 10) catch return default;
     return @intCast(@min(configured, direct_runtime.start_wait_ceiling_ms));

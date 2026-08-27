@@ -50,7 +50,7 @@ function utf8Prefix(value, limit) {
   return value.subarray(0, end);
 }
 
-export const fxSdkApiVersion = 1;
+export const y2SdkApiVersion = 1;
 
 export function supportsJspi() {
   return typeof WebAssembly.Suspending === "function" &&
@@ -117,7 +117,7 @@ function createMemorySessionStore() {
 
 function revisionConflict() {
   const error = new Error("session revision conflict");
-  error.code = "FX_SESSION_REVISION_CONFLICT";
+  error.code = "Y2_SESSION_REVISION_CONFLICT";
   return error;
 }
 
@@ -127,7 +127,7 @@ class ByteQueue {
   closed = false;
 
   push(bytes) {
-    if (this.closed) throw new Error("fx runtime stdin is closed");
+    if (this.closed) throw new Error("y2 runtime stdin is closed");
     if (!bytes.length) return;
     this.chunks.push(bytes);
     this.wake();
@@ -218,7 +218,7 @@ function createRuntime(options) {
   const streams = new Map();
   const workspaceExecs = new Set();
   const workspace = prepareWorkspaceAdapter(options.workspace);
-  const args = ["fx", ...(options.args || [])];
+  const args = ["y2", ...(options.args || [])];
   const env = Object.entries(options.env || {}).map(([key, value]) => `${key}=${value}`);
   let instance;
   let nextHandle = 1;
@@ -487,7 +487,7 @@ function createRuntime(options) {
       bytes(revisionPtr, revision.length).set(revision);
       writeU32(revisionLenOut, revision.length);
       return 0;
-    }).catch((error) => error?.code === "FX_OAUTH_SESSION_REVISION_CONFLICT" ? -2 : -1);
+    }).catch((error) => error?.code === "Y2_OAUTH_SESSION_REVISION_CONFLICT" ? -2 : -1);
   }
 
   function oauthSessionRemove(expectedPtr, expectedLen) {
@@ -495,7 +495,7 @@ function createRuntime(options) {
     const expectedRevision = expectedLen ? text(expectedPtr, expectedLen) : undefined;
     return Promise.resolve().then(() => options.oauthSessionStore.remove(expectedRevision)).then((result) =>
       result === false || result === "missing" ? 1 : 0
-    ).catch((error) => error?.code === "FX_OAUTH_SESSION_REVISION_CONFLICT" ? -2 : -1);
+    ).catch((error) => error?.code === "Y2_OAUTH_SESSION_REVISION_CONFLICT" ? -2 : -1);
   }
 
   function configGet(idPtr, idLen, outPtr, outCap) {
@@ -597,7 +597,7 @@ function createRuntime(options) {
       bytes(revisionPtr, revision.length).set(revision);
       writeU32(revisionLenOut, revision.length);
       return 0;
-    }).catch((error) => error?.code === "FX_SESSION_REVISION_CONFLICT" ? -2 : -1);
+    }).catch((error) => error?.code === "Y2_SESSION_REVISION_CONFLICT" ? -2 : -1);
   }
 
   function sessionList(outPtr, outCap) {
@@ -763,31 +763,31 @@ function createRuntime(options) {
     proc_exit(code) { if (options.traceWasi) console.error("wasi proc_exit", code); markExited(code); throw new WebAssembly.RuntimeError(`proc_exit(${code})`); },
   };
 
-  const fx = {
-    fx_term_poll_input: new WebAssembly.Suspending(termPollInput),
-    fx_prompt_history_available() { return options.promptHistoryStore ? 1 : 0; },
-    fx_workspace_available() { return workspace.present ? 1 : 0; },
-    fx_workspace_info: workspaceInfo,
-    fx_workspace_exec: new WebAssembly.Suspending(workspaceExec),
-    fx_http_stream_open: streamOpen,
-    fx_http_stream_status: new WebAssembly.Suspending(streamStatus),
-    fx_http_stream_next: new WebAssembly.Suspending(streamNext),
-    fx_http_stream_close(handle) { const state = streams.get(handle); state?.controller.abort(); streams.delete(handle); },
-    fx_http_request: new WebAssembly.Suspending(httpRequest),
-    fx_open_url: new WebAssembly.Suspending(openUrl),
-    fx_oauth_session_load: new WebAssembly.Suspending(oauthSessionLoad),
-    fx_oauth_session_commit: new WebAssembly.Suspending(oauthSessionCommit),
-    fx_oauth_session_remove: new WebAssembly.Suspending(oauthSessionRemove),
-    fx_config_get: new WebAssembly.Suspending(configGet),
-    fx_config_set: new WebAssembly.Suspending(configSet),
-    fx_prompt_history_load: new WebAssembly.Suspending(promptHistoryLoad),
-    fx_prompt_history_append: new WebAssembly.Suspending(promptHistoryAppend),
-    fx_prompt_history_clear: new WebAssembly.Suspending(promptHistoryClear),
-    fx_session_load: new WebAssembly.Suspending(sessionLoad),
-    fx_session_commit: new WebAssembly.Suspending(sessionCommit),
-    fx_session_list: new WebAssembly.Suspending(sessionList),
-    fx_session_remove: new WebAssembly.Suspending(sessionRemove),
-    fx_term_size(cols, rows) {
+  const y2 = {
+    y2_term_poll_input: new WebAssembly.Suspending(termPollInput),
+    y2_prompt_history_available() { return options.promptHistoryStore ? 1 : 0; },
+    y2_workspace_available() { return workspace.present ? 1 : 0; },
+    y2_workspace_info: workspaceInfo,
+    y2_workspace_exec: new WebAssembly.Suspending(workspaceExec),
+    y2_http_stream_open: streamOpen,
+    y2_http_stream_status: new WebAssembly.Suspending(streamStatus),
+    y2_http_stream_next: new WebAssembly.Suspending(streamNext),
+    y2_http_stream_close(handle) { const state = streams.get(handle); state?.controller.abort(); streams.delete(handle); },
+    y2_http_request: new WebAssembly.Suspending(httpRequest),
+    y2_open_url: new WebAssembly.Suspending(openUrl),
+    y2_oauth_session_load: new WebAssembly.Suspending(oauthSessionLoad),
+    y2_oauth_session_commit: new WebAssembly.Suspending(oauthSessionCommit),
+    y2_oauth_session_remove: new WebAssembly.Suspending(oauthSessionRemove),
+    y2_config_get: new WebAssembly.Suspending(configGet),
+    y2_config_set: new WebAssembly.Suspending(configSet),
+    y2_prompt_history_load: new WebAssembly.Suspending(promptHistoryLoad),
+    y2_prompt_history_append: new WebAssembly.Suspending(promptHistoryAppend),
+    y2_prompt_history_clear: new WebAssembly.Suspending(promptHistoryClear),
+    y2_session_load: new WebAssembly.Suspending(sessionLoad),
+    y2_session_commit: new WebAssembly.Suspending(sessionCommit),
+    y2_session_list: new WebAssembly.Suspending(sessionList),
+    y2_session_remove: new WebAssembly.Suspending(sessionRemove),
+    y2_term_size(cols, rows) {
       const width = options.terminal?.cols || 80;
       const height = options.terminal?.rows || 24;
       new DataView(memory().buffer).setUint16(cols, width, true);
@@ -797,7 +797,7 @@ function createRuntime(options) {
   };
 
   return {
-    imports: { wasi_snapshot_preview1: wasi, fx }, exited,
+    imports: { wasi_snapshot_preview1: wasi, y2 }, exited,
     setInstance(value) { instance = value; },
     write(data) { stdin.push(typeof data === "string" ? encoder.encode(data) : data); },
     wake() { stdin.wake(); },
@@ -827,7 +827,7 @@ function createRuntime(options) {
 }
 
 async function instantiate(options) {
-  if (!supportsJspi()) throw new Error("fx WebAssembly requires JSPI (Chrome or Edge 137+)");
+  if (!supportsJspi()) throw new Error("y2 WebAssembly requires JSPI (Chrome or Edge 137+)");
   const runtime = createRuntime({ fetch: globalThis.fetch.bind(globalThis), ...options });
   const module = await loadModule(options.wasm);
   const instance = await WebAssembly.instantiate(module, runtime.imports);
@@ -843,7 +843,7 @@ async function instantiate(options) {
   return runtime;
 }
 
-export async function createFxTerminal(options) {
+export async function createY2Terminal(options) {
   if (!options?.terminal) throw new TypeError("terminal is required");
   const emit = (type, detail = {}) => {
     try { options.onEvent?.({ type, timestamp: performance.now(), ...detail }); } catch {}
@@ -871,7 +871,7 @@ export async function createFxTerminal(options) {
   emit("runtime.start", { surface: "terminal" });
   const runtime = await instantiate({ ...options, emit, stdout, onTerminalPoll });
   runtime.exited.then((code) => {
-    if (!interactiveScheduled) rejectInteractive(new Error(`fx terminal exited with code ${code} before becoming interactive`));
+    if (!interactiveScheduled) rejectInteractive(new Error(`y2 terminal exited with code ${code} before becoming interactive`));
   });
   emit("runtime.ready", { surface: "terminal" });
   const interruptKey = options.interruptKey ?? "\x03";
@@ -930,7 +930,7 @@ function normalizePromptInput(input) {
   });
 }
 
-export async function createFxAgent(options) {
+export async function createY2Agent(options) {
   options = { ...options, sessionStore: options.sessionStore || createMemorySessionStore() };
   const pending = new Map();
   const turns = new Map();
@@ -949,7 +949,7 @@ export async function createFxAgent(options) {
     : await instantiate(runtimeOptions);
   emit("runtime.ready");
   const send = (message) => {
-    if (closing) throw new Error("fx agent is closing");
+    if (closing) throw new Error("y2 agent is closing");
     emit("acp.send", { message });
     runtime.write(`${JSON.stringify(message)}\n`);
   };
@@ -960,7 +960,7 @@ export async function createFxAgent(options) {
   });
   runtime.exited.then((code) => {
     emit("runtime.exit", { code });
-    const error = new Error(`fx-core exited with code ${code} before completing the ACP request`);
+    const error = new Error(`y2-core exited with code ${code} before completing the ACP request`);
     for (const waiter of pending.values()) waiter.reject(error);
     pending.clear();
   });
@@ -1025,8 +1025,8 @@ export async function createFxAgent(options) {
     let closed = false;
     let activeTurn = null;
     const assertOpen = () => {
-      if (closed) throw new Error("fx session is closed");
-      if (activeSession !== session) throw new Error("fx session is no longer active");
+      if (closed) throw new Error("y2 session is closed");
+      if (activeSession !== session) throw new Error("y2 session is no longer active");
     };
     const updateConfig = (response) => {
       configOptions = response.configOptions || configOptions;

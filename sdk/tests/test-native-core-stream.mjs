@@ -3,7 +3,7 @@ import { strict as assert } from "node:assert";
 import { createServer } from "node:http";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { createFxAgent } from "../node.js";
+import { createY2Agent } from "../node.js";
 
 const events = [];
 let requestCount = 0;
@@ -45,7 +45,7 @@ await new Promise((resolveListen) => server.listen(0, "127.0.0.1", resolveListen
 const { port } = server.address();
 
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
-const addon = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/libfx.node"));
+const addon = resolve(process.argv[2] || resolve(scriptDir, "../../zig-out/lib/liby2.node"));
 const timeout = (label, ms = 5000) => new Promise((_, reject) => {
   const timer = setTimeout(() => reject(new Error(`timed out waiting for ${label}`)), ms);
   timer.unref();
@@ -55,7 +55,7 @@ try {
   let fetchCalls = 0;
   let firstAbortResolve;
   const firstAbort = new Promise((resolveAbort) => { firstAbortResolve = resolveAbort; });
-  agent = await createFxAgent({
+  agent = await createY2Agent({
     nativeAddon: addon,
     backend: "native",
     fetch(input, init) {
@@ -72,8 +72,8 @@ try {
     },
     env: {
       OPENAI_API_KEY: "native-core-stream-key",
-      FX_API_CHAT_URL: `http://127.0.0.1:${port}/chat`,
-      FX_MODEL: "native/test-model",
+      Y2_API_CHAT_URL: `http://127.0.0.1:${port}/chat`,
+      Y2_MODEL: "native/test-model",
     },
   });
   const session = await agent.createSession();
