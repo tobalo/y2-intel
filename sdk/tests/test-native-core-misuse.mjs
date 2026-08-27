@@ -73,10 +73,18 @@ for (const [options, message] of [
   [{ apiKey: "key", home: "x".repeat(16 * 1024 + 1), workspaceRoot: "/tmp" }, /home/],
   [{ apiKey: "key", home: "/tmp", workspaceRoot: "/tmp", gatewayChatUrl: "http://attacker.example/chat" }, /gatewayChatUrl/],
   [{ apiKey: "key", home: "/tmp", workspaceRoot: "/tmp", gatewayChatUrl: "https://user:pass@example.com/chat" }, /gatewayChatUrl/],
-  [{ apiKey: "key", home: "/tmp", workspaceRoot: "/tmp", gatewayChatUrl: "https://example.com/chat" }, /gatewayChatUrl/],
 ]) {
   assert.throws(() => addon.createCore(options), message);
 }
+
+const directHttpsCore = addon.createCore({
+  apiKey: "direct-https-test-key",
+  home: "/tmp",
+  workspaceRoot: "/tmp",
+  gatewayChatUrl: "https://models.example/v1/chat/completions",
+});
+addon.closeCore(directHttpsCore);
+addon.destroyCore(directHttpsCore);
 
 for (const fakeHandle of [null, undefined, {}, Buffer.alloc(0), 0, "handle"]) {
   assert.throws(
@@ -141,8 +149,17 @@ const takeFetch = async () => {
   }
 };
 const responseBytes = (text) => Buffer.from([
-  `data: ${JSON.stringify({ type: "text-delta", delta: text })}\n\n`,
-  'data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":1}}}\n\n',
+  `data: ${JSON.stringify({
+    id: "chat_native_test",
+    object: "chat.completion.chunk",
+    choices: [{ index: 0, delta: { content: text }, finish_reason: null }],
+  })}\n\n`,
+  `data: ${JSON.stringify({
+    id: "chat_native_test",
+    object: "chat.completion.chunk",
+    choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+    usage: { prompt_tokens: 1, completion_tokens: 1 },
+  })}\n\n`,
   "data: [DONE]\n\n",
 ].join(""));
 const sendPrompt = (sessionId, text) => send("session/prompt", {

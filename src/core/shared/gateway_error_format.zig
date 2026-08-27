@@ -380,12 +380,12 @@ test "formatHttpErrorMessage renders live restricted provider body shape" {
 
 test "formatHttpErrorMessage renders API key and credits setup bodies" {
     const api_key_detail =
-        \\{"error":{"code":"api_key_required","message":"Set AI_GATEWAY_API_KEY to use this endpoint."}}
+        \\{"error":{"code":"api_key_required","message":"Set Y2_API_KEY to use this endpoint."}}
     ;
     const api_key_line = try formatHttpErrorMessage(std.testing.allocator, .unauthorized, api_key_detail);
     defer std.testing.allocator.free(api_key_line);
     try std.testing.expectEqualStrings(
-        "API access denied · HTTP 401 · api_key_required: Set AI_GATEWAY_API_KEY to use this endpoint.",
+        "API access denied · HTTP 401 · api_key_required: Set Y2_API_KEY to use this endpoint.",
         api_key_line,
     );
 
@@ -404,12 +404,12 @@ test "formatHttpErrorMessage masks structured and fallback secrets" {
     const alloc = std.testing.allocator;
     const secret = "abcdefghijklmnop";
     const structured_detail =
-        \\{"error":{"code":"provider_error","message":"AI_GATEWAY_API_KEY=abcdefghijklmnop"}}
+        \\{"error":{"code":"provider_error","message":"Y2_API_KEY=abcdefghijklmnop"}}
     ;
     const structured = try formatHttpErrorMessage(alloc, .service_unavailable, structured_detail);
     defer alloc.free(structured);
     try std.testing.expectEqualStrings(
-        "API request failed · HTTP 503 · provider_error: AI_GATEWAY_API_KEY=[redacted]",
+        "API request failed · HTTP 503 · provider_error: Y2_API_KEY=[redacted]",
         structured,
     );
     try std.testing.expect(std.mem.find(u8, structured, secret) == null);

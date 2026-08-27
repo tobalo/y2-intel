@@ -648,7 +648,7 @@ describe.skipIf(SKIP)("tui: render lab", () => {
     () => {
       outDir = mkdtempSync(join(tmpdir(), "fx-render-lab-test-"));
       const env = { ...process.env };
-      delete env.AI_GATEWAY_API_KEY;
+      delete env.Y2_API_KEY;
       delete env.VERCEL_OIDC_TOKEN;
 
       const output = execFileSync(
@@ -771,7 +771,7 @@ function runScenarioArtifacts(scenario: string): {
 } {
   outDir = mkdtempSync(join(tmpdir(), "fx-render-lab-overflow-test-"));
   const env = { ...process.env };
-  delete env.AI_GATEWAY_API_KEY;
+  delete env.Y2_API_KEY;
   delete env.VERCEL_OIDC_TOKEN;
   const output = execFileSync(
     "bun",

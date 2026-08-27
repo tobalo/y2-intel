@@ -27,7 +27,7 @@ import {
 
 const TIMEOUT = 20_000;
 const NO_AUTH = {
-  AI_GATEWAY_API_KEY: "",
+  Y2_API_KEY: "",
   VERCEL_OIDC_TOKEN: "",
   FX_MODEL: undefined,
   NO_COLOR: "1",
@@ -700,7 +700,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           cwd: realpathSync(workspace),
           env: {
             ...NO_AUTH,
-            AI_GATEWAY_API_KEY: "fake-standard-key",
+            Y2_API_KEY: "fake-standard-key",
             HOME: home,
             FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
@@ -864,12 +864,12 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         );
         const gatewayEnv = {
           ...NO_AUTH,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_DISABLE_KEYCHAIN: "1",
           HOME: home,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         };
 
@@ -1000,10 +1000,10 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         );
         const gatewayEnv = {
           ...NO_AUTH,
-          AI_GATEWAY_API_KEY: "fake-capability-key",
+          Y2_API_KEY: "fake-capability-key",
           HOME: home,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         };
 
@@ -1256,11 +1256,11 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           cwd: workspaceRoot,
           env: {
             ...NO_AUTH,
-            AI_GATEWAY_API_KEY: "fake-capability-key",
+            Y2_API_KEY: "fake-capability-key",
             VERCEL_OIDC_TOKEN: undefined,
             HOME: home,
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           },
           stderrPath,
@@ -2427,11 +2427,11 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             cwd: workspaceRoot,
             env: {
               HOME: home,
-              AI_GATEWAY_API_KEY: "fake-restored-root-key",
+              Y2_API_KEY: "fake-restored-root-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_AUTO_UPGRADE: "0",
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
             },

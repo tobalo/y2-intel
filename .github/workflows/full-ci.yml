@@ -33,7 +33,11 @@ jobs:
             runner: macos-15
         optimize: [ReleaseSafe]
     env:
-      AI_GATEWAY_API_KEY: ""
+      Y2_API_KEY: ""
+      OPENAI_API_KEY: ""
+      OPENAI_BASE_URL: ""
+      FX_API_CHAT_URL: ""
+      FX_MODEL: ""
       VERCEL_OIDC_TOKEN: ""
     steps:
       - uses: actions/checkout@v4
@@ -108,7 +112,11 @@ jobs:
             shard_count: 4
             label: "4/4"
     env:
-      AI_GATEWAY_API_KEY: ""
+      Y2_API_KEY: ""
+      OPENAI_API_KEY: ""
+      OPENAI_BASE_URL: ""
+      FX_API_CHAT_URL: ""
+      FX_MODEL: ""
       VERCEL_OIDC_TOKEN: ""
       FX_REQUIRE_TMUX: "1"
       SHARD_INDEX: ${{ matrix.shard.index }}

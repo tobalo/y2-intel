@@ -52,7 +52,7 @@ async function launch(run: number): Promise<{ session: TmuxSession; tracePath: s
     width: 84,
     height: 30,
     env: {
-      AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+      Y2_API_KEY: process.env.Y2_API_KEY,
       VERCEL_OIDC_TOKEN: process.env.VERCEL_OIDC_TOKEN,
       FX_TRACE_LOG: tracePath,
       FX_TRACE_SCOPES: TRACE_SCOPES,

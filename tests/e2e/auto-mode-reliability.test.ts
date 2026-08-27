@@ -71,10 +71,10 @@ function gatewayEnv(
 ) {
   return {
     HOME: root.home,
-    AI_GATEWAY_API_KEY: "fake-auto-mode-reliability-key",
+    Y2_API_KEY: "fake-auto-mode-reliability-key",
     VERCEL_OIDC_TOKEN: undefined,
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_MODEL: MODEL,
     FX_PERMISSION_MODE: "auto",
     FX_AUTO_UPGRADE: "0",

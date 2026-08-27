@@ -23,9 +23,9 @@ const fetch = async () => new Response(new ReadableStream({
   start(controller) {
     for (let offset = 0; offset < markdown.length; offset += 4) {
       const delta = markdown.slice(offset, offset + 4);
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "text-delta", delta })}\n\n`));
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: "chat_table", choices: [{ index: 0, delta: { content: delta }, finish_reason: null }] })}\n\n`));
     }
-    controller.enqueue(encoder.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n\n'));
+    controller.enqueue(encoder.encode('data: {"id":"chat_table","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'));
     controller.enqueue(encoder.encode("data: [DONE]\n\n"));
     controller.close();
   },
@@ -35,7 +35,7 @@ const runtime = await createFxTerminal({
   backend: "wasm",
   wasm: await readFile(wasmPath),
   terminal: xtermAdapter(terminal),
-  env: { AI_GATEWAY_API_KEY: "table-stream-key" },
+  env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "table-stream-key" },
   fetch,
   configStore: { get(id) { return id === "model" ? "test/table-model" : null; }, set() {} },
 });

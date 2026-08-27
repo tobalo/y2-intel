@@ -682,7 +682,7 @@ fn activateProviderSelection(
     const already_selected = (settings.provider orelse .gateway) == target;
     if (caller == .provider_command and already_selected and resolution.credential != null) {
         try writeStdout(deps, switch (target) {
-            .gateway => "Gateway is already selected.\n",
+            .gateway => "Y2 / OpenAI-compatible API is already selected.\n",
             .codex => "Codex is already selected.\n",
             .grok => "Grok is already selected.\n",
         });
@@ -731,16 +731,36 @@ fn activateProviderSelection(
             switch (target) {
                 .codex => "Codex credential is unavailable",
                 .grok => "Grok credential is unavailable",
-                .gateway => "configure a Gateway credential first",
+                .gateway => "configure a Y2 or OpenAI-compatible API key first",
             },
         );
         return false;
     };
+    if (target == .gateway) {
+        const selected_model = settings.models.get(.gateway) orelse cfg.default_model;
+        var attempt = config_runtime.attemptUserPreferences(alloc, .{
+            .provider = .gateway,
+            .model_preference = .{ .provider = .gateway, .model = selected_model },
+        });
+        defer attempt.deinit(alloc);
+        switch (attempt) {
+            .failure => |failure| {
+                debug_trace.logf("config", "provider selection persistence failed err={s}", .{@errorName(failure.err)});
+                try writeProviderActivationError(alloc, deps, caller, "failed to save provider selection");
+                return false;
+            },
+            .outcome => {},
+        }
+        if (caller == .provider_command) {
+            try writeStdout(deps, "Provider set to Y2 / OpenAI-compatible API.\n");
+        }
+        return true;
+    }
     const catalog_provider = cfg.provider_set.select(target).model_catalog orelse {
         try writeProviderActivationError(alloc, deps, caller, switch (target) {
             .codex => "Codex model catalog is unavailable",
             .grok => "Grok model catalog is unavailable",
-            .gateway => "Gateway model catalog is unavailable",
+            .gateway => unreachable,
         });
         return false;
     };
@@ -789,7 +809,7 @@ fn activateProviderSelection(
     };
     if (caller == .provider_command) {
         try writeStdout(deps, switch (target) {
-            .gateway => "Provider set to Gateway.\n",
+            .gateway => unreachable,
             .codex => "Provider set to Codex.\n",
             .grok => "Provider set to Grok.\n",
         });
@@ -910,24 +930,16 @@ fn runNonInteractiveWithDeps(
         .issue => |rest| return runGithubWorkflow(alloc, rest, cfg, global_args.modifiers, deps, .issue),
         .login => |rest| {
             const maybe_login_provider = parseLoginProvider(rest) catch {
-                try writeStderr(deps, "usage: fx login [vercel|codex|grok]\n");
+                try writeStderr(deps, "usage: fx login <codex|grok>\n");
                 return .handled_failure;
             };
-            // Preserve the original `fx login` behavior for scripts and users.
-            const login_provider = maybe_login_provider orelse .gateway;
+            const login_provider = maybe_login_provider orelse {
+                try writeStderr(deps, "fx login: choose codex or grok; use fx setup for Y2 or another OpenAI-compatible API key\n");
+                return .handled_failure;
+            };
             switch (login_provider) {
-                .gateway => login_flow.runLogin(
-                    alloc,
-                    cfg.gateway_provider.oauth_transport,
-                    cfg.url_opener,
-                ) catch |err| {
-                    const message = switch (err) {
-                        error.ClientIdMissing => "fx login: missing FX_OAUTH_CLIENT_ID; configure the fx Vercel App client id first\n",
-                        error.AccessDenied => "fx login: authorization denied\n",
-                        error.ExpiredToken, error.LoginTimedOut => "fx login: authorization expired; run fx login again\n",
-                        else => "fx login: failed to sign in\n",
-                    };
-                    try writeStderr(deps, message);
+                .gateway => {
+                    try writeStderr(deps, "fx login: Y2 and OpenAI-compatible endpoints use API keys; run fx setup\n");
                     return .handled_failure;
                 },
                 .codex => {
@@ -969,11 +981,13 @@ fn runNonInteractiveWithDeps(
         },
         .logout => |rest| {
             const maybe_login_provider = parseLoginProvider(rest) catch {
-                try writeStderr(deps, "usage: fx logout [vercel|codex|grok]\n");
+                try writeStderr(deps, "usage: fx logout <codex|grok>\n");
                 return .handled_failure;
             };
-            // Preserve the original `fx logout` behavior for scripts and users.
-            const login_provider = maybe_login_provider orelse .gateway;
+            const login_provider = maybe_login_provider orelse {
+                try writeStderr(deps, "fx logout: choose codex or grok; manage API keys with fx setup\n");
+                return .handled_failure;
+            };
             if (login_provider == .codex) {
                 const outcome = chatgpt_oauth.logout() catch {
                     try writeStderr(deps, "fx logout: failed to durably remove saved Codex login\n");
@@ -1017,44 +1031,16 @@ fn runNonInteractiveWithDeps(
                     },
                 };
             }
-            const result = login_flow.logout(alloc, cfg.gateway_provider.oauth_transport) catch |err| switch (err) {
-                error.SessionDeleteFailed => {
-                    try writeStderr(deps, "fx logout: failed to durably remove saved Fx login\n");
-                    return .handled_failure;
-                },
-            };
-            if (result.local_durability_failed) {
-                try writeStderr(deps, "fx logout: failed to durably remove saved Fx login\n");
-            } else {
-                try writeStdout(
-                    deps,
-                    if (result.session_deleted) "Signed out of fx.\n" else "No fx login session found.\n",
-                );
-            }
-            if (result.remote_revocation_failed) {
-                try writeStderr(deps, login_flow.remote_revocation_warning);
-                try writeStderr(deps, "\n");
-            }
-            return if (result.local_durability_failed) .handled_failure else .handled_success;
+            try writeStderr(deps, "fx logout: Y2 and OpenAI-compatible endpoints use API keys; manage them with fx setup\n");
+            return .handled_failure;
         },
         .teams => |rest| {
             if (rest.len != 0) {
                 try writeStderr(deps, "usage: fx teams\n");
                 return .handled_failure;
             }
-            login_flow.runTeams(alloc, cfg.gateway_provider.oauth_transport) catch |err| {
-                const message = switch (err) {
-                    error.NoSession => "fx teams: run fx login first\n",
-                    error.SessionChanged => "fx teams: authentication changed; try again\n",
-                    error.TeamRequestFailed => "fx teams: failed to list Vercel teams\n",
-                    error.InvalidTeamSelection => "fx teams: no team selected\n",
-                    error.AccessDenied => "fx teams: authorization denied\n",
-                    else => "fx teams: failed to switch team\n",
-                };
-                try writeStderr(deps, message);
-                return .handled_failure;
-            };
-            return .handled_success;
+            try writeStderr(deps, "fx teams: Vercel team selection was removed; Y2 API keys are already workspace-bound\n");
+            return .handled_failure;
         },
         .provider => |rest| {
             if (rest.len != 1) {
@@ -1783,7 +1769,7 @@ fn runPasteSetup(
         return false;
     }
 
-    try writeStderr(deps, "Paste AI Gateway API key (input hidden): ");
+    try writeStderr(deps, "Paste Y2 or OpenAI-compatible API key (input hidden): ");
     const stored_interactively = secret_store.storeInteractive() catch {
         try writeStderr(deps, "\nfx setup: API key was not saved\n");
         return false;
@@ -4136,7 +4122,7 @@ test "runIfRequested help writes top-level help" {
 
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("help")}, testConfig(), capture.deps());
     try std.testing.expectEqual(RunResult.handled_success, result);
-    try std.testing.expect(std.mem.startsWith(u8, capture.stdout.written(), "𝒇x v0.0.0\nFast, native coding agent for the terminal."));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stdout.written(), "Y2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal."));
     try std.testing.expect(std.mem.find(u8, capture.stdout.written(), testConfig().version) != null);
     try std.testing.expectEqualStrings("", capture.stderr.written());
 }
@@ -4252,7 +4238,7 @@ test "setup is a paste-only stored-key adapter" {
     try std.testing.expectEqual(@as(usize, 1), capture.setup_store_calls);
     try std.testing.expectEqual(@as(usize, 1), capture.setup_read_calls);
     try std.testing.expect(capture.setup_value_matched);
-    try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Paste AI Gateway API key") != null);
+    try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Paste Y2 or OpenAI-compatible API key") != null);
     try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Vercel CLI") == null);
     try std.testing.expect(std.mem.find(u8, capture.stdout.written(), cfg.secret_store.backend_label) != null);
 }
@@ -4468,7 +4454,7 @@ test "runNoConfigIfRequested handles help without config" {
         testCommandCatalog(),
         capture.deps(),
     ));
-    try std.testing.expect(std.mem.startsWith(u8, capture.stdout.written(), "𝒇x v0.0.0\nFast, native coding agent for the terminal."));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stdout.written(), "Y2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal."));
     try std.testing.expectEqualStrings("", capture.stderr.written());
 
     try std.testing.expect(!try runNoConfigIfRequestedWithDeps(
@@ -4762,7 +4748,7 @@ test "runIfRequested unknown command writes header and help" {
         error.UnknownCliCommand,
         runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("wat")}, testConfig(), capture.deps()),
     );
-    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx: unknown subcommand: wat\n\n𝒇x v0.0.0\nFast, native coding agent for the terminal.\n"));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx: unknown subcommand: wat\n\nY2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal.\n"));
 }
 
 test "runIfRequested bare version subcommand remains unknown" {
@@ -4773,7 +4759,7 @@ test "runIfRequested bare version subcommand remains unknown" {
         error.UnknownCliCommand,
         runIfRequestedWithDeps(std.testing.allocator, &.{@constCast("version")}, testConfig(), capture.deps()),
     );
-    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx: unknown subcommand: version\n\n𝒇x v0.0.0\nFast, native coding agent for the terminal.\n"));
+    try std.testing.expect(std.mem.startsWith(u8, capture.stderr.written(), "fx: unknown subcommand: version\n\nY2 INFORMATION DOMINANCE v0.0.0\nNative agentic intelligence harness for the terminal.\n"));
 }
 
 test "runIfRequested model fetch failure is handled" {
@@ -4930,7 +4916,7 @@ test "runIfRequested local json success appends exactly one newline" {
     const result = try runIfRequestedWithDeps(std.testing.allocator, &.{ @constCast("status"), @constCast("--json") }, testConfig(), deps);
     try std.testing.expectEqual(RunResult.handled_success, result);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set AI_GATEWAY_API_KEY.\",\"permission_mode\":\"auto\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
+        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"auto\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
         capture.stdout.written(),
     );
     try std.testing.expect(!std.mem.endsWith(u8, capture.stdout.written(), "\n\n"));
@@ -5023,7 +5009,7 @@ test "writeRenderedJsonLine falls back to heap and appends exactly one newline" 
     );
 
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set AI_GATEWAY_API_KEY.\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
+        "{\"kind\":\"status\",\"model\":\"test-model\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"missing\",\"auth_refreshable\":false,\"auth_help\":\"Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/fx\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":42}\n",
         capture.stdout.written(),
     );
 }
@@ -5033,13 +5019,13 @@ test "writeRenderedJsonLine renders doctor json through output contract" {
     defer capture.deinit();
 
     var checks = [_]doctor_runtime.Check{
-        .{ .name = "auth", .status = .ok, .detail = "AI_GATEWAY_API_KEY is configured" },
+        .{ .name = "auth", .status = .ok, .detail = "Y2_API_KEY is configured" },
         .{ .name = "gh", .status = .warn, .detail = "GitHub CLI not found in PATH" },
     };
     const snapshot = doctor_runtime.Snapshot{
         .workspace_root = @constCast("/tmp/fx"),
         .model = "test-model",
-        .auth = .{ .active_source = .ai_gateway_api_key },
+        .auth = .{ .active_source = .api_key },
         .permission_mode = .auto,
         .agent_step_limit = 42,
         .checks = checks[0..],
@@ -5054,7 +5040,7 @@ test "writeRenderedJsonLine renders doctor json through output contract" {
     );
 
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"doctor\",\"ok_count\":1,\"warn_count\":1,\"fail_count\":0,\"workspace\":\"/tmp/fx\",\"model\":\"test-model\",\"auth\":\"AI_GATEWAY_API_KEY\",\"auth_refreshable\":false,\"permission_mode\":\"auto\",\"agent_step_limit\":42,\"checks\":[{\"name\":\"auth\",\"status\":\"ok\",\"detail\":\"AI_GATEWAY_API_KEY is configured\"},{\"name\":\"gh\",\"status\":\"warn\",\"detail\":\"GitHub CLI not found in PATH\"}]}\n",
+        "{\"kind\":\"doctor\",\"ok_count\":1,\"warn_count\":1,\"fail_count\":0,\"workspace\":\"/tmp/fx\",\"model\":\"test-model\",\"auth\":\"API key\",\"auth_refreshable\":false,\"permission_mode\":\"auto\",\"agent_step_limit\":42,\"checks\":[{\"name\":\"auth\",\"status\":\"ok\",\"detail\":\"Y2_API_KEY is configured\"},{\"name\":\"gh\",\"status\":\"warn\",\"detail\":\"GitHub CLI not found in PATH\"}]}\n",
         capture.stdout.written(),
     );
 }
@@ -5269,7 +5255,7 @@ fn stubLoadStartupState(
     state.selected_model = try alloc.dupe(u8, default_model);
     state.credential = .{
         .token = try alloc.dupe(u8, "test-key"),
-        .source = .ai_gateway_api_key,
+        .source = .api_key,
     };
     state.credential.?.team_id = try alloc.dupe(u8, "team_123");
     return state;
@@ -5350,7 +5336,7 @@ const ModelFetchProbe = struct {
         self.called = true;
         if (!std.mem.eql(u8, input.access.authorizationCredential() orelse "", "test-key") or
             !std.mem.eql(u8, input.access.teamContext() orelse "", "team_123") or
-            input.access.credentialSource() != .ai_gateway_api_key or
+            input.access.credentialSource() != .api_key or
             !std.mem.eql(u8, input.endpoint, "/v1/models") or
             input.cancel_flag != null)
         {

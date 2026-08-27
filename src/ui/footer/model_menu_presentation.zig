@@ -339,22 +339,19 @@ fn loadedCatalogStatusText(state: model_cache_runtime.ModelMenuCatalogState) ?[]
     if (state.private_models_hidden) {
         const reason = state.public_only_reason orelse return "Using the public model catalog.";
         return switch (reason) {
-            .no_credential => "Using the public model catalog; sign in or use an API key for team-private models.",
-            .fx_login_team_required => "Choose a Vercel team to load its private models.",
-            .fx_login_refresh_required => "Vercel sign-in must refresh before team-private models can load.",
-            .credential_refresh_failed => "Vercel sign-in refresh failed; using the public model catalog.",
-            .authenticated_credential_rejected => "Your Gateway credential was rejected; using the public model catalog.",
+            .no_credential => "Configure Y2_API_KEY or OPENAI_API_KEY to use this model.",
+            .fx_login_team_required, .fx_login_refresh_required, .credential_refresh_failed => "Legacy gateway credentials are unsupported.",
+            .authenticated_credential_rejected => "Your API credential was rejected.",
             .chatgpt_subscription => "Codex models require an authenticated Codex catalog.",
             .grok_subscription => "Grok models require an authenticated Grok catalog.",
         };
     }
     if (state.access_level == .authenticated) {
-        const source = state.source orelse return "Using an authenticated AI Gateway catalog.";
+        const source = state.source orelse return "Using the configured API model catalog.";
         return switch (source) {
-            .fx_login => "Gateway catalog: authenticated with fx login.",
-            .ai_gateway_api_key => "Gateway catalog: authenticated with an API key.",
-            .vercel_oidc_token => "Gateway catalog: authenticated with the Vercel session.",
-            .stored_key => "Gateway catalog: authenticated with the stored API key.",
+            .fx_login, .vercel_oidc_token => "Legacy gateway credentials are unsupported.",
+            .api_key => "API endpoint: authenticated from the environment.",
+            .stored_key => "API endpoint: authenticated with the stored API key.",
             .chatgpt_subscription => "Codex catalog: authenticated with a subscription.",
             .grok_subscription => "Grok catalog: authenticated with a subscription.",
         };
@@ -366,8 +363,8 @@ fn retryableFailureText(failure: ?model_cache_runtime.ModelMenuCatalogState.Fail
     const value = failure orelse return null;
     if (!value.retryable) return null;
     return switch (value.category) {
-        .rate_limited => "AI Gateway rate limited model discovery; retry /models.",
-        .transport, .gateway_unavailable => "Could not reach AI Gateway; retry /models.",
+        .rate_limited => "The API rate limited model discovery; retry /models.",
+        .transport, .gateway_unavailable => "Could not reach the model API; retry /models.",
         else => "Could not refresh model catalog; retry /models.",
     };
 }
@@ -510,7 +507,7 @@ test "model menu states and navigation budget stay bounded" {
     const failed: ModelMenuProjection = .{ .active = true, .load_state = .failed, .catalog_state = .{ .failure = .{ .category = .transport, .retryable = true } } };
     var failed_state = try composeModelMenuRow(alloc, failed, 2, 80, menuRowCount(failed, 80, 10));
     defer failed_state.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, failed_state.items, "Could not reach AI Gateway; retry /models.") != null);
+    try std.testing.expect(std.mem.find(u8, failed_state.items, "Could not reach the model API; retry /models.") != null);
 
     const items = [_]model_cache_runtime.ModelMenuItem{
         .{ .id = @constCast("a/one"), .provider = "a", .capabilities = .{} },
@@ -523,7 +520,7 @@ test "model menu states and navigation budget stay bounded" {
 
 test "model menu status follows provenance and retryable failure precedence" {
     try std.testing.expectEqualStrings(
-        "Gateway catalog: authenticated with fx login.",
+        "Legacy gateway credentials are unsupported.",
         loadedCatalogStatusText(.{ .access_level = .authenticated, .source = .fx_login }).?,
     );
 
@@ -531,14 +528,14 @@ test "model menu status follows provenance and retryable failure precedence" {
         state: model_cache_runtime.ModelMenuCatalogState,
         expected: []const u8,
     }{
-        .{ .state = .{ .public_only_reason = .no_credential, .private_models_hidden = true }, .expected = "Using the public model catalog; sign in or use an API key for team-private models." },
-        .{ .state = .{ .public_only_reason = .fx_login_team_required, .private_models_hidden = true }, .expected = "Choose a Vercel team to load its private models." },
-        .{ .state = .{ .public_only_reason = .fx_login_refresh_required, .private_models_hidden = true }, .expected = "Vercel sign-in must refresh before team-private models can load." },
-        .{ .state = .{ .public_only_reason = .credential_refresh_failed, .private_models_hidden = true }, .expected = "Vercel sign-in refresh failed; using the public model catalog." },
-        .{ .state = .{ .public_only_reason = .authenticated_credential_rejected, .private_models_hidden = true }, .expected = "Your Gateway credential was rejected; using the public model catalog." },
-        .{ .state = .{ .failure = .{ .category = .transport, .retryable = true } }, .expected = "Could not reach AI Gateway; retry /models." },
-        .{ .state = .{ .access_level = .public_only, .public_only_reason = .no_credential, .private_models_hidden = true, .failure = .{ .category = .rate_limited, .retryable = true } }, .expected = "AI Gateway rate limited model discovery; retry /models." },
-        .{ .state = .{ .access_level = .authenticated, .failure = .{ .category = .rate_limited, .retryable = true } }, .expected = "AI Gateway rate limited model discovery; retry /models." },
+        .{ .state = .{ .public_only_reason = .no_credential, .private_models_hidden = true }, .expected = "Configure Y2_API_KEY or OPENAI_API_KEY to use this model." },
+        .{ .state = .{ .public_only_reason = .fx_login_team_required, .private_models_hidden = true }, .expected = "Legacy gateway credentials are unsupported." },
+        .{ .state = .{ .public_only_reason = .fx_login_refresh_required, .private_models_hidden = true }, .expected = "Legacy gateway credentials are unsupported." },
+        .{ .state = .{ .public_only_reason = .credential_refresh_failed, .private_models_hidden = true }, .expected = "Legacy gateway credentials are unsupported." },
+        .{ .state = .{ .public_only_reason = .authenticated_credential_rejected, .private_models_hidden = true }, .expected = "Your API credential was rejected." },
+        .{ .state = .{ .failure = .{ .category = .transport, .retryable = true } }, .expected = "Could not reach the model API; retry /models." },
+        .{ .state = .{ .access_level = .public_only, .public_only_reason = .no_credential, .private_models_hidden = true, .failure = .{ .category = .rate_limited, .retryable = true } }, .expected = "The API rate limited model discovery; retry /models." },
+        .{ .state = .{ .access_level = .authenticated, .failure = .{ .category = .rate_limited, .retryable = true } }, .expected = "The API rate limited model discovery; retry /models." },
         .{ .state = .{ .access_level = .authenticated, .failure = .{ .category = .runtime, .retryable = true } }, .expected = "Could not refresh model catalog; retry /models." },
     };
 

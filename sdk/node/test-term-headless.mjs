@@ -27,14 +27,14 @@ let requestedModel;
 let firstChunkAt;
 const startedAt = performance.now();
 const mockFetch = async (_url, init) => {
-  requestedModel = new Headers(init.headers).get("ai-language-model-id");
+  requestedModel = JSON.parse(new TextDecoder().decode(init.body)).model;
   return new Response(new ReadableStream({
     async start(controller) {
       firstChunkAt = performance.now();
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"streamed"}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_headless","choices":[{"index":0,"delta":{"content":"streamed"},"finish_reason":null}]}\n\n'));
       await new Promise((resolve) => setTimeout(resolve, 20));
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":" response"}\n'));
-      controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_headless","choices":[{"index":0,"delta":{"content":" response"},"finish_reason":null}]}\n\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_headless","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'));
       controller.enqueue(encoded.encode("data: [DONE]\n"));
       controller.close();
     },
@@ -48,7 +48,7 @@ const runtime = await createFxTerminal({
     get(id) { return config.get(id) ?? null; },
     set(id, value) { config.set(id, value); },
   },
-  env: { AI_GATEWAY_API_KEY: "term-headless-key" },
+  env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "term-headless-key" },
   fetch: mockFetch,
   onEvent(event) { events.push(event); },
 });
@@ -60,7 +60,7 @@ const readGrid = () => {
   return lines.join("\n");
 };
 const startupDeadline = performance.now() + 5000;
-while (!readGrid().includes("𝒇x")) {
+while (!readGrid().includes("Y2 INFORMATION DOMINANCE")) {
   await flushTerminal();
   if (performance.now() >= startupDeadline) throw new Error(`timed out waiting for fx-term startup:\n${readGrid()}`);
   await new Promise((resolve) => setTimeout(resolve, 10));
@@ -96,7 +96,7 @@ const exitCode = await Promise.race([
 ]);
 
 if (exitCode !== 0) throw new Error(`fx-term exited with code ${exitCode}`);
-if (!grid.includes("𝒇x")) throw new Error(`shared Fx welcome frame was not visible in xterm grid:\n${grid}`);
+if (!grid.includes("Y2 INFORMATION DOMINANCE")) throw new Error(`Y2 welcome frame was not visible in xterm grid:\n${grid}`);
 if (!grid.includes("Run /help for commands")) throw new Error(`shared Fx welcome guidance was not visible in xterm grid:\n${grid}`);
 if (terminal.buffer.active.baseY !== 0 || terminal.buffer.active.viewportY !== 0) {
   throw new Error(`fresh xterm startup created blank scrollback: baseY=${terminal.buffer.active.baseY}, viewportY=${terminal.buffer.active.viewportY}`);

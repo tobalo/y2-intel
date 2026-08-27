@@ -42,18 +42,18 @@ const mockFetch = async (url, init) => {
   if (init.method !== "POST") throw new Error(`unexpected method ${init.method}`);
   const requestBody = JSON.parse(new TextDecoder().decode(init.body));
   const headers = new Headers(init.headers);
-  requestedModel = headers.get("ai-language-model-id");
+  requestedModel = requestBody.model;
   requestedSessionId = headers.get("x-session-id");
   requestedSessionAffinity = headers.get("x-session-affinity");
-  if (!Array.isArray(requestBody.prompt) && !Array.isArray(requestBody.messages)) {
-    throw new Error("gateway request did not contain prompt messages");
+  if (!Array.isArray(requestBody.messages)) {
+    throw new Error("chat-completions request did not contain messages");
   }
   return new Response(new ReadableStream({
     async start(controller) {
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"hello"}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_core","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n'));
       await new Promise((resolve) => setTimeout(resolve, 10));
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":" world"}\n'));
-      controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":3},"outputTokens":{"total":2}}}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_core","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_core","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}}\n\n'));
       controller.enqueue(encoded.encode("data: [DONE]\n"));
       controller.close();
     },
@@ -99,7 +99,7 @@ const sessionStore = {
 const events = [];
 let initializeTimeout;
 const agent = await Promise.race([
-  createFxAgent({ backend: "wasm", wasm: await readFile(wasmPath), fetch: mockFetch, env: { AI_GATEWAY_API_KEY: "sdk-test-key" }, configStore, sessionStore, onEvent(event) { events.push(event); }, traceWasi: trace }),
+  createFxAgent({ backend: "wasm", wasm: await readFile(wasmPath), fetch: mockFetch, env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "sdk-test-key" }, configStore, sessionStore, onEvent(event) { events.push(event); }, traceWasi: trace }),
   new Promise((_, reject) => {
     initializeTimeout = setTimeout(() => reject(new Error("timed out waiting for fx-core initialize")), 5000);
   }),
@@ -158,8 +158,8 @@ if (chunks.filter((chunk) => chunk.trim().length > 0).length < 2) throw new Erro
 if (stopReason !== "end_turn") throw new Error(`unexpected stop reason: ${stopReason}`);
 if (fetchCalls !== 1) throw new Error(`expected one gateway fetch, got ${fetchCalls}`);
 if (requestedModel !== "sdk/browser-test-model") throw new Error(`gateway request used unexpected model: ${requestedModel}`);
-if (requestedSessionId !== session.id) throw new Error(`gateway request used unexpected session id: ${requestedSessionId}`);
-if (requestedSessionAffinity !== session.id) throw new Error(`gateway request used unexpected session affinity: ${requestedSessionAffinity}`);
+if (requestedSessionId !== null) throw new Error(`chat-completions request leaked a legacy session header: ${requestedSessionId}`);
+if (requestedSessionAffinity !== null) throw new Error(`chat-completions request leaked a legacy affinity header: ${requestedSessionAffinity}`);
 
 await session.close();
 let closedSessionRejected = false;

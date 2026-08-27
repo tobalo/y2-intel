@@ -31,9 +31,9 @@ const mockFetch = async (url, init) => {
   }
   return new Response(new ReadableStream({
     start(controller) {
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"hello"}\n'));
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":" world"}\n'));
-      controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":3},"outputTokens":{"total":2}}}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_home","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_home","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_home","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}}\n\n'));
       controller.enqueue(encoded.encode("data: [DONE]\n"));
       controller.close();
     },
@@ -55,7 +55,8 @@ const agent = await Promise.race([
     wasm: await readFile(wasmPath),
     fetch: mockFetch,
     env: {
-      AI_GATEWAY_API_KEY: "sdk-test-key",
+      OPENAI_BASE_URL: "https://models.example/v1",
+      OPENAI_API_KEY: "sdk-test-key",
       HOME: "/repo",
     },
     workspace: {

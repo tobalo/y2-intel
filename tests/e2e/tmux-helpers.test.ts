@@ -22,7 +22,7 @@ import {
 
 const tmuxTest = test.skipIf(!tmuxAvailable());
 const ISOLATED_KEYS = [
-  "AI_GATEWAY_API_KEY",
+  "Y2_API_KEY",
   "VERCEL_OIDC_TOKEN",
   "FX_E2E_GATEWAY_CHAT_URL",
   "FX_E2E_GATEWAY_MODELS_URL",
@@ -160,7 +160,7 @@ tmuxTest("tmux launch scrubs stale overrides without storing explicit credential
       startupWaitMs: 200,
       socketName,
       env: {
-        AI_GATEWAY_API_KEY: explicitCredential,
+        Y2_API_KEY: explicitCredential,
       },
     });
 
@@ -170,7 +170,7 @@ tmuxTest("tmux launch scrubs stale overrides without storing explicit credential
     }
     expect(existsSync(resultPath)).toBe(true);
     const observed = JSON.parse(readFileSync(resultPath, "utf8"));
-    expect(observed.AI_GATEWAY_API_KEY).toBe(explicitCredential);
+    expect(observed.Y2_API_KEY).toBe(explicitCredential);
     expect(observed.VERCEL_OIDC_TOKEN).toBeNull();
     expect(observed.FX_E2E_GATEWAY_CHAT_URL).toBeNull();
     expect(observed.FX_E2E_GATEWAY_MODELS_URL).toBeNull();
@@ -198,7 +198,7 @@ tmuxTest("tmux launch scrubs stale overrides without storing explicit credential
       ["-L", socketName, "show-environment", "-t", session.name],
       { encoding: "utf8" },
     );
-    expect(sessionEnvironment).not.toContain("AI_GATEWAY_API_KEY=");
+    expect(sessionEnvironment).not.toContain("Y2_API_KEY=");
     expect(sessionEnvironment).not.toContain(explicitCredential);
   } finally {
     await session?.kill();

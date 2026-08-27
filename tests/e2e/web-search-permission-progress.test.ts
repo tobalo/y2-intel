@@ -6,7 +6,7 @@ import { runFx } from "../evals/eval-helpers";
 
 const TIMEOUT = 15_000;
 const NO_GATEWAY_AUTH = {
-  AI_GATEWAY_API_KEY: undefined,
+  Y2_API_KEY: undefined,
   VERCEL_OIDC_TOKEN: undefined,
   FX_DISABLE_KEYCHAIN: "1",
 };
@@ -43,7 +43,7 @@ describe("web_search permission progress", () => {
       ]);
 
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain("Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set AI_GATEWAY_API_KEY.");
+      expect(result.stderr).toContain("Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set Y2_API_KEY.");
       expectNoSearchProgress(result.stderr);
     },
     TIMEOUT,

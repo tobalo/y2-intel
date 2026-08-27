@@ -1116,7 +1116,7 @@ pub fn writeProviderConfigOption(
 ) !void {
     try w.writeAll("{\"id\":\"provider\",\"name\":\"Provider\",\"category\":\"model\",\"type\":\"select\",\"currentValue\":");
     try writeJsonStr(@tagName(current), w);
-    try w.writeAll(",\"options\":[{\"value\":\"gateway\",\"name\":\"Vercel AI Gateway\"},{\"value\":\"codex\",\"name\":\"Codex subscription\"}");
+    try w.writeAll(",\"options\":[{\"value\":\"gateway\",\"name\":\"Y2 / OpenAI-compatible API\"},{\"value\":\"codex\",\"name\":\"Codex subscription\"}");
     if (comptime !host_target.is_wasm) {
         try w.writeAll(",{\"value\":\"grok\",\"name\":\"Grok subscription\"}");
     }
@@ -1493,7 +1493,7 @@ fn initAcpSessionTestState(
         .writer = .{ .stdout = capture },
         .workspace_root = workspace,
         .api_key = api_key,
-        .credential_source = .ai_gateway_api_key,
+        .credential_source = .api_key,
         .selected_model = selected_model,
         .configured_model = configured_model,
         .agent_step_limit = 8,
@@ -1552,10 +1552,8 @@ test "ACP new and loaded sessions provide a writable subagent host" {
         );
         try std.testing.expectEqualStrings("review", new_active.mode);
         try std.testing.expect(new_writable.state.usage != null);
-        try std.testing.expect(
-            new_active.session_rt.usage.generation_usage_providers.select(.gateway).?.lookup_fn ==
-                state.cfg.provider_set.deferredUsageProviders().select(.gateway).?.lookup_fn,
-        );
+        try std.testing.expect(new_active.session_rt.usage.generation_usage_providers.select(.gateway) == null);
+        try std.testing.expect(state.cfg.provider_set.deferredUsageProviders().select(.gateway) == null);
         io_mod.sleep(10 * std.time.ns_per_ms);
         var live_usage = try new_active.session_rt.usage.snapshot(alloc);
         defer live_usage.deinit(alloc);
@@ -1591,10 +1589,8 @@ test "ACP new and loaded sessions provide a writable subagent host" {
         try std.testing.expect(loaded_writable.state.usage != null);
         try std.testing.expect(state.subagent_store != null);
         try std.testing.expect(state.subagent_host != null);
-        try std.testing.expect(
-            loaded_active.session_rt.usage.generation_usage_providers.select(.gateway).?.lookup_fn ==
-                state.cfg.provider_set.deferredUsageProviders().select(.gateway).?.lookup_fn,
-        );
+        try std.testing.expect(loaded_active.session_rt.usage.generation_usage_providers.select(.gateway) == null);
+        try std.testing.expect(state.cfg.provider_set.deferredUsageProviders().select(.gateway) == null);
 
         try capture.sync(io_mod.getIo());
     }

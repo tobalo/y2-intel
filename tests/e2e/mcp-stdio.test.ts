@@ -227,12 +227,12 @@ function createRoot(
 function fixtureEnv(root: FixtureRoot, activeGateway: ReturnType<typeof startFakeGateway>) {
   return {
     HOME: root.home,
-    AI_GATEWAY_API_KEY: "fake-mcp-stdio-key",
+    Y2_API_KEY: "fake-mcp-stdio-key",
     VERCEL_OIDC_TOKEN: undefined,
     FX_AUTO_UPGRADE: "0",
     FX_PERMISSION_MODE: "auto",
     FX_GATEWAY_BASE_URL: activeGateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: activeGateway.chatUrl,
+    FX_API_CHAT_URL: activeGateway.chatUrl,
     FX_E2E_GATEWAY_CHAT_URL: activeGateway.chatUrl,
     FX_MODEL: MODEL,
     FX_TRACE_LOG: root.traceLogPath,

@@ -22,7 +22,11 @@
       "NO_COLOR": "1"
     },
     "env_unset": [
-      "AI_GATEWAY_API_KEY",
+      "Y2_API_KEY",
+      "OPENAI_API_KEY",
+      "OPENAI_BASE_URL",
+      "FX_API_CHAT_URL",
+      "FX_MODEL",
       "VERCEL_OIDC_TOKEN"
     ],
     "timeout_seconds": 1800,

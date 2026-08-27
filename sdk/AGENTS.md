@@ -42,9 +42,9 @@ Do not treat the demos or this file as the implementation contract. When prose a
 | --- | --- |
 | Public export, shared loader, WASI import, or JSPI gate | Build and test both surfaces |
 | `createFxAgent()`, ACP translation, core session persistence, streaming, or cancellation | Core build, core Node tests, and the browser test when browser behavior is involved |
-| Live Gateway request or model-catalog translation | Core tests plus the opt-in live smoke test when a credential is available |
+| Live model API request or model-catalog translation | Core tests plus the opt-in live smoke test when a credential is available |
 | Terminal adapter, input encoding, resize, cleanup, config, or prompt history | Terminal build and the headless terminal suite |
-| Terminal session persistence or browser device login | Terminal build plus `sdk/tests/test-term-session-resume.mjs` or `sdk/tests/test-term-login.mjs` |
+| Terminal session persistence | Terminal build plus `sdk/tests/test-term-session-resume.mjs` |
 | Browser workspace metadata, permissions, execution, limits, or cancellation | Terminal build plus `sdk/node/test-term-workspace.mjs` |
 | `encodeXtermKeyEvent()` or `xtermAdapter()` only | `sdk/node/test-xterm-adapter.mjs` |
 | Core debugger query behavior or automation state | `sdk/tests/test-core-browser.mjs` |
@@ -72,10 +72,9 @@ zig build -Dwasm-surface=term
 npm ci --prefix sdk/node
 npm run --prefix sdk/node test:term
 node --experimental-wasm-jspi sdk/tests/test-term-session-resume.mjs
-node --experimental-wasm-jspi sdk/tests/test-term-login.mjs
 ```
 
-For a live Gateway transport change, `AI_GATEWAY_API_KEY` must already be present in the environment before running the opt-in smoke test:
+For a live Agent Y2 transport change, `Y2_API_KEY` must already be present in the environment before running the opt-in smoke test:
 
 ```sh
 node --experimental-wasm-jspi sdk/tests/test-core-live.mjs

@@ -180,10 +180,10 @@ function gatewayEnv(
 ) {
   return {
     HOME: fixture.home,
-    AI_GATEWAY_API_KEY: "ui-observer-local",
+    Y2_API_KEY: "ui-observer-local",
     VERCEL_OIDC_TOKEN: undefined,
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_MODEL: FAKE_GATEWAY_MODEL,
     FX_AUTO_UPGRADE: "0",
     FX_UI_OBSERVE_DIR: artifactDir,

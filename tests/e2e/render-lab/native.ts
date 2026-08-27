@@ -738,7 +738,7 @@ function startShellCommand(
       ];
   const env = [
     "-u",
-    "AI_GATEWAY_API_KEY",
+    "Y2_API_KEY",
     "-u",
     "VERCEL_OIDC_TOKEN",
     `HOME=${shQuote(fixture.home)}`,

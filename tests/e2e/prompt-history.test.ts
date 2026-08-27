@@ -22,7 +22,7 @@ import {
 
 const TIMEOUT = 20_000;
 const REJECTED_GATEWAY_AUTH = {
-  AI_GATEWAY_API_KEY: "e2e-placeholder",
+  Y2_API_KEY: "e2e-placeholder",
   VERCEL_OIDC_TOKEN: "",
   NO_COLOR: "1",
 };
@@ -37,7 +37,7 @@ function rejectedGatewayEnv(
     ...REJECTED_GATEWAY_AUTH,
     HOME: home,
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_MODEL: FAKE_GATEWAY_MODEL,
   };
 }

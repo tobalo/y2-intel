@@ -672,7 +672,7 @@ test "catalog authentication fallback is anonymous and bounded" {
     defer debug_trace.resetForTest();
     try debug_trace.configureForTestWithScopes(alloc, trace_path, "catalog");
 
-    const access = credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", "team_123");
+    const access = credentials.catalogAccessForCredential(.api_key, "test-key", "team_123");
     const rejection = Failure{ .category = .authentication, .http_status = .unauthorized };
     var accepted = FallbackProbe{ .failures = .{ rejection, null } };
     var loaded = fetchWithPublicFallback(accepted.provider(), std.testing.allocator, .{
@@ -681,7 +681,7 @@ test "catalog authentication fallback is anonymous and bounded" {
     });
     defer freeModelCatalog(std.testing.allocator, &loaded.loaded.catalog);
     try std.testing.expectEqual(AccessLevel.public_only, loaded.loaded.provenance.access.level);
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, loaded.loaded.provenance.access.source.?);
+    try std.testing.expectEqual(credentials.Source.api_key, loaded.loaded.provenance.access.source.?);
     try std.testing.expectEqual(credentials.CatalogPublicOnlyReason.authenticated_credential_rejected, loaded.loaded.provenance.access.public_only_reason.?);
     try std.testing.expect(loaded.loaded.provenance.access.private_models_may_be_hidden);
     try std.testing.expect(loaded.loaded.provenance.anonymous_fallback_used);
@@ -726,12 +726,12 @@ test "catalog authentication fallback is anonymous and bounded" {
     try std.testing.expect(std.mem.find(
         u8,
         trace,
-        "requested_access=authenticated credential_source=ai_gateway_api_key effective_access=public_only public_only_reason=authenticated_credential_rejected anonymous_fallback=true outcome=loaded failure_category=authentication http_status=401 retryable=false",
+        "requested_access=authenticated credential_source=api_key effective_access=public_only public_only_reason=authenticated_credential_rejected anonymous_fallback=true outcome=loaded failure_category=authentication http_status=401 retryable=false",
     ) != null);
     try std.testing.expect(std.mem.find(
         u8,
         trace,
-        "requested_access=authenticated credential_source=ai_gateway_api_key effective_access=authenticated public_only_reason=none anonymous_fallback=false outcome=failed failure_category=transport http_status=none retryable=true",
+        "requested_access=authenticated credential_source=api_key effective_access=authenticated public_only_reason=none anonymous_fallback=false outcome=failed failure_category=transport http_status=none retryable=true",
     ) != null);
     try std.testing.expect(std.mem.find(u8, trace, "test-key") == null);
     try std.testing.expect(std.mem.find(u8, trace, "team_123") == null);
@@ -740,7 +740,7 @@ test "catalog authentication fallback is anonymous and bounded" {
 
 test "catalog fallback classification stays bounded across repeated cycles" {
     const access = credentials.catalogAccessForCredential(
-        .ai_gateway_api_key,
+        .api_key,
         "repeated-test-key",
         "repeated-team",
     );

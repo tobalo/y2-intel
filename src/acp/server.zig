@@ -343,7 +343,7 @@ pub fn selectCredentialForProvider(
     var credential = if (provider == .gateway and state.cfg.credential_override != null)
         credentials.Credential{
             .token = try state.alloc.dupe(u8, state.cfg.credential_override.?),
-            .source = .ai_gateway_api_key,
+            .source = .api_key,
         }
     else blk: {
         const resolution = try credentials.resolveForProvider(
@@ -656,7 +656,7 @@ pub fn runWithTransport(
         .cfg = cfg,
         .writer = writer_value,
         .web_search_runtime = web_search_runtime.Runtime.init(.{
-            .provider = cfg.provider_set.gateway.fx_search.?,
+            .provider = cfg.provider_set.gateway.fx_search,
         }),
         .background = background_runtime.BackgroundRuntime.init(
             cfg.background_process_provider,
@@ -1356,7 +1356,7 @@ fn handleInitialize(state: *ServerState, alloc: Allocator, msg: *jsonrpc.Message
     const credential: *credentials.Credential = if (state.provider == .gateway and state.cfg.credential_override != null) override: {
         routed_credential = .{
             .token = try alloc.dupe(u8, state.cfg.credential_override.?),
-            .source = .ai_gateway_api_key,
+            .source = .api_key,
         };
         break :override &routed_credential.?;
     } else if (startup_matches_model)
@@ -1641,7 +1641,7 @@ fn handleSetConfigOption(state: *ServerState, alloc: Allocator, msg: *jsonrpc.Me
             var staged_credential = if (target == .gateway and state.cfg.credential_override != null)
                 credentials.Credential{
                     .token = try alloc.dupe(u8, state.cfg.credential_override.?),
-                    .source = .ai_gateway_api_key,
+                    .source = .api_key,
                 }
             else credential: {
                 const resolution = try credentials.resolveForProvider(

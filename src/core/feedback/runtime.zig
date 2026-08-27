@@ -1,7 +1,7 @@
 const std = @import("std");
 
-pub const url = "https://fx.sh/feedback";
+pub const url = "https://github.com/tobalo/y2-intel/issues/new";
 
-test "feedback URL stays on the fx.sh domain" {
-    try std.testing.expectEqualStrings("https://fx.sh/feedback", url);
+test "feedback URL stays on the Y2 harness repository" {
+    try std.testing.expectEqualStrings("https://github.com/tobalo/y2-intel/issues/new", url);
 }

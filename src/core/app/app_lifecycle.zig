@@ -1989,7 +1989,7 @@ test "startup credential modes select a refresh policy, never a narrower source 
 test "loadStartupState applies core env overrides" {
     var env = try TestEnv.install(std.testing.allocator, &.{
         .{ .key = "FX_MODEL", .value = "  env-model  " },
-        .{ .key = "AI_GATEWAY_API_KEY", .value = "gateway-key" },
+        .{ .key = "Y2_API_KEY", .value = "gateway-key" },
         .{ .key = "FX_PERMISSION_MODE", .value = "auto" },
         .{ .key = "FX_MAX_AGENT_STEPS", .value = "37" },
     });
@@ -2010,7 +2010,7 @@ test "loadStartupState applies core env overrides" {
     try std.testing.expectEqual(config_runtime.ModelSource.process_override, state.model_source);
     try std.testing.expect(!state.fast_mode);
     try std.testing.expectEqualStrings("gateway-key", state.apiKey().?);
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, state.credential.?.source);
+    try std.testing.expectEqual(credentials.Source.api_key, state.credential.?.source);
     try std.testing.expectEqual(PermissionMode.auto, state.permission_mode);
     try std.testing.expectEqual(@as(usize, 37), state.agent_step_limit);
 }

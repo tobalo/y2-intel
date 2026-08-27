@@ -79,7 +79,7 @@ function startAcp(cwd: string, home: string, extraEnv: Record<string, string> = 
     env: {
       ...process.env,
       HOME: home,
-      AI_GATEWAY_API_KEY: "e2e-placeholder",
+      Y2_API_KEY: "e2e-placeholder",
       VERCEL_OIDC_TOKEN: "",
       NO_COLOR: "1",
       ...extraEnv,
@@ -353,10 +353,10 @@ describe("session recovery", () => {
             cwd: workspaceRoot,
             env: {
               HOME: home,
-              AI_GATEWAY_API_KEY: "e2e-placeholder",
+              Y2_API_KEY: "e2e-placeholder",
               VERCEL_OIDC_TOKEN: "",
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
             },
           },
         );
@@ -431,10 +431,10 @@ describe("session recovery", () => {
       ]);
       const resumeEnv = {
         HOME: home,
-        AI_GATEWAY_API_KEY: "e2e-placeholder",
+        Y2_API_KEY: "e2e-placeholder",
         VERCEL_OIDC_TOKEN: "",
         FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+        FX_API_CHAT_URL: gateway.chatUrl,
       };
       try {
         const resumedA = await runFx(

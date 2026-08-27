@@ -94,7 +94,7 @@ Creating a core performs these steps:
 
 1. Atomically reserve one of 64 process-wide runtime slots.
 2. Read and copy bounded configuration strings from the JavaScript options object.
-3. Validate the Gateway endpoint.
+3. Validate the model API endpoint.
 4. Allocate a `Runtime` and bounded fetch bridge using Zig's C allocator.
 5. Spawn one native thread.
 6. Run `acp_server.runWithTransport()` on that thread using callback-backed ACP queues and the shared host-stream provider.
@@ -131,16 +131,16 @@ As a result, the model receives no native tool advertisement, cannot launch comm
 
 This restriction is a security boundary. New tools or host effects must not be enabled merely because the code is running natively. Every new capability needs a typed boundary, permission analysis, explicit configuration, and native security coverage.
 
-## Gateway endpoint policy
+## Model API endpoint policy
 
-The Gateway URL is validated independently in JavaScript and Zig. This duplication is intentional defense in depth because callers can load and call `libfx.node` directly, bypassing `sdk/node.js`.
+The model API URL is validated independently in JavaScript and Zig. This duplication is intentional defense in depth because callers can load and call `libfx.node` directly, bypassing `sdk/node.js`.
 
 Accepted endpoints are:
 
-- the exact canonical production Gateway URL; or
+- any HTTPS URL without embedded credentials or a fragment; or
 - explicit HTTP on `127.0.0.1`, `localhost`, or `[::1]`, with a port.
 
-URLs with embedded credentials or fragments are rejected. Arbitrary HTTPS hosts, non-loopback HTTP hosts, and other schemes are rejected. Loopback HTTP exists only for local development and deterministic tests.
+URLs with embedded credentials or fragments are rejected. Non-loopback HTTP hosts and other schemes are rejected. Loopback HTTP exists only for local development and deterministic tests.
 
 Keep the validation in `sdk/node.js`, `src/napi_core_main.zig`, and `streamable_http.validateEndpoint()` aligned. Loosening only one layer creates inconsistent behavior and may create a server-side request forgery path for callers using the low-level addon directly.
 

@@ -74,15 +74,16 @@ let secondRequestAt;
 let secondRequestBody;
 let requestCount = 0;
 const mockFetch = async (_url, init) => {
-  requestedModel = new Headers(init.headers).get("ai-language-model-id");
+  const requestBody = JSON.parse(new TextDecoder().decode(init.body));
+  requestedModel = requestBody.model;
   requestCount += 1;
   if (requestCount === 2) {
     secondRequestAt = performance.now();
-    secondRequestBody = JSON.parse(new TextDecoder().decode(init.body));
+    secondRequestBody = requestBody;
     return new Response(new ReadableStream({
       start(controller) {
-        controller.enqueue(encoded.encode(`data: {"type":"text-delta","delta":"${queuedAnswer}"}\n`));
-        controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n'));
+        controller.enqueue(encoded.encode(`data: ${JSON.stringify({ id: "chat_queued", choices: [{ index: 0, delta: { content: queuedAnswer }, finish_reason: null }] })}\n\n`));
+        controller.enqueue(encoded.encode('data: {"id":"chat_queued","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'));
         controller.enqueue(encoded.encode("data: [DONE]\n"));
         controller.close();
       },
@@ -90,15 +91,15 @@ const mockFetch = async (_url, init) => {
   }
   return new Response(new ReadableStream({
     async start(controller) {
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"hello"}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_term","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n'));
       streamStartedAt = performance.now();
       const interval = setInterval(() => {
-        controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"."}\n'));
+        controller.enqueue(encoded.encode('data: {"id":"chat_term","choices":[{"index":0,"delta":{"content":"."},"finish_reason":null}]}\n\n'));
       }, 20);
       await firstStreamRelease;
       clearInterval(interval);
-      controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":" world"}\n'));
-      controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_term","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n'));
+      controller.enqueue(encoded.encode('data: {"id":"chat_term","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'));
       controller.enqueue(encoded.encode("data: [DONE]\n"));
       controller.close();
       streamFinishedAt = performance.now();
@@ -109,7 +110,7 @@ const runtime = await createFxTerminal({
   backend: "wasm",
   wasm: await readFile(wasmPath),
   terminal,
-  env: { AI_GATEWAY_API_KEY: "term-test-key" },
+  env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "term-test-key" },
   fetch: mockFetch,
   configStore: {
     get(configId) { return persistedConfig.get(configId) ?? null; },
@@ -173,17 +174,16 @@ globalThis.setTimeout = originalSetTimeout;
 const text = new TextDecoder().decode(Buffer.concat(output.map((chunk) => Buffer.from(chunk))));
 
 if (exitCode !== 0) throw new Error(`fx-term exited with code ${exitCode}`);
-if (!text.includes("𝒇x")) throw new Error("shared Fx welcome frame was not observed");
+if (!text.includes("Y2 INFORMATION DOMINANCE")) throw new Error("Y2 welcome frame was not observed");
 if (!text.includes("Run /help for commands")) throw new Error("shared Fx welcome guidance was not observed");
 if (requestedModel !== "sdk/term-model") throw new Error(`terminal prompt did not use the host-restored model: ${requestedModel}`);
 if (!(streamStartedAt < streamFinishedAt)) throw new Error("terminal fetch did not remain active for continuous streaming");
 if (!(draftVisibleAt < streamFinishedAt)) throw new Error("terminal rendered follow-up input only after continuous streaming finished");
 if (!(queuedVisibleAt < streamFinishedAt)) throw new Error("terminal queued follow-up input only after continuous streaming finished");
 if (!(secondRequestAt >= streamFinishedAt)) throw new Error("terminal started queued follow-up before continuous streaming finished");
-const queuedUser = secondRequestBody.prompt?.filter((message) => message.role === "user").at(-1);
-const queuedText = queuedUser?.content?.filter((part) => part.type === "text").map((part) => part.text);
-if (queuedText?.length !== 1 || queuedText[0] !== liveDraft) {
-  throw new Error(`queued follow-up request changed the submitted draft: ${JSON.stringify(queuedText)}`);
+const queuedUser = secondRequestBody.messages?.filter((message) => message.role === "user").at(-1);
+if (queuedUser?.content !== liveDraft) {
+  throw new Error(`queued follow-up request changed the submitted draft: ${JSON.stringify(queuedUser?.content)}`);
 }
 if (requestCount !== 2) throw new Error(`terminal sent ${requestCount} requests instead of the active and queued turns`);
 if (zeroTimeoutCount !== 0) throw new Error(`terminal allocated ${zeroTimeoutCount} zero-timeout poll timer(s)`);

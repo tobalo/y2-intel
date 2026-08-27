@@ -403,9 +403,9 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    AI_GATEWAY_API_KEY: "fake-e2e-key",
+    Y2_API_KEY: "fake-e2e-key",
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_MODEL: OUTER_MODEL,
     FX_AUTO_UPGRADE: "0",
     NO_COLOR: "1",

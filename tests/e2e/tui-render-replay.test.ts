@@ -58,7 +58,7 @@ async function launch(options: {
   );
 
   const s = await TmuxSession.create({
-    cmd: `env -u AI_GATEWAY_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN}`,
+    cmd: `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN}`,
     cwd: workDir,
     width: 88,
     height: 30,
@@ -103,7 +103,7 @@ async function launchAutomaticRecording(): Promise<{
   const goldenPath = join(workDir, "grid.txt");
   const tracePath = join(workDir, "trace.log");
   const s = await TmuxSession.create({
-    cmd: `env -u AI_GATEWAY_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN} --record`,
+    cmd: `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN} --record`,
     cwd: workDir,
     width: 180,
     height: 36,
@@ -308,7 +308,7 @@ describe("tui: render record/replay", () => {
         { length: 33 },
         (_, index) => `captured input line ${index + 1}: ${"x".repeat(32)}`,
       ).join("\n");
-      const authNotice = "● Auth: Fx needs access to Vercel AI Gateway. Run /login to sign in, /setup to use an API key, or set AI_GATEWAY_API_KEY.";
+      const authNotice = "● Auth: Fx needs access to Vercel AI Gateway. Run /login to sign in, /setup to use an API key, or set Y2_API_KEY.";
       const launched = await launch({ recordInput: true });
       session = launched.session;
 

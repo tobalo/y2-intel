@@ -1,17 +1,15 @@
-```
- ⠀⠀⠀⠀⠀⠀⣠⣾⣿⣿⣿⠀⠀⠀⠀⠀⠀⠀⠀
- ⠀⠀⠀⠀⠀⢰⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
- ⠀⠀⠀⣠⣶⣿⣿⣷⣶⡶⣶⣶⣆⠀⠀⠀⣴⣶⣶⠆
- ⠀⠀⠀⠉⢹⣿⣿⠉⠉⠀⠘⢿⣿⣧⣀⣾⣿⡿⠃⠀             Tiny, open, embeddable, native coding agent.
- ⠀⠀⠀⠀⣼⣿⡏⠀⠀⠀⠀⠀⠻⣿⣿⣿⠟⠀⠀⠀
- ⠀⠀⠀⢀⣿⣿⠃⠀⠀⠀⠀⢠⣦⠘⢿⣿⣷⡀⠀⠀             curl -fsSL https://fx.sh/setup.sh | bash
- ⠀⠀⠀⣸⣿⡟⠀⠀⠀⠀⣰⣿⣿⠗⠀⠻⣿⣿⣄⠀
- ⠀⠀⠀⣿⣿⠇⠀⠀⠀⠾⠿⠿⠋⠀⠀⠀⠘⠿⠿⠦             ⚠ Status: Experimental. Use at your own risk.
-  ⠀⣸⣿⡿⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
- ⣿⣿⣿⠟⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀
+```text
+██╗   ██╗██████╗
+╚██╗ ██╔╝╚════██╗
+ ╚████╔╝  █████╔╝
+  ╚██╔╝  ██╔═══╝
+   ██║   ███████╗
+   ╚═╝   ╚══════╝
+
+Y2 INFORMATION DOMINANCE
 ```
 
-fx is a coding agent harness and CLI written in Zig, optimized for research and embeddability as part of larger systems.
+Y2 Information Dominance is a coding-agent harness and CLI written in Zig. It is optimized for research and for embedding in larger systems.
 
 It focuses on minimalism and performance across the board, from system prompt design to its tools, feature set, and 7.8 MiB binary.
 
@@ -19,19 +17,43 @@ For end users, its CLI output style and form factor aim to be closer to a Unix s
 
 It's open source (Apache-2.0), model-agnostic, and suitable for both local and cloud inference.
 
-## Install
+## Install from source
+
+The hosted Y2 installer is not published yet. Until release artifacts and the
+`y2.dev/harness/install.sh` route are available, build this fork directly:
 
 ```bash
-curl -fsSL https://fx.sh/setup.sh | bash
+git clone https://github.com/tobalo/y2-intel.git
+cd y2-intel
+zig build -Doptimize=ReleaseSafe
+./zig-out/bin/fx
 ```
 
-## Run fx
+## Run the harness
 
-Sign in with Vercel AI Gateway:
+The fork currently retains the `fx` executable name and `~/.fx/` profile layout
+so existing sessions and settings remain usable while the runtime and product
+branding transition to Y2 Information Dominance.
+
+Agent Y2 is the default route. Create a scoped key as described in the [Y2 API authentication guide](https://y2.dev/docs/api/authentication/), then export it:
 
 ```bash
-fx login
+export Y2_API_KEY="your-y2-api-key"
+fx
 ```
+
+The default request target is `https://api.y2.dev/api/v1/chat/completions` with model `y2-agent`. This route sends the OpenAI-compatible streaming fields supported by [Agent Y2](https://y2.dev/docs/api/agent-y2/). Agent Y2 owns its internal agent behavior, so local system messages and local function tools are not sent on this route.
+
+To call another OpenAI-compatible endpoint directly, configure its base URL, key, and model:
+
+```bash
+export OPENAI_BASE_URL="https://your-provider.example/v1"
+export OPENAI_API_KEY="your-provider-api-key"
+export FX_MODEL="your-model-id"
+fx
+```
+
+`OPENAI_BASE_URL` may include `/chat/completions`; otherwise fx appends it. `FX_API_CHAT_URL` overrides the full request URL and also enables direct OpenAI-compatible mode. Direct mode sends standard chat messages and function-tool definitions without routing through an intermediary gateway.
 
 Or use an eligible ChatGPT subscription through OpenAI Codex OAuth:
 
@@ -47,13 +69,13 @@ fx login grok
 fx
 ```
 
-`fx login codex` and `fx login grok` select that provider and a model from its authenticated catalog. Inside fx, open `/setup` and choose **Model provider** to move between Gateway, Codex, and Grok. `/model` lists the active provider's fetched models. Subscription model IDs are the raw IDs returned by each authenticated catalog. Use `/logout codex` or `/logout grok` to remove that subscription session without affecting other providers; choosing it again from **Model provider** starts sign-in.
+`fx login codex` and `fx login grok` select that provider and a model from its authenticated catalog. Inside fx, open `/setup` and choose **Model provider** to move between Y2 API, Codex, and Grok. `/model` lists the active provider's models. Subscription model IDs are the raw IDs returned by each authenticated catalog. Use `/logout codex` or `/logout grok` to remove that subscription session without affecting other providers; choosing it again from **Model provider** starts sign-in.
 
-The OpenAI Codex route uses ChatGPT subscription access directly and never sends its OAuth token to Vercel AI Gateway. The session is stored privately at `~/.fx/chatgpt-auth.json` and refreshed when needed. On supported Codex models, `/fast` requests OpenAI's priority service tier and consumes ChatGPT credits at the higher Fast mode rate.
+The OpenAI Codex route uses ChatGPT subscription access directly. The session is stored privately at `~/.fx/chatgpt-auth.json` and refreshed when needed. On supported Codex models, `/fast` requests OpenAI's priority service tier and consumes ChatGPT credits at the higher Fast mode rate.
 
-The Grok route uses subscription access directly at xAI and never sends its OAuth token to Vercel AI Gateway or OpenAI. Its session is stored privately at `~/.fx/grok-auth.json`, refreshed when needed, and used only with the authenticated xAI catalog and Responses API.
+The Grok route uses subscription access directly at xAI. Its session is stored privately at `~/.fx/grok-auth.json`, refreshed when needed, and used only with the authenticated xAI catalog and Responses API.
 
-To use an AI Gateway API key instead:
+To store the active API key in the supported local credential backend instead of an environment variable:
 
 ```bash
 fx setup
@@ -87,7 +109,7 @@ fx session resume --id <id>
 
 Each interactive session names its terminal tab. The title prefers the session name, falls back to the workspace name, and keeps the active model as secondary context. Renaming or resuming a session updates the tab, and exiting clears the fx-owned title. Noninteractive commands do not emit terminal-title controls.
 
-Run `/feedback` to open the feedback form at `fx.sh/feedback`. It does not create a diagnostic or change the clipboard.
+The `/feedback` command opens this fork's GitHub issue form. It does not create a diagnostic or change the clipboard.
 
 Run `/trace` to create a private Markdown diagnostic with logs, session context, runtime state, permissions, and recent activity. On macOS, fx copies the `.md` file to the clipboard; on other platforms, it saves the file and prints its path. Review and redact the trace before sharing it.
 
@@ -99,7 +121,7 @@ fx ask "explain the changes in this repository"
 
 Foreground terminal commands run with an explicit finite deadline. fx uses durable terminal sessions for services, watchers, GUI applications, and other long-lived work, and keeps captured foreground output available through an opaque bounded-read handle for the active session or `--no-save` process.
 
-fx starts in `auto` permission mode. Routine understood development actions run directly. Each unresolved action receives one narrow safety review based on the current user request and the exact pending action. A clear result authorizes only that action. A caution or unavailable review holds the action and returns advice to the agent without opening a permission prompt or ending the turn. See [Permissions](https://fx.sh/docs/configure-fx/permissions) for other modes and persistent rules.
+fx starts in `auto` permission mode. Routine understood development actions run directly. Each unresolved action receives one narrow safety review based on the current user request and the exact pending action. A clear result authorizes only that action. A caution or unavailable review holds the action and returns advice to the agent without opening a permission prompt or ending the turn. The inherited permission model is documented in the [upstream fx permissions guide](https://fx.sh/docs/configure-fx/permissions).
 
 JSON and quiet requests stay noninteractive by default. Add `--prompt-permissions` to allow configured approval prompts when stdin is a TTY. Automatic safety review never opens that prompt. Prompt text is written to stderr, so JSON stdout stays parseable and quiet stdout stays empty. Piped or redirected stdin remains noninteractive and fails instead of waiting for approval.
 
@@ -123,15 +145,17 @@ Add reusable instructions with [skills](https://fx.sh/docs/capabilities/skills),
 
 ## Documentation
 
-Read the [fx documentation](https://fx.sh/docs).
+Read the [Y2 API documentation](https://y2.dev/docs/api/) for Agent Y2,
+authentication, and API contracts. The inherited CLI and runtime behavior is
+covered by the [upstream fx documentation](https://fx.sh/docs).
 
 ## Build from source
 
 Building fx requires [Zig 0.16.0+](https://ziglang.org/download/):
 
 ```bash
-git clone https://github.com/vercel-labs/fx.git
-cd fx
+git clone https://github.com/tobalo/y2-intel.git
+cd y2-intel
 zig build -Doptimize=ReleaseSafe
 ./zig-out/bin/fx
 ```

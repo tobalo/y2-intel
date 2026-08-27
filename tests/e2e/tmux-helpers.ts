@@ -19,7 +19,7 @@ const TMUX_CAPTURE_MAX_BUFFER = 32 * 1024 * 1024;
 const TMUX_HEX_CHUNK_BYTES = 256;
 const COMPOSER_LINE = /^[ \t]*(?:┃|❯|>)(?:[ \t]|$)/;
 const AUTH_ENV_KEYS = [
-  "AI_GATEWAY_API_KEY",
+  "Y2_API_KEY",
   "VERCEL_OIDC_TOKEN",
 ] as const;
 const DEFAULT_UNSET_ENV_KEYS = [
@@ -32,7 +32,7 @@ const DEFAULT_UNSET_ENV_KEYS = [
 ] as const;
 const MIRRORED_ENV_KEYS = [
   "FX_GATEWAY_BASE_URL",
-  "FX_GATEWAY_CHAT_URL",
+  "FX_API_CHAT_URL",
   "FX_MAX_AGENT_STEPS",
   "FX_MODEL",
 ] as const;
@@ -123,8 +123,61 @@ export function hasEmptyComposer(pane: string): boolean {
 }
 
 export function fakeGatewaySse(events: object[]) {
+  const toolIndexes = new Map<string, number>();
+  let nextToolIndex = 0;
+  const openAiEvents = events.flatMap((rawEvent) => {
+    const event = rawEvent as Record<string, any>;
+    if (event.choices) return [event];
+    if (event.type === "text-delta") {
+      return [{
+        id: event.id ?? "chat_fixture",
+        choices: [{ index: 0, delta: { content: event.delta ?? "" }, finish_reason: null }],
+      }];
+    }
+    if (event.type === "tool-input-start") {
+      const index = nextToolIndex++;
+      toolIndexes.set(event.id, index);
+      return [{
+        id: "chat_fixture",
+        choices: [{ index: 0, delta: { tool_calls: [{ index, id: event.id, function: { name: event.toolName, arguments: "" } }] }, finish_reason: null }],
+      }];
+    }
+    if (event.type === "tool-input-delta") {
+      const index = toolIndexes.get(event.id) ?? 0;
+      return [{
+        id: "chat_fixture",
+        choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: event.delta ?? "" } }] }, finish_reason: null }],
+      }];
+    }
+    if (event.type === "tool-input-end" || event.type === "tool-result") return [];
+    if (event.type === "tool-call") {
+      if (toolIndexes.has(event.toolCallId)) return [];
+      const index = nextToolIndex++;
+      toolIndexes.set(event.toolCallId, index);
+      const input = typeof event.input === "string" ? event.input : JSON.stringify(event.input ?? {});
+      return [{
+        id: "chat_fixture",
+        choices: [{ index: 0, delta: { tool_calls: [{ index, id: event.toolCallId, function: { name: event.toolName, arguments: input } }] }, finish_reason: null }],
+      }];
+    }
+    if (event.type === "finish") {
+      const unified = event.finishReason?.unified ?? event.finishReason?.raw ?? "stop";
+      const finishReason = unified === "tool-calls" ? "tool_calls"
+        : unified === "content-filter" ? "content_filter"
+        : unified;
+      return [{
+        id: "chat_fixture",
+        choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
+        usage: event.usage ? {
+          prompt_tokens: event.usage.inputTokens?.total,
+          completion_tokens: event.usage.outputTokens?.total,
+        } : undefined,
+      }];
+    }
+    return [event];
+  });
   return new Response(
-    `${events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")}data: [DONE]\n\n`,
+    `${openAiEvents.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")}data: [DONE]\n\n`,
     { headers: { "content-type": "text/event-stream" } },
   );
 }
@@ -162,7 +215,7 @@ export function fakeGatewayPermissionDecision(
 
 export function classifierEvidenceFromRequest(body: string): string {
   const parsed = JSON.parse(body) as any;
-  const instruction = parsed.prompt.at(-1);
+  const instruction = parsed.messages?.at(-1);
   if (instruction?.role !== "system" || typeof instruction.content !== "string") {
     throw new Error("classifier instruction missing");
   }
@@ -232,14 +285,11 @@ export function heldFakeGatewayFinalText() {
     }
     stopTimer();
     controller.enqueue(encoder.encode(
-      `data: ${JSON.stringify({ type: "text-delta", id: "answer_1", delta: text })}\n\n` +
+      `data: ${JSON.stringify({ id: "answer_1", choices: [{ index: 0, delta: { content: text }, finish_reason: null }] })}\n\n` +
         `data: ${JSON.stringify({
-          type: "finish",
-          finishReason: { unified: "stop", raw: "stop" },
-          usage: {
-            inputTokens: { total: 3 },
-            outputTokens: { total: 5 },
-          },
+          id: "answer_1",
+          choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+          usage: { prompt_tokens: 3, completion_tokens: 5 },
         })}\n\ndata: [DONE]\n\n`,
     ));
     close();

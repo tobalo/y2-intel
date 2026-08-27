@@ -316,7 +316,7 @@ describe("agent quality baseline matrix", () => {
     const currentChanges = matrixRowById("focused-verification-current-changes");
 
     expect(matrixTest?.modelBackedEval.required).toBe(true);
-    expect(matrixTest?.deterministicCoverage.notes).toContain("does not require AI_GATEWAY_API_KEY");
+    expect(matrixTest?.deterministicCoverage.notes).toContain("does not require Y2_API_KEY");
     expect(firstToolMatchesExpectation(matrixTest!, {
       name: "terminal",
       command_result: { command: "bun test tests/evals/agent-quality-matrix.test.ts" },

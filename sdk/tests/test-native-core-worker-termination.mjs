@@ -21,8 +21,8 @@ try {
         nativeAddon: workerData.addonPath,
         backend: "native",
         env: {
-          AI_GATEWAY_API_KEY: "worker-termination-key",
-          FX_GATEWAY_CHAT_URL: workerData.gatewayUrl,
+          OPENAI_API_KEY: "worker-termination-key",
+          FX_API_CHAT_URL: workerData.gatewayUrl,
           FX_MODEL: "native/test-model",
         },
       });

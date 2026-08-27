@@ -79,7 +79,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
           cwd: workspace,
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: undefined,
+            Y2_API_KEY: undefined,
             VERCEL_OIDC_TOKEN: undefined,
             FX_AUTO_UPGRADE: "0",
             FX_DISABLE_KEYCHAIN: "1",
@@ -186,7 +186,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
           cwd: workspace,
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: undefined,
+            Y2_API_KEY: undefined,
             VERCEL_OIDC_TOKEN: undefined,
             FX_AUTO_UPGRADE: "0",
             FX_DISABLE_KEYCHAIN: "1",
@@ -245,7 +245,7 @@ describe.skipIf(SKIP_TMUX)("tui: fresh-session commands", () => {
       writeFileSync(stderrPath, "");
 
       const version = execFileSync(FX_BIN, ["--version"], { encoding: "utf8" }).trim();
-      const banner = `𝒇x v${version} · Run /help for commands`;
+      const banner = `Y2 INFORMATION DOMINANCE · v${version} · Run /help for commands`;
 
       try {
         session = await TmuxSession.create({
@@ -372,7 +372,7 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
       const home = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-direct-setup-")));
       session = await TmuxSession.create({
         env: {
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           HOME: home,
           FX_AUTO_UPGRADE: "0",
@@ -394,7 +394,7 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
           pane.includes("Esc Close"),
         TIMEOUT,
       );
-      expect(setup).not.toContain("AI_GATEWAY_API_KEY");
+      expect(setup).not.toContain("Y2_API_KEY");
       expect(setup).not.toContain("fx login");
       expect(setup).not.toContain("Vercel account");
       expect(setup).not.toContain("run /login");
@@ -420,7 +420,7 @@ describe.skipIf(SKIP_TMUX)("tui: credential onboarding", () => {
     async () => {
       const home = realpathSync(mkdtempSync(join(tmpdir(), "fx-e2e-login-onboarding-")));
       const env = {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         VERCEL_OIDC_TOKEN: undefined,
         HOME: home,
         USER: "fx-e2e-login-onboarding",

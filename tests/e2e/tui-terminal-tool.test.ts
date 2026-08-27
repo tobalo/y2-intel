@@ -432,13 +432,13 @@ async function launch(
     env: {
       HOME: fixture.home,
       SHELL: TERMINAL_FIXTURE_SHELL,
-      AI_GATEWAY_API_KEY: "fake-terminal-tool-key",
+      Y2_API_KEY: "fake-terminal-tool-key",
       VERCEL_OIDC_TOKEN: undefined,
       FX_AUTO_UPGRADE: "0",
       FX_PERMISSION_MODE: "yolo",
       FX_MODEL: FAKE_GATEWAY_MODEL,
       FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+      FX_API_CHAT_URL: gateway.chatUrl,
       FX_TRACE_LOG: fixture.tracePath,
       FX_TRACE_SCOPES:
         "input,terminal,terminal_client,terminal_store,terminal_host,agent,worker,gateway",

@@ -182,12 +182,12 @@ async function startFx(
     cwd,
     env: {
       HOME: testHome,
-      AI_GATEWAY_API_KEY: ENV_TOKEN,
+      Y2_API_KEY: ENV_TOKEN,
       VERCEL_OIDC_TOKEN: undefined,
       FX_DISABLE_KEYCHAIN: "1",
       FX_SKIP_ONBOARDING: "1",
       FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-      FX_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
+      FX_API_CHAT_URL: fakeGateway.chatUrl,
       FX_E2E_GATEWAY_MODELS_URL: `${fakeGateway.baseUrl}/coding-agent/v1/models`,
       FX_MODEL: FAKE_GATEWAY_MODEL,
       FX_AUTO_UPGRADE: "0",
@@ -1387,7 +1387,7 @@ tmuxTest(
         pane.includes("Credential source"),
       TIMEOUT,
     );
-    expect(root).toContain("AI_GATEWAY_API_KEY");
+    expect(root).toContain("Y2_API_KEY");
     expect(root).not.toContain("fx login");
     expect(root).not.toContain("Vercel account");
 
@@ -1430,7 +1430,7 @@ tmuxTest(
       (pane) => pane.includes("Credential source") && pane.includes("Automatic"),
       TIMEOUT,
     );
-    expect(sources).toContain("AI_GATEWAY_API_KEY");
+    expect(sources).toContain("Y2_API_KEY");
     expect(sources).toContain("fx login");
     await session.sendKeys("Escape");
     await session.sendKeys("Escape");
@@ -1460,7 +1460,7 @@ tmuxTest(
     );
 
     session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
-      AI_GATEWAY_API_KEY: undefined,
+      Y2_API_KEY: undefined,
       FX_SKIP_ONBOARDING: "0",
     });
     await session.waitForText("Welcome to fx", TIMEOUT);
@@ -1490,13 +1490,13 @@ async function startFxWithoutAuth(
     cwd,
     env: {
       HOME: testHome,
-      AI_GATEWAY_API_KEY: undefined,
+      Y2_API_KEY: undefined,
       VERCEL_OIDC_TOKEN: undefined,
       FX_OAUTH_CLIENT_ID: undefined,
       FX_DISABLE_KEYCHAIN: "1",
       FX_SKIP_ONBOARDING: "1",
       FX_GATEWAY_BASE_URL: fakeGateway.baseUrl,
-      FX_GATEWAY_CHAT_URL: fakeGateway.chatUrl,
+      FX_API_CHAT_URL: fakeGateway.chatUrl,
       FX_E2E_GATEWAY_MODELS_URL: `${fakeGateway.baseUrl}/coding-agent/v1/models`,
       FX_MODEL: FAKE_GATEWAY_MODEL,
       FX_AUTO_UPGRADE: "0",
@@ -1577,7 +1577,7 @@ profileStoredKeyTmuxTest(
     });
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
 
     await session.sendText("/setup");
     await session.waitForText("Connections", TIMEOUT);
@@ -1638,7 +1638,7 @@ tmuxTest(
     session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
 
     await session.sendText("/login");
     await session.waitForText("Connections", TIMEOUT);
@@ -1672,13 +1672,13 @@ tmuxTest(
     await session.waitForText("Using automatic credential precedence again", TIMEOUT);
     expect(savedCredentialSource(home)).toBeUndefined();
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
 
     await session.kill();
     session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
     await session.sendText("use automatic precedence after restart");
     await session.waitForText(ENV_RESPONSE, TIMEOUT);
     expect(gateway.requests[2].headers.get("authorization")).toBe(`Bearer ${ENV_TOKEN}`);
@@ -1709,7 +1709,7 @@ tmuxTest(
     session = await startFx(home, stderrPath, gateway, oauth.issuerUrl);
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
 
     await session.sendText("/setup");
     await session.waitForText("Setup", TIMEOUT);
@@ -1768,7 +1768,7 @@ tmuxTest(
     expect(initial).not.toContain("Switch credential");
 
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
     await session.sendText("use normal startup precedence");
     await session.waitForText(ENV_RESPONSE, TIMEOUT);
     expect(gateway.requests).toHaveLength(1);
@@ -1777,7 +1777,7 @@ tmuxTest(
 
     await openSwitchCredential(session);
     const inventory = await session.waitForPane(
-      (pane) => pane.includes("AI_GATEWAY_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
       TIMEOUT,
     );
     expect(inventory).not.toContain("VERCEL_OIDC_TOKEN");
@@ -1801,7 +1801,7 @@ tmuxTest(
     await session.waitForComposer(TIMEOUT);
     await session.sendText("/status");
     // The switch above is remembered, so the restart keeps fx login rather than
-    // letting AI_GATEWAY_API_KEY reclaim it through precedence.
+    // letting Y2_API_KEY reclaim it through precedence.
     await session.waitForText("auth=fx login", TIMEOUT);
     expect(readFileSync(authPath, "utf8")).toBe(seededAuthFile);
     await session.sendText("use the remembered credential after restart");
@@ -1860,7 +1860,7 @@ tmuxTest(
       { tokenTypeHint: "access_token", validForm: true },
     ]);
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
     await session.sendText("use the API key after logout");
     await session.waitForText(LOGOUT_FALLBACK_RESPONSE, TIMEOUT);
     expect(gateway.requests).toHaveLength(5);
@@ -1925,7 +1925,7 @@ tmuxTest(
       oauth.issuerUrl,
       tracePath,
       {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         FX_E2E_GATEWAY_MODELS_URL: undefined,
         FX_TRACE_SCOPES: "auth,prompt,catalog",
       },
@@ -2028,7 +2028,7 @@ tmuxTest(
 
     await openSwitchCredential(session);
     await session.waitForPane(
-      (pane) => pane.includes("AI_GATEWAY_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
       TIMEOUT,
     );
     await session.sendKeys("Down");
@@ -2065,7 +2065,7 @@ test(
     const result = await runFx(["login"], {
       env: {
         HOME: home,
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_SKIP_ONBOARDING: "1",
@@ -2122,7 +2122,7 @@ test(
     chatgptOauth = startFakeChatGptOAuth({ unauthorizedResponses: 1 });
     const env = {
       HOME: home,
-      AI_GATEWAY_API_KEY: ENV_TOKEN,
+      Y2_API_KEY: ENV_TOKEN,
       VERCEL_OIDC_TOKEN: undefined,
       FX_DISABLE_KEYCHAIN: "1",
       FX_SKIP_ONBOARDING: "1",
@@ -2220,7 +2220,7 @@ test(
     try {
       const env = {
         HOME: home,
-        AI_GATEWAY_API_KEY: ENV_TOKEN,
+        Y2_API_KEY: ENV_TOKEN,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_SKIP_ONBOARDING: "1",
@@ -2314,7 +2314,7 @@ test(
     try {
       const result = await runGrokLoginWithBrowser({
         HOME: home,
-        AI_GATEWAY_API_KEY: ENV_TOKEN,
+        Y2_API_KEY: ENV_TOKEN,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_SKIP_ONBOARDING: "1",
@@ -2388,7 +2388,7 @@ test("Grok 401 replay refuses a different account before the second provider sen
     );
     const env = {
       HOME: home,
-      AI_GATEWAY_API_KEY: ENV_TOKEN,
+      Y2_API_KEY: ENV_TOKEN,
       VERCEL_OIDC_TOKEN: undefined,
       FX_DISABLE_KEYCHAIN: "1",
       FX_AUTO_UPGRADE: "0",
@@ -2440,7 +2440,7 @@ test("Grok CLI sends verified images directly without advertising the vision fal
     ], {
       env: {
         HOME: home,
-        AI_GATEWAY_API_KEY: ENV_TOKEN,
+        Y2_API_KEY: ENV_TOKEN,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_AUTO_UPGRADE: "0",
@@ -2680,7 +2680,7 @@ test(
         {
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "gateway-tool-loop-sentinel",
+            Y2_API_KEY: "gateway-tool-loop-sentinel",
             VERCEL_OIDC_TOKEN: undefined,
             FX_DISABLE_KEYCHAIN: "1",
             FX_AUTO_UPGRADE: "0",
@@ -2763,7 +2763,7 @@ test(
         {
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "gateway-grok-tool-loop-sentinel",
+            Y2_API_KEY: "gateway-grok-tool-loop-sentinel",
             VERCEL_OIDC_TOKEN: undefined,
             FX_DISABLE_KEYCHAIN: "1",
             FX_AUTO_UPGRADE: "0",
@@ -2800,7 +2800,7 @@ test(
     chatgptOauth.setModels([]);
     const env = {
       HOME: home,
-      AI_GATEWAY_API_KEY: ENV_TOKEN,
+      Y2_API_KEY: ENV_TOKEN,
       VERCEL_OIDC_TOKEN: undefined,
       FX_DISABLE_KEYCHAIN: "1",
       FX_SKIP_ONBOARDING: "1",
@@ -2832,7 +2832,7 @@ test(
     try {
       const env = {
         HOME: home,
-        AI_GATEWAY_API_KEY: ENV_TOKEN,
+        Y2_API_KEY: ENV_TOKEN,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_SKIP_ONBOARDING: "1",
@@ -2878,7 +2878,7 @@ test(
         {
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "gateway-vision-sentinel",
+            Y2_API_KEY: "gateway-vision-sentinel",
             VERCEL_OIDC_TOKEN: undefined,
             FX_DISABLE_KEYCHAIN: "1",
             FX_AUTO_UPGRADE: "0",
@@ -2934,7 +2934,7 @@ test(
         {
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "gateway-grok-vision-sentinel",
+            Y2_API_KEY: "gateway-grok-vision-sentinel",
             VERCEL_OIDC_TOKEN: undefined,
             FX_DISABLE_KEYCHAIN: "1",
             FX_AUTO_UPGRADE: "0",
@@ -2982,7 +2982,7 @@ test(
         {
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "gateway-auto-review-sentinel",
+            Y2_API_KEY: "gateway-auto-review-sentinel",
             VERCEL_OIDC_TOKEN: undefined,
             FX_DISABLE_KEYCHAIN: "1",
             FX_AUTO_UPGRADE: "0",
@@ -3036,7 +3036,7 @@ test(
         {
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "gateway-grok-auto-review-sentinel",
+            Y2_API_KEY: "gateway-grok-auto-review-sentinel",
             VERCEL_OIDC_TOKEN: undefined,
             FX_DISABLE_KEYCHAIN: "1",
             FX_AUTO_UPGRADE: "0",
@@ -3100,7 +3100,7 @@ test(
     const result = await runFx(["login"], {
       env: {
         HOME: home,
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_SKIP_ONBOARDING: "1",
@@ -3151,7 +3151,7 @@ test(
     const result = await runFx(["login"], {
       env: {
         HOME: home,
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         VERCEL_OIDC_TOKEN: undefined,
         FX_DISABLE_KEYCHAIN: "1",
         FX_SKIP_ONBOARDING: "1",
@@ -3243,7 +3243,7 @@ tmuxTest(
     await session.waitForComposer(TIMEOUT);
     await openSwitchCredential(session);
     await session.waitForPane(
-      (pane) => pane.includes("AI_GATEWAY_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
       TIMEOUT,
     );
     await session.sendKeys("Down");
@@ -3266,10 +3266,10 @@ tmuxTest(
     expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
 
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
     await openSwitchCredential(session);
     const inventory = await session.waitForPane(
-      (pane) => pane.includes("AI_GATEWAY_API_KEY") && pane.includes("Automatic"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("Automatic"),
       TIMEOUT,
     );
     expect(inventory).not.toMatch(/^\s+fx login\s+(?:current|available)\s*$/m);
@@ -3323,7 +3323,7 @@ tmuxTest(
     expect(existsSync(join(home, ".fx", "auth.json"))).toBe(false);
 
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
     await session.sendText("prove the active API key was unchanged");
     await session.waitForText(ENV_RESPONSE, TIMEOUT);
     expect(gateway.requests).toHaveLength(1);
@@ -3352,7 +3352,7 @@ tmuxTest(
     expect(existsSync(authPath)).toBe(false);
 
     await session.sendText("/status");
-    await session.waitForText("auth=AI_GATEWAY_API_KEY", TIMEOUT);
+    await session.waitForText("auth=Y2_API_KEY", TIMEOUT);
     expect(oauth.requests).toEqual([]);
     expect(readFileSync(stderrPath, "utf8")).toBe("");
     for (const secret of [
@@ -3378,7 +3378,7 @@ tmuxTest(
     const fxDir = join(home, ".fx");
 
     session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
-      AI_GATEWAY_API_KEY: undefined,
+      Y2_API_KEY: undefined,
     });
     await session.waitForComposer(TIMEOUT);
     const authPath = join(fxDir, "auth.json");
@@ -3416,7 +3416,7 @@ tmuxTest(
     writeSeededFxLogin(home, Date.now() + 60 * 60 * 1000, oauth.issuerUrl);
 
     session = await startFx(home, stderrPath, gateway, oauth.issuerUrl, undefined, {
-      AI_GATEWAY_API_KEY: undefined,
+      Y2_API_KEY: undefined,
       FX_SKIP_ONBOARDING: "1",
     });
     await session.waitForComposer(TIMEOUT);
@@ -3482,7 +3482,7 @@ tmuxTest(
     await session.sendText("exercise interactive auth failure");
     const failed = await session.waitForPane(
       (pane) =>
-        pane.includes("AI_GATEWAY_API_KEY authentication failed · HTTP 401") &&
+        pane.includes("Y2_API_KEY authentication failed · HTTP 401") &&
         pane.includes("Run /setup to choose another source."),
       TIMEOUT,
     );
@@ -3511,7 +3511,7 @@ tmuxTest(
     await session.waitForComposer(TIMEOUT);
     await openSwitchCredential(session);
     await session.waitForPane(
-      (pane) => pane.includes("AI_GATEWAY_API_KEY") && pane.includes("fx login"),
+      (pane) => pane.includes("Y2_API_KEY") && pane.includes("fx login"),
       TIMEOUT,
     );
     await session.sendKeys("Down");
@@ -3599,7 +3599,7 @@ tmuxTest(
       oauth.issuerUrl,
       tracePath,
       {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         FX_E2E_GATEWAY_MODELS_URL: undefined,
         FX_TRACE_SCOPES: "auth,prompt,catalog",
       },
@@ -3672,7 +3672,7 @@ tmuxTest(
       gateway,
       oauth.issuerUrl,
       undefined,
-      { AI_GATEWAY_API_KEY: undefined },
+      { Y2_API_KEY: undefined },
     );
     await session.waitForComposer(TIMEOUT);
     await waitForModelRequestCount(gateway, 1);
@@ -3728,7 +3728,7 @@ tmuxTest(
       oauth.issuerUrl,
       tracePath,
       {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         FX_E2E_GATEWAY_MODELS_URL: undefined,
         FX_TRACE_SCOPES: "auth,prompt,catalog",
       },
@@ -3821,7 +3821,7 @@ tmuxTest(
       oauth.issuerUrl,
       tracePath,
       {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         FX_TRACE_SCOPES: "auth,prompt,catalog",
       },
     );
@@ -3927,7 +3927,7 @@ tmuxTest(
       oauth.issuerUrl,
       undefined,
       {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         FX_E2E_GATEWAY_CREDITS_URL: creditsGateway.url,
       },
     );
@@ -3974,7 +3974,7 @@ tmuxTest(
       oauth.issuerUrl,
       undefined,
       {
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         FX_E2E_GATEWAY_CREDITS_URL: creditsGateway.url,
       },
     );
@@ -4022,7 +4022,7 @@ tmuxTest(
       gateway,
       oauth.issuerUrl,
       undefined,
-      { AI_GATEWAY_API_KEY: undefined },
+      { Y2_API_KEY: undefined },
     );
     await session.waitForComposer(TIMEOUT);
     await waitForModelRequestCount(gateway, 1);
@@ -4118,7 +4118,7 @@ for (const scenario of [
         gateway,
         undefined,
         undefined,
-        scenario.authenticated ? {} : { AI_GATEWAY_API_KEY: undefined },
+        scenario.authenticated ? {} : { Y2_API_KEY: undefined },
       );
       await session.waitForComposer(TIMEOUT);
       await waitForModelRequestCount(gateway, scenario.authenticated ? 2 : 1);

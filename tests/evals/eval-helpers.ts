@@ -1,4 +1,4 @@
-// Model-backed eval helpers. Requires a built binary and AI_GATEWAY_API_KEY.
+// Model-backed eval helpers. Requires a built binary and Y2_API_KEY.
 import { expect } from "bun:test";
 import { execFileSync, execSync, spawn as nodeSpawn } from "node:child_process";
 import {
@@ -16,8 +16,7 @@ export const FX_BIN = resolve(import.meta.dirname, "../../zig-out/bin/fx");
 export const REPO_ROOT = resolve(import.meta.dirname, "../..");
 
 export const EVAL_MODELS = [
-  "anthropic/claude-sonnet-4.6",
-  "xai/grok-4.20-multi-agent-beta",
+  "y2-agent",
 ] as const;
 
 export const EVAL_MODEL: string = process.env.EVAL_MODEL ?? EVAL_MODELS[0];
@@ -526,6 +525,8 @@ export async function runFx(
   });
 }
 
-export const HAS_API_KEY: boolean = !!(
-  process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN
+export const HAS_API_KEY: boolean = Boolean(
+  process.env.Y2_API_KEY ||
+    (process.env.OPENAI_API_KEY &&
+      (process.env.OPENAI_BASE_URL || process.env.FX_API_CHAT_URL)),
 );

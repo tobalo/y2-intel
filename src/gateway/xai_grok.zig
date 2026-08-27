@@ -575,7 +575,7 @@ test "xAI Grok rejects wrong-origin and invalid-account credentials before netwo
         error.GrokSubscriptionCredentialRequired,
         agent_stream_provider.stream(std.testing.allocator, testModelRequest(
             "gateway-key",
-            .ai_gateway_api_key,
+            .api_key,
             null,
             &delivery,
             &evidence,

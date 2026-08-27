@@ -100,16 +100,20 @@ pub fn Runtime(comptime App: type) type {
         }
 
         pub fn runLoginCommand(app: *App) !void {
+            if (comptime host_target.is_wasm) {
+                try app.writeDomainNotice(.{
+                    .topic = "auth",
+                    .tone = .warning,
+                    .body = "Pass Y2_API_KEY, or OPENAI_API_KEY with OPENAI_BASE_URL, through createFxTerminal().",
+                }, true);
+                return;
+            }
             if (comptime !oauthAuthEnabled(App)) {
                 try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .warning,
-                    .body = "Set FX_API_KEY through createFxTerminal() to authenticate this WASM session.",
+                    .body = "Authentication is owned by the embedding host in this runtime.",
                 }, true);
-                return;
-            }
-            if (comptime host_target.is_wasm) {
-                try beginSignIn(app, false);
                 return;
             }
             try app.auth.refreshSourceInventory(app.alloc);
@@ -492,12 +496,12 @@ pub fn Runtime(comptime App: type) type {
                 .gateway_refused => try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .@"error",
-                    .body = "The AI Gateway refused that API key. Nothing was stored.",
+                    .body = "That API key is empty or malformed. Nothing was stored.",
                 }, true),
                 .gateway_unavailable => try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .@"error",
-                    .body = "Could not verify that API key with AI Gateway. Nothing was stored.",
+                    .body = "Could not validate that API key locally. Nothing was stored.",
                 }, true),
                 .store_failed => {
                     const body = try std.fmt.allocPrint(
@@ -1085,7 +1089,7 @@ pub fn Runtime(comptime App: type) type {
                 try app.writeDomainNotice(.{
                     .topic = "auth",
                     .tone = .warning,
-                    .body = "Missing FX_API_KEY. Supply it through createFxTerminal().",
+                    .body = "Missing Y2_API_KEY or OPENAI_API_KEY. Supply it through createFxTerminal().",
                 }, true);
                 return false;
             }
@@ -1437,7 +1441,7 @@ const TestAuth = struct {
     refresh_changed: bool = false,
     refresh_error: ?anyerror = null,
     selected_source: ?credentials.Source = null,
-    active_source: ?credentials.Source = .ai_gateway_api_key,
+    active_source: ?credentials.Source = .api_key,
     refresh_count: usize = 0,
     logout_reconcile_count: usize = 0,
     source_inventory_refresh_count: usize = 0,
@@ -1742,7 +1746,7 @@ test "auth source changes invalidate the catalog and failed selection preserves 
     );
 
     app.auth.select_result = null;
-    try std.testing.expect(!try runtime.selectCredentialSource(&app, .ai_gateway_api_key));
+    try std.testing.expect(!try runtime.selectCredentialSource(&app, .api_key));
     try std.testing.expectEqual(credentials.Source.stored_key, app.auth.active_source.?);
     try std.testing.expectEqual(@as(usize, 2), app.model_cache.reset_count);
     try std.testing.expectEqual(@as(usize, 2), app.model_cache_warmup_count);
@@ -1755,7 +1759,7 @@ test "VT-4 unavailable picker source preserves active source and reports unavail
 
     try Runtime(TestApp).applySourceChoice(&app, .stored_key);
 
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.notice_write_count);
     try std.testing.expectEqualStrings(
         "That credential is no longer available. The current source is unchanged.\n",
@@ -1840,7 +1844,7 @@ test "direct login source load failure leaves the environment preference unchang
 
     try Runtime(TestApp).collectSignInFacts(&app);
 
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
     try std.testing.expectEqual(@as(usize, 0), app.preference_write_count);
     try std.testing.expectEqual(@as(usize, 1), app.auth.picker_pop_count);
     try std.testing.expect(std.mem.find(u8, app.transcript.items, "could not be loaded") != null);
@@ -1895,7 +1899,7 @@ test "cancelled login and rejected API key do not persist a source" {
     try Runtime(TestApp).applyApiKeySaveResult(&app, .gateway_refused);
 
     try std.testing.expectEqual(@as(usize, 0), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
 }
 
 test "team source load failure preserves the environment source and preference" {
@@ -1905,7 +1909,7 @@ test "team source load failure preserves the environment source and preference" 
 
     try Runtime(TestApp).applyTeamChoice(&app, 0);
 
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, app.auth.active_source.?);
+    try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
     try std.testing.expectEqual(@as(usize, 0), app.preference_write_count);
     try std.testing.expect(app.auth.picker_closed);
     try std.testing.expect(std.mem.find(u8, app.transcript.items, "could not be loaded") != null);

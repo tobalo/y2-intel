@@ -62,11 +62,11 @@ async function runWithFakeGateway(
       cwd: root.workspace,
       env: {
         HOME: root.home,
-        AI_GATEWAY_API_KEY: "fake-file-permission-key",
+        Y2_API_KEY: "fake-file-permission-key",
         VERCEL_OIDC_TOKEN: undefined,
         ...env,
         FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+        FX_API_CHAT_URL: gateway.chatUrl,
         FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
         FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
         FX_E2E_GATEWAY_CREDITS_URL: undefined,

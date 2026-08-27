@@ -133,7 +133,7 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
         session = await TmuxSession.create({
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "credits-fake-key",
+            Y2_API_KEY: "credits-fake-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_E2E_GATEWAY_CREDITS_URL: gateway.url,
           },
@@ -197,10 +197,10 @@ describe.skipIf(!tmuxAvailable() || CLIPBOARD_PROGRAM === null)("tui: clipboard 
           stderrPath,
           env: {
             HOME: homeDir,
-            AI_GATEWAY_API_KEY: "clipboard-fake-key",
+            Y2_API_KEY: "clipboard-fake-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
             FX_TEST_CLIPBOARD_CAPTURE: capturePath,
@@ -254,10 +254,10 @@ describe.skipIf(!tmuxAvailable())("tui: active session transitions", () => {
           stderrPath,
           env: {
             HOME: homeDir,
-            AI_GATEWAY_API_KEY: "active-clear-fake-key",
+            Y2_API_KEY: "active-clear-fake-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
           },
@@ -326,10 +326,10 @@ describe.skipIf(SKIP)("tui: extra slash commands", () => {
           cwd: workDir,
           env: {
             HOME: homeDir,
-            AI_GATEWAY_API_KEY: "clear-fake-key",
+            Y2_API_KEY: "clear-fake-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
             FX_TRACE_SCOPES: TRACE_SCOPES,

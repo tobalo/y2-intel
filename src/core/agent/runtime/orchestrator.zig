@@ -1563,14 +1563,14 @@ test "potentially sent recovery rejects missing or changed credential authority"
         .chatgpt_subscription,
         "acct_1",
     ));
-    legacy.authority.credential_source = .ai_gateway_api_key;
+    legacy.authority.credential_source = .api_key;
     legacy.authority.credential_identity = credential_authority.derive(
-        .ai_gateway_api_key,
+        .api_key,
         null,
     );
     try std.testing.expect(!shouldRejectRecoveryAuthority(
         legacy,
-        .ai_gateway_api_key,
+        .api_key,
         null,
     ));
     try std.testing.expect(shouldRejectRecoveryAuthority(
@@ -3056,7 +3056,7 @@ fn processQueuedPromptLoop(
             else
                 .auto;
             var verified_images: std.ArrayList(image_attachments.VerifiedSnapshot) = .empty;
-            if (job.provider != .gateway and job.images.len > 0 and
+            if (job.images.len > 0 and
                 request_capabilities.supports_vision and request_capabilities.supports_file_input)
             {
                 try verified_images.ensureTotalCapacity(overlay_arena, job.images.len);

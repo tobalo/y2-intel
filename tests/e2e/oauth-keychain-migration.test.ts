@@ -180,7 +180,7 @@ function keychainEnv(home: string, account: string, issuer: string) {
   return {
     HOME: home,
     USER: account,
-    AI_GATEWAY_API_KEY: undefined,
+    Y2_API_KEY: undefined,
     VERCEL_OIDC_TOKEN: undefined,
     FX_DISABLE_KEYCHAIN: undefined,
     FX_SKIP_ONBOARDING: "1",
@@ -211,7 +211,7 @@ keychainTest(
     const env = {
       ...keychainEnv(home, account, issuer.issuer),
       FX_GATEWAY_BASE_URL: gateway.baseUrl,
-      FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+      FX_API_CHAT_URL: gateway.chatUrl,
       FX_MODEL: FAKE_GATEWAY_MODEL,
     };
 

@@ -3,6 +3,9 @@ name: Release
 on:
   push:
     branches: [main]
+    paths:
+      - "src/main.zig"
+      - "CHANGELOG.md"
   workflow_dispatch:
 
 permissions:
@@ -33,6 +36,17 @@ jobs:
           fi
           TAG="v${VERSION}"
           echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+          if [ "${GITHUB_EVENT_NAME}" = "push" ]; then
+            PREVIOUS_VERSION=$(git show "${GITHUB_SHA}^:src/main.zig" 2>/dev/null \
+              | grep 'pub const version' \
+              | head -1 \
+              | sed 's/.*"\(.*\)".*/\1/' || true)
+            if [ "$VERSION" = "$PREVIOUS_VERSION" ]; then
+              echo "needed=false" >> "$GITHUB_OUTPUT"
+              echo "Version unchanged at ${VERSION}; no release needed"
+              exit 0
+            fi
+          fi
           if git rev-parse "$TAG" >/dev/null 2>&1; then
             echo "needed=false" >> "$GITHUB_OUTPUT"
             echo "Tag ${TAG} exists, no release needed"
@@ -174,44 +188,3 @@ jobs:
           files: |
             fx-*.tar.gz
             fx-*.tar.gz.sha256
-
-      - name: Publish to CDN
-        env:
-          BLOB_READ_WRITE_TOKEN: ${{ secrets.BLOB_READ_WRITE_TOKEN }}
-          VERSION: ${{ needs.check-version.outputs.version }}
-        run: |
-          set -euo pipefail
-          [[ "$VERSION" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]
-          CDN_BASE="cli"
-
-          for FILE in fx-*.tar.gz fx-*.tar.gz.sha256; do
-            [ -f "$FILE" ] || continue
-            CONTENT_TYPE="application/octet-stream"
-            [[ "$FILE" == *.sha256 ]] && CONTENT_TYPE="text/plain"
-            [[ "$FILE" == *.tar.gz ]] && [[ "$FILE" != *.sha256 ]] && CONTENT_TYPE="application/gzip"
-
-            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-              -X PUT "https://blob.vercel-storage.com/${CDN_BASE}/${VERSION}/${FILE}" \
-              -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-              -H "x-api-version: 7" \
-              -H "x-content-type: ${CONTENT_TYPE}" \
-              -H "x-add-random-suffix: 0" \
-              -H "x-cache-control-max-age: 31536000" \
-              --data-binary "@${FILE}")
-            echo "Uploaded ${FILE} -> ${CDN_BASE}/${VERSION}/${FILE} ($HTTP_CODE)"
-            if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
-              echo "::error::Failed to upload ${FILE} to CDN ($HTTP_CODE)"
-              exit 1
-            fi
-          done
-
-          echo -n "$VERSION" > /tmp/latest.txt
-          HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-            -X PUT "https://blob.vercel-storage.com/${CDN_BASE}/latest.txt" \
-            -H "Authorization: Bearer ${BLOB_READ_WRITE_TOKEN}" \
-            -H "x-api-version: 7" \
-            -H "x-content-type: text/plain" \
-            -H "x-add-random-suffix: 0" \
-            -H "x-cache-control-max-age: 60" \
-            --data-binary "@/tmp/latest.txt")
-          echo "Updated latest.txt to $VERSION ($HTTP_CODE)"

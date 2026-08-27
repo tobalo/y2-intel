@@ -33,13 +33,13 @@ import {
 
 const TIMEOUT = 15_000;
 const NO_GATEWAY_AUTH = {
-  AI_GATEWAY_API_KEY: undefined,
+  Y2_API_KEY: undefined,
   VERCEL_OIDC_TOKEN: undefined,
 };
 const MISSING_AUTH_MESSAGE =
-  "Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set AI_GATEWAY_API_KEY.";
+  "Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set Y2_API_KEY.";
 
-const KEYCHAIN_SERVICE = "FX_AI_GATEWAY_API_KEY";
+const KEYCHAIN_SERVICE = "FX_Y2_API_KEY";
 
 function maxLineWidth(text: string): number {
   return Math.max(...text.split(/\r?\n/).map((line) => Bun.stringWidth(line)));
@@ -251,11 +251,11 @@ describe("cli: help", () => {
       expect(r.stdout).not.toContain("\x1b[");
       expect(r.stdout).not.toContain("\x1b]2;");
       expect(r.stdout).toStartWith(
-        `𝒇x v${sourceVersion()}\nFast, native coding agent for the terminal.\n`,
+        `Y2 INFORMATION DOMINANCE v${sourceVersion()}\nNative agentic intelligence harness for the terminal.\n`,
       );
       expect(r.stdout).toContain("Commands:\n");
       expect(r.stdout).toContain("Run one noninteractive request");
-      expect(r.stdout).toContain("credits|balance");
+      expect(r.stdout).not.toContain("credits|balance");
       expect(r.stdout).toContain("Flags:\n");
       expect(r.stdout).toContain("--context-limit <spec>");
       expect(r.stdout).toContain("Set name=bytes|off; repeatable");
@@ -270,8 +270,8 @@ describe("cli: help", () => {
       expect(r.stdout).toContain("-v, --version");
       expect(r.stdout).not.toContain("Must appear before the command");
       expect(r.stdout).toContain("Examples:\n");
-      expect(r.stdout).toContain("https://fx.sh/docs");
-      expect(r.stdout).toContain("run `/feedback` inside 𝒇x");
+      expect(r.stdout).toContain("https://y2.dev/docs/api/");
+      expect(r.stdout).toContain("run `/feedback` inside the harness");
       expect(r.stdout).not.toContain("  Work      ");
       expect(r.stdout).not.toContain("\n\n\nRun `fx <command> --help`");
     },
@@ -471,7 +471,7 @@ describe("cli: status", () => {
       try {
         const env = {
           HOME: realpathSync(home),
-          AI_GATEWAY_API_KEY: "mcp-config-diagnostic-key",
+          Y2_API_KEY: "mcp-config-diagnostic-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_DISABLE_KEYCHAIN: "1",
           FX_AUTO_UPGRADE: "0",
@@ -696,7 +696,7 @@ describe("cli: status", () => {
         const env = {
           HOME: realpathSync(root),
           VERCEL_OIDC_TOKEN: undefined,
-          AI_GATEWAY_API_KEY: envToken,
+          Y2_API_KEY: envToken,
           FX_DISABLE_KEYCHAIN: "1",
         };
 
@@ -704,7 +704,7 @@ describe("cli: status", () => {
         const doctor = await runFx(["doctor", "--json"], { env });
 
         const expectedAuth = {
-          auth: "AI_GATEWAY_API_KEY",
+          auth: "Y2_API_KEY",
           auth_refreshable: false,
         };
         expect(JSON.parse(status.stdout.trim())).toMatchObject(expectedAuth);
@@ -1700,7 +1700,7 @@ describe("cli: logout", () => {
         const env = {
           HOME: realpathSync(home),
           VERCEL_OIDC_TOKEN: oidcToken,
-          AI_GATEWAY_API_KEY: apiToken,
+          Y2_API_KEY: apiToken,
           FX_DISABLE_KEYCHAIN: "1",
         };
 
@@ -1738,11 +1738,11 @@ describe("cli: logout", () => {
           auth_refreshable: false,
         });
         expect(JSON.parse(apiStatus.stdout)).toMatchObject({
-          auth: "AI_GATEWAY_API_KEY",
+          auth: "Y2_API_KEY",
           auth_refreshable: false,
         });
         expect(JSON.parse(doctor.stdout)).toMatchObject({
-          auth: "AI_GATEWAY_API_KEY",
+          auth: "Y2_API_KEY",
           auth_refreshable: false,
         });
 
@@ -1780,7 +1780,7 @@ describe("cli: logout", () => {
         const env = {
           HOME: realpathSync(home),
           VERCEL_OIDC_TOKEN: undefined,
-          AI_GATEWAY_API_KEY: apiToken,
+          Y2_API_KEY: apiToken,
           FX_DISABLE_KEYCHAIN: "1",
         };
         const logout = await runFx(["logout"], { env });
@@ -1790,7 +1790,7 @@ describe("cli: logout", () => {
         expect(logout.stdout).toBe("No fx login session found.\n");
         expect(logout.stderr).toBe("");
         expect(JSON.parse(status.stdout)).toMatchObject({
-          auth: "AI_GATEWAY_API_KEY",
+          auth: "Y2_API_KEY",
           auth_refreshable: false,
         });
         expect(logout.stdout).not.toContain(apiToken);
@@ -2034,7 +2034,7 @@ describe("cli: Keychain authentication", () => {
               HOME: realpathSync(home),
               USER: account,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
               FX_AUTO_UPGRADE: "0",
@@ -2150,7 +2150,7 @@ describe("cli: missing durable home", () => {
 
         const status = await runFx(["status", "--json"], {
           cwd,
-          env: { ...baseEnv, AI_GATEWAY_API_KEY: undefined },
+          env: { ...baseEnv, Y2_API_KEY: undefined },
           timeoutMs: TIMEOUT,
         });
         expect(status.code).toBe(0);
@@ -2160,7 +2160,7 @@ describe("cli: missing durable home", () => {
 
         const listed = await runFx(["sessions", "--json"], {
           cwd,
-          env: { ...baseEnv, AI_GATEWAY_API_KEY: undefined },
+          env: { ...baseEnv, Y2_API_KEY: undefined },
           timeoutMs: TIMEOUT,
         });
         expect(listed.code).toBe(0);
@@ -2177,9 +2177,9 @@ describe("cli: missing durable home", () => {
             cwd,
             env: {
               ...baseEnv,
-              AI_GATEWAY_API_KEY: "missing-home-key",
+              Y2_API_KEY: "missing-home-key",
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
             },
             timeoutMs: TIMEOUT,
@@ -3154,7 +3154,7 @@ function writeBackgroundSession(args: {
 
 function modelsGatewayEnv(home: string, modelsUrl: string) {
   return {
-    AI_GATEWAY_API_KEY: SEEDED_GATEWAY_TOKEN,
+    Y2_API_KEY: SEEDED_GATEWAY_TOKEN,
     VERCEL_OIDC_TOKEN: undefined,
     HOME: home,
     FX_DISABLE_KEYCHAIN: "1",
@@ -3268,7 +3268,7 @@ describe("cli: models", () => {
           const events = catalogTraceEvents(trace);
           expect(events).toHaveLength(1);
           expect(events[0]).toContain(
-            `requested_access=authenticated credential_source=ai_gateway_api_key effective_access=public_only public_only_reason=authenticated_credential_rejected anonymous_fallback=true outcome=loaded failure_category=authentication http_status=${rejectedStatus} retryable=false`,
+            `requested_access=authenticated credential_source=api_key effective_access=public_only public_only_reason=authenticated_credential_rejected anonymous_fallback=true outcome=loaded failure_category=authentication http_status=${rejectedStatus} retryable=false`,
           );
           for (const secret of [SEEDED_GATEWAY_TOKEN, "team_123", "vercel-labs"]) {
             expect(trace).not.toContain(secret);
@@ -3451,7 +3451,7 @@ describe("cli: models", () => {
           env: {
             HOME: home,
             FX_DISABLE_KEYCHAIN: "1",
-            AI_GATEWAY_API_KEY: "redirect-proof-key",
+            Y2_API_KEY: "redirect-proof-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_E2E_GATEWAY_MODELS_URL: `http://127.0.0.1:${redirectServer.port}/v1/models`,
           },
@@ -3511,11 +3511,11 @@ describe("cli: models", () => {
       name: "sends an API key so the catalog includes team-private models",
       seedFxLogin: false,
       expiredFxLogin: false,
-      authEnv: { AI_GATEWAY_API_KEY: SEEDED_GATEWAY_TOKEN },
+      authEnv: { Y2_API_KEY: SEEDED_GATEWAY_TOKEN },
       expectAuthHeader: true,
       expectPrivate: true,
       expectedTrace:
-        "requested_access=authenticated credential_source=ai_gateway_api_key effective_access=authenticated public_only_reason=none anonymous_fallback=false outcome=loaded failure_category=none http_status=none retryable=none",
+        "requested_access=authenticated credential_source=api_key effective_access=authenticated public_only_reason=none anonymous_fallback=false outcome=loaded failure_category=none http_status=none retryable=none",
     },
     {
       name: "sends deployment OIDC so the catalog includes team-private models",
@@ -3677,7 +3677,7 @@ describe("cli: credits", () => {
       try {
         const r = await runFx(["credits", "--json"], {
           env: {
-            AI_GATEWAY_API_KEY: "credits-fake-key",
+            Y2_API_KEY: "credits-fake-key",
             VERCEL_OIDC_TOKEN: undefined,
             HOME: realpathSync(home),
             FX_DISABLE_KEYCHAIN: "1",
@@ -3776,7 +3776,7 @@ describe("cli: ask input validation", () => {
           env: {
             ...NO_GATEWAY_AUTH,
             HOME: realpathSync(home),
-            AI_GATEWAY_API_KEY: "invalid-utf8-proof-key",
+            Y2_API_KEY: "invalid-utf8-proof-key",
             FX_DISABLE_KEYCHAIN: "1",
             FX_E2E_GATEWAY_CHAT_URL: `http://127.0.0.1:${server.port}/ai/v1/chat/completions`,
           },
@@ -3911,10 +3911,10 @@ describe("cli: ask success", () => {
             cwd: realpathSync(workspace),
             env: {
               HOME: realpathSync(home),
-              AI_GATEWAY_API_KEY: "fake-explicit-skill-key",
+              Y2_API_KEY: "fake-explicit-skill-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
               FX_AUTO_UPGRADE: "0",
             },
@@ -3967,10 +3967,10 @@ describe("cli: ask success", () => {
               cwd: realpathSync(workspace),
               env: {
                 HOME: home,
-                AI_GATEWAY_API_KEY: "fake-large-stdin-key",
+                Y2_API_KEY: "fake-large-stdin-key",
                 VERCEL_OIDC_TOKEN: undefined,
                 FX_GATEWAY_BASE_URL: gateway.baseUrl,
-                FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+                FX_API_CHAT_URL: gateway.chatUrl,
                 FX_MODEL: FAKE_GATEWAY_MODEL,
                 FX_AUTO_UPGRADE: "0",
               },
@@ -4062,10 +4062,10 @@ describe("cli: ask success", () => {
             cwd: realpathSync(workspace),
             env: {
               HOME: home,
-              AI_GATEWAY_API_KEY: "fake-portable-ask-key",
+              Y2_API_KEY: "fake-portable-ask-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
             },
             timeoutMs: 60_000,
@@ -4140,7 +4140,7 @@ describe("cli: ask success", () => {
               FX_TRACE: "1",
               FX_TRACE_LOG: tracePath,
               FX_GATEWAY_BASE_URL: undefined,
-              FX_GATEWAY_CHAT_URL: undefined,
+              FX_API_CHAT_URL: undefined,
               FX_E2E_GATEWAY_MODELS_URL: undefined,
               VERCEL_OIDC_TOKEN: undefined,
             },
@@ -4186,10 +4186,10 @@ describe("cli: ask success", () => {
             cwd: workspaceRoot,
             env: {
               HOME: realpathSync(savedHome),
-              AI_GATEWAY_API_KEY: "fake-ask-persistence-key",
+              Y2_API_KEY: "fake-ask-persistence-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
               FX_AUTO_UPGRADE: "0",
@@ -4227,10 +4227,10 @@ describe("cli: ask success", () => {
             cwd: workspaceRoot,
             env: {
               HOME: realpathSync(savedHome),
-              AI_GATEWAY_API_KEY: "fake-ask-persistence-key",
+              Y2_API_KEY: "fake-ask-persistence-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
               FX_AUTO_UPGRADE: "0",
@@ -4266,10 +4266,10 @@ describe("cli: ask success", () => {
             cwd: workspaceRoot,
             env: {
               HOME: realpathSync(noSaveHome),
-              AI_GATEWAY_API_KEY: "fake-ask-persistence-key",
+              Y2_API_KEY: "fake-ask-persistence-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
               FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
               FX_MODEL: FAKE_GATEWAY_MODEL,
               FX_AUTO_UPGRADE: "0",
@@ -4314,10 +4314,10 @@ describe("cli: ask success", () => {
         const workspaceRoot = realpathSync(workspace);
         const env = {
           HOME: realpathSync(home),
-          AI_GATEWAY_API_KEY: "fake-session-cache-contention-key",
+          Y2_API_KEY: "fake-session-cache-contention-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
@@ -4500,10 +4500,10 @@ describe("cli: error handling", () => {
         mkdirSync(workspace);
         const env = {
           HOME: realpathSync(home),
-          AI_GATEWAY_API_KEY: "ask-options-key",
+          Y2_API_KEY: "ask-options-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         };
@@ -4577,10 +4577,10 @@ describe("cli: error handling", () => {
         mkdirSync(workspace);
         const env = {
           HOME: realpathSync(home),
-          AI_GATEWAY_API_KEY: "ask-conflict-key",
+          Y2_API_KEY: "ask-conflict-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         };

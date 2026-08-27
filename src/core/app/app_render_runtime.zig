@@ -5010,7 +5010,7 @@ test "core.app_render_runtime keeps configured controls visible while model capa
         &hint_buf,
     );
     try std.testing.expectEqualStrings(
-        "run /login · ask · opus 4.8 · xhigh · ⚡︎",
+        "run /setup · ask · opus 4.8 · xhigh · ⚡︎",
         line,
     );
 }
@@ -6801,7 +6801,7 @@ test "core.app_render_runtime coordinator physically scrolls preserved shell row
     try std.testing.expect(!(try coordinatorGridContains(terminal, "SHELL01")));
     try std.testing.expect(try coordinatorRowHasText(terminal, 1));
     try std.testing.expect(try coordinatorGridContains(terminal, "WRAPPED_TAIL"));
-    try std.testing.expect(try coordinatorGridContains(terminal, "run /login"));
+    try std.testing.expect(try coordinatorGridContains(terminal, "run /setup"));
 }
 
 const ChildApprovalReconcileBinding = struct {

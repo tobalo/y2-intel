@@ -32,8 +32,8 @@ const fetch = async (url, init = {}) => {
   const response = turn === 1 ? "first answer" : "second answer";
   return new Response(new ReadableStream({
     start(controller) {
-      controller.enqueue(encoder.encode(`data: {"type":"text-delta","delta":"${response}"}\n`));
-      controller.enqueue(encoder.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n'));
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify({ id: "chat_features", choices: [{ index: 0, delta: { content: response }, finish_reason: null }] })}\n\n`));
+      controller.enqueue(encoder.encode('data: {"id":"chat_features","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'));
       controller.enqueue(encoder.encode("data: [DONE]\n"));
       controller.close();
     },
@@ -46,7 +46,8 @@ const runtime = await createFxTerminal({
   wasm: await readFile(wasmPath),
   terminal: xtermAdapter(terminal),
   env: {
-    AI_GATEWAY_API_KEY: "feature-key",
+    OPENAI_BASE_URL: "https://models.example/v1",
+    OPENAI_API_KEY: "feature-key",
     FX_TRACE_STDERR: "1",
     FX_TRACE_SCOPES: "full_transcript,full_transcript_cache,frame_schedule",
   },
@@ -76,7 +77,7 @@ async function command(text, expected) {
   await waitFor(() => grid().includes(expected), expected);
 }
 
-await waitFor(() => grid().includes("𝒇x"), "startup");
+await waitFor(() => grid().includes("Y2 INFORMATION DOMINANCE"), "startup");
 await command("first question", "first answer");
 await command("second question", "second answer");
 if (requests.length !== 2) throw new Error(`expected two gateway turns, got ${requests.length}`);

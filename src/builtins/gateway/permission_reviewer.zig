@@ -227,7 +227,7 @@ fn usageOutcome(
 ) stream_provider.UsageOutcome {
     const generation_id = completion.generation_id orelse
         return .{ .unavailable = .possibly_billed };
-    const source = config.credential_source orelse .ai_gateway_api_key;
+    const source = config.credential_source orelse .api_key;
     const reference = stream_provider.DeferredUsageReference{
         .provider = .gateway,
         .generation_id = generation_id,

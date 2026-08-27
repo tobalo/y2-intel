@@ -67,7 +67,7 @@ async function launchNoKeyAndWait(): Promise<{
     stderrPath,
     env: {
       HOME: home,
-      AI_GATEWAY_API_KEY: undefined,
+      Y2_API_KEY: undefined,
       FX_AUTO_UPGRADE: "0",
       FX_DISABLE_KEYCHAIN: "1",
       FX_PERMISSION_MODE: undefined,
@@ -127,13 +127,13 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         stderrPath,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "undo-e2e-key",
+          Y2_API_KEY: "undo-e2e-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           FX_DISABLE_KEYCHAIN: "1",
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_PERMISSION_MODE: "yolo",
         },
@@ -211,7 +211,7 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         minimumHistoryLines: 2000,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "status-compact-key",
+          Y2_API_KEY: "status-compact-key",
           FX_AUTO_UPGRADE: "0",
           FX_DISABLE_KEYCHAIN: "1",
           FX_PERMISSION_MODE: "auto",

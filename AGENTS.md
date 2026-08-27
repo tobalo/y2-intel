@@ -224,7 +224,7 @@ Two test suites live under `tests/`, both using Bun:
 
 ### `tests/evals/` — LLM Evals
 
-Eval scenarios that exercise the agent through `fx ask --json`. Require `AI_GATEWAY_API_KEY`.
+Eval scenarios that exercise the agent through `fx ask --json`. Require `Y2_API_KEY`.
 
 ```bash
 cd tests/evals && bun install && bun test           # run all evals
@@ -379,7 +379,11 @@ Releases use a two-workflow pipeline. The maintainer controls the changelog voic
 4. Review the PR — edit the AI-drafted changelog if needed — then merge
 5. The existing `release.yml` detects the version change and handles build, publish, tagging, and the GitHub Release
 
-The `prepare-release.yml` workflow uses the Vercel AI Gateway (`AI_GATEWAY_API_KEY` secret) to generate the changelog from the real code diff, not from commit messages or PR descriptions.
+The `prepare-release.yml` workflow uses Agent Y2 by default with the
+`Y2_API_KEY` secret. Maintainers may instead configure a direct
+OpenAI-compatible endpoint with the `RELEASE_API_URL` and `RELEASE_MODEL`
+repository variables plus the `OPENAI_API_KEY` secret. It generates the
+changelog from the real code diff, not from commit messages or PR descriptions.
 
 ### Manual flow
 

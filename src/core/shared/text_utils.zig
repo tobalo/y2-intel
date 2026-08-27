@@ -655,7 +655,7 @@ fn isNonPrintingCodepoint(codepoint: u21) bool {
 const secret_prefixes = [_][]const u8{
     "OPENAI_API_KEY=",
     "ANTHROPIC_API_KEY=",
-    "AI_GATEWAY_API_KEY=",
+    "Y2_API_KEY=",
     "VERCEL_OIDC_TOKEN=",
     "GITHUB_TOKEN=",
     "AWS_SECRET_ACCESS_KEY=",
@@ -918,12 +918,12 @@ test "sanitizeModelText returns replacement text for unsafe input" {
 
 test "maskSecrets masks env-style secrets" {
     const alloc = std.testing.allocator;
-    const input = "AI_GATEWAY_API_KEY=abcdefghijklmnop end";
+    const input = "Y2_API_KEY=abcdefghijklmnop end";
 
     const masked = try maskSecrets(alloc, input);
     defer if (masked.ptr != input.ptr) alloc.free(masked);
 
-    try std.testing.expectEqualStrings("AI_GATEWAY_API_KEY=[redacted] end", masked);
+    try std.testing.expectEqualStrings("Y2_API_KEY=[redacted] end", masked);
 }
 
 test "maskSecrets masks quoted sensitive assignments" {

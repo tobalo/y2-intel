@@ -82,15 +82,15 @@ async function startFx(
   const active = await TmuxSession.create({
     cmd: withGateway
       ? FX_BIN
-      : `env -u AI_GATEWAY_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN}`,
+      : `env -u Y2_API_KEY -u VERCEL_OIDC_TOKEN FX_DISABLE_KEYCHAIN=1 FX_SKIP_ONBOARDING=1 ${FX_BIN}`,
     env: {
       HOME: testHome,
       ...(gateway
         ? {
-          AI_GATEWAY_API_KEY: "fake-input-navigation-key",
+          Y2_API_KEY: "fake-input-navigation-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         }
@@ -193,7 +193,7 @@ function rowHasBackgroundSgr(row: string): boolean {
 }
 
 test("selected slash row ignores the welcome header help hint", () => {
-  const header = `${SELECTED_COMPLETION_SGR}𝒇x\x1b[0m\x1b[38;5;245m v0.3.27 · Run /help for commands`;
+  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m\x1b[38;5;245m v0.3.27 · Run /help for commands`;
   const composer = `${SELECTED_COMPLETION_SGR}┃ /\x1b[39m`;
   const selected = `${SELECTED_COMPLETION_SGR}  /clear\x1b[38;5;245m Clear the conversation`;
 
@@ -1036,10 +1036,10 @@ tmuxTest(
       cwd: workspace,
       env: {
         HOME: testHome,
-        AI_GATEWAY_API_KEY: "fake-image-input-key",
+        Y2_API_KEY: "fake-image-input-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: localGateway.chatUrl,
+        FX_API_CHAT_URL: localGateway.chatUrl,
         FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_AUTO_UPGRADE: "0",
@@ -1201,10 +1201,10 @@ tmuxTest(
       cmd: FX_BIN,
       env: {
         HOME: testHome,
-        AI_GATEWAY_API_KEY: "fake-repeated-image-key",
+        Y2_API_KEY: "fake-repeated-image-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: localGateway.chatUrl,
+        FX_API_CHAT_URL: localGateway.chatUrl,
         FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_AUTO_UPGRADE: "0",
@@ -1312,10 +1312,10 @@ tmuxTest(
       cmd: FX_BIN,
       env: {
         HOME: testHome,
-        AI_GATEWAY_API_KEY: "fake-image-id-key",
+        Y2_API_KEY: "fake-image-id-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: localGateway.chatUrl,
+        FX_API_CHAT_URL: localGateway.chatUrl,
         FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_AUTO_UPGRADE: "0",
@@ -1404,10 +1404,10 @@ tmuxTest(
       cmd: FX_BIN,
       env: {
         HOME: testHome,
-        AI_GATEWAY_API_KEY: "fake-image-yank-key",
+        Y2_API_KEY: "fake-image-yank-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: localGateway.chatUrl,
+        FX_API_CHAT_URL: localGateway.chatUrl,
         FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_AUTO_UPGRADE: "0",
@@ -1474,10 +1474,10 @@ tmuxTest(
       cmd: FX_BIN,
       env: {
         HOME: testHome,
-        AI_GATEWAY_API_KEY: "fake-pending-image-key",
+        Y2_API_KEY: "fake-pending-image-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: localGateway.chatUrl,
+        FX_API_CHAT_URL: localGateway.chatUrl,
         FX_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_AUTO_UPGRADE: "0",
@@ -1592,10 +1592,10 @@ tmuxTest(
       cmd: FX_BIN,
       env: {
         HOME: testHome,
-        AI_GATEWAY_API_KEY: "fake-current-rail-key",
+        Y2_API_KEY: "fake-current-rail-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: localGateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: localGateway.chatUrl,
+        FX_API_CHAT_URL: localGateway.chatUrl,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_AUTO_UPGRADE: "0",
       },

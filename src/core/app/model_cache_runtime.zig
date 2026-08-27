@@ -838,7 +838,7 @@ fn modelIdListContains(ids: []const []u8, needle: []const u8) bool {
 }
 
 fn authenticatedCatalogAccess(credential: []const u8, team_context: ?[]const u8) credentials.CatalogAccess {
-    return credentials.catalogAccessForCredential(.ai_gateway_api_key, credential, team_context);
+    return credentials.catalogAccessForCredential(.api_key, credential, team_context);
 }
 
 fn testCatalog(alloc: Allocator, model_id: []const u8) !std.ArrayList(model_catalog.ModelCatalogEntry) {
@@ -977,7 +977,7 @@ test "model cache projects anonymous fallback provenance for 401 and 403" {
 
         const provenance = runtime.outcome.loaded.?;
         try std.testing.expectEqual(model_catalog.AccessLevel.public_only, provenance.access.level);
-        try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, provenance.access.source.?);
+        try std.testing.expectEqual(credentials.Source.api_key, provenance.access.source.?);
         try std.testing.expectEqual(credentials.CatalogPublicOnlyReason.authenticated_credential_rejected, provenance.access.public_only_reason.?);
         try std.testing.expect(provenance.access.private_models_may_be_hidden);
         try std.testing.expect(provenance.anonymous_fallback_used);
@@ -1248,20 +1248,6 @@ test "model cache repeated auth changes join stale loads before publication" {
 }
 
 test "model cache warmup publishes a snapshot and filtered completion" {
-    var fixture = try test_gateway_client.TestModelCatalogFixture.initPrivate();
-    defer fixture.deinit();
-    try fixture.start();
-    try std.testing.expect(fixture.waitForAcceptStart(5000));
-
-    const models_url = try std.fmt.allocPrint(
-        std.testing.allocator,
-        "http://127.0.0.1:{d}/v1/models",
-        .{fixture.port()},
-    );
-    defer std.testing.allocator.free(models_url);
-    const env = try TestEnv.install(std.testing.allocator, models_url);
-    defer env.deinit();
-
     var runtime = Runtime.init(std.testing.allocator, "/v1/models");
     defer runtime.deinit();
     runtime.startWarmup(test_builtin_gateway.model_catalog_provider, authenticatedCatalogAccess("test-key", "team_123"));
@@ -1269,7 +1255,7 @@ test "model cache warmup publishes a snapshot and filtered completion" {
 
     const provenance = runtime.outcome.loaded.?;
     try std.testing.expectEqual(model_catalog.AccessLevel.authenticated, provenance.access.level);
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, provenance.access.source.?);
+    try std.testing.expectEqual(credentials.Source.api_key, provenance.access.source.?);
     try std.testing.expect(!provenance.access.private_models_may_be_hidden);
     try std.testing.expect(!provenance.anonymous_fallback_used);
     try std.testing.expect(provenance.fallback_failure == null);
@@ -1277,37 +1263,18 @@ test "model cache warmup publishes a snapshot and filtered completion" {
 
     var snapshot = (try runtime.snapshotCachedModelIds(std.testing.allocator)).?;
     defer collections.freeStringList(std.testing.allocator, &snapshot);
-    try std.testing.expectEqual(@as(usize, 4), snapshot.items.len);
-    try std.testing.expectEqualStrings("openai/gpt-5", snapshot.items[0]);
-    try std.testing.expectEqualStrings("anthropic/claude-opus-4", snapshot.items[1]);
-    try std.testing.expect(modelIdListContains(snapshot.items, "anthropic/claude-sonnet-4"));
-    try std.testing.expect(modelIdListContains(snapshot.items, "private/blue-hornbill"));
+    try std.testing.expectEqual(@as(usize, 1), snapshot.items.len);
+    try std.testing.expectEqualStrings("y2-agent", snapshot.items[0]);
 
-    const metadata = runtime.metadataForModel("openai/gpt-5").?;
-    try std.testing.expect(metadata.supports_tool_use);
-    try std.testing.expect(metadata.supports_reasoning);
-    try std.testing.expect(metadata.supports_vision);
-    try std.testing.expect(metadata.supports_file_input);
-    try std.testing.expect(metadata.supports_web_search);
-    try std.testing.expect(metadata.supports_explicit_caching);
-    try std.testing.expect(metadata.supports_implicit_caching);
-    try std.testing.expectEqual(@as(?u32, 256_000), metadata.context_window);
-    try std.testing.expectEqual(@as(?u32, 32_000), metadata.max_output_tokens);
+    const metadata = runtime.metadataForModel("y2-agent").?;
+    try std.testing.expect(!metadata.supports_tool_use);
+    try std.testing.expect(!metadata.supports_web_search);
 
     var completions: [2][]const u8 = undefined;
-    const count = runtime.modelCompletions("OPUS", completions[0..]);
+    const count = runtime.modelCompletions("Y2", completions[0..]);
     try std.testing.expectEqual(@as(usize, 1), count);
-    try std.testing.expectEqualStrings("anthropic/claude-opus-4", completions[0]);
-
-    var private_completions: [1][]const u8 = undefined;
-    const private_count = runtime.modelCompletions("blue", private_completions[0..]);
-    try std.testing.expectEqual(@as(usize, 1), private_count);
-    try std.testing.expectEqualStrings("private/blue-hornbill", private_completions[0]);
-    try std.testing.expectEqualStrings("private/blue-hornbill", runtime.catalogModelCompletion("private/blue-hornbill").?);
-    try std.testing.expect(runtime.catalogModelCompletion("private/blue") == null);
-
-    try std.testing.expectEqualStrings("team_123", fixture.capturedHeaderValue(test_gateway_client.vercel_ai_gateway_team_header).?);
-    if (fixture.failure()) |err| return err;
+    try std.testing.expectEqualStrings("y2-agent", completions[0]);
+    try std.testing.expectEqualStrings("y2-agent", runtime.catalogModelCompletion("y2-agent").?);
 }
 
 test "model menu owns resolved catalog state and filters without changing catalog order" {
@@ -1407,20 +1374,6 @@ test "model menu snapshot construction cleans every allocation failure" {
 }
 
 test "model cache completion hydrates an open menu and reports once" {
-    var fixture = try test_gateway_client.TestModelCatalogFixture.initPrivate();
-    defer fixture.deinit();
-    try fixture.start();
-    try std.testing.expect(fixture.waitForAcceptStart(5000));
-
-    const models_url = try std.fmt.allocPrint(
-        std.testing.allocator,
-        "http://127.0.0.1:{d}/v1/models",
-        .{fixture.port()},
-    );
-    defer std.testing.allocator.free(models_url);
-    const env = try TestEnv.install(std.testing.allocator, models_url);
-    defer env.deinit();
-
     var runtime = Runtime.init(std.testing.allocator, "/v1/models");
     defer runtime.deinit();
     runtime.startWarmup(test_builtin_gateway.model_catalog_provider, authenticatedCatalogAccess("test-key", "team_123"));
@@ -1439,71 +1392,33 @@ test "model cache completion hydrates an open menu and reports once" {
     try std.testing.expect(runtime.menu.catalog_state.public_only_reason == null);
     try std.testing.expect(!runtime.menu.catalog_state.private_models_hidden);
     try std.testing.expect(runtime.menu.catalog_state.failure == null);
-    try std.testing.expectEqual(@as(usize, 4), runtime.menu.items.items.len);
+    try std.testing.expectEqual(@as(usize, 1), runtime.menu.items.items.len);
+    try std.testing.expectEqualStrings("y2-agent", runtime.menu.items.items[0].id);
     try std.testing.expect(!(try runtime.pollLoadTransition()));
 
     runtime.reset();
     try std.testing.expect(!runtime.menu.active);
     try std.testing.expectEqual(ModelCacheState.idle, runtime.state);
-    if (fixture.failure()) |err| return err;
 }
 
-test "model cache reset replaces ready public catalog with team catalog" {
+test "model cache reset reloads the static Y2 catalog independent of legacy access" {
     var runtime = Runtime.init(std.testing.allocator, "/v1/models");
     defer runtime.deinit();
 
-    {
-        var fixture = try test_gateway_client.TestModelCatalogFixture.init();
-        defer fixture.deinit();
-        try fixture.start();
-        try std.testing.expect(fixture.waitForAcceptStart(5000));
-
-        const models_url = try std.fmt.allocPrint(
-            std.testing.allocator,
-            "http://127.0.0.1:{d}/v1/models",
-            .{fixture.port()},
-        );
-        defer std.testing.allocator.free(models_url);
-        const env = try TestEnv.install(std.testing.allocator, models_url);
-        defer env.deinit();
-
-        runtime.startWarmup(test_builtin_gateway.model_catalog_provider, .{ .public_only = .no_credential });
-        try waitForWarmup(&runtime);
-
-        var snapshot = (try runtime.snapshotCachedModelIds(std.testing.allocator)).?;
-        defer collections.freeStringList(std.testing.allocator, &snapshot);
-        try std.testing.expect(!modelIdListContains(snapshot.items, "private/blue-hornbill"));
-        try std.testing.expect(fixture.capturedHeaderValue("authorization") == null);
-        try std.testing.expect(fixture.capturedHeaderValue(test_gateway_client.vercel_ai_gateway_team_header) == null);
-        if (fixture.failure()) |err| return err;
-    }
+    runtime.startWarmup(test_builtin_gateway.model_catalog_provider, .{ .public_only = .no_credential });
+    try waitForWarmup(&runtime);
+    var first = (try runtime.snapshotCachedModelIds(std.testing.allocator)).?;
+    defer collections.freeStringList(std.testing.allocator, &first);
+    try std.testing.expectEqual(@as(usize, 1), first.items.len);
+    try std.testing.expectEqualStrings("y2-agent", first.items[0]);
 
     runtime.reset();
-
-    {
-        var fixture = try test_gateway_client.TestModelCatalogFixture.initPrivate();
-        defer fixture.deinit();
-        try fixture.start();
-        try std.testing.expect(fixture.waitForAcceptStart(5000));
-
-        const models_url = try std.fmt.allocPrint(
-            std.testing.allocator,
-            "http://127.0.0.1:{d}/v1/models",
-            .{fixture.port()},
-        );
-        defer std.testing.allocator.free(models_url);
-        const env = try TestEnv.install(std.testing.allocator, models_url);
-        defer env.deinit();
-
-        runtime.startWarmup(test_builtin_gateway.model_catalog_provider, authenticatedCatalogAccess("team-key", "team_123"));
-        try waitForWarmup(&runtime);
-
-        var snapshot = (try runtime.snapshotCachedModelIds(std.testing.allocator)).?;
-        defer collections.freeStringList(std.testing.allocator, &snapshot);
-        try std.testing.expect(modelIdListContains(snapshot.items, "private/blue-hornbill"));
-        try std.testing.expectEqualStrings("team_123", fixture.capturedHeaderValue(test_gateway_client.vercel_ai_gateway_team_header).?);
-        if (fixture.failure()) |err| return err;
-    }
+    runtime.startWarmup(test_builtin_gateway.model_catalog_provider, authenticatedCatalogAccess("team-key", "team_123"));
+    try waitForWarmup(&runtime);
+    var second = (try runtime.snapshotCachedModelIds(std.testing.allocator)).?;
+    defer collections.freeStringList(std.testing.allocator, &second);
+    try std.testing.expectEqual(@as(usize, 1), second.items.len);
+    try std.testing.expectEqualStrings("y2-agent", second.items[0]);
 }
 
 test "model cache request resolution distinguishes readiness miss failure idle and cancellation" {

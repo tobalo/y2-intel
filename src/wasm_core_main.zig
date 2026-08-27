@@ -62,12 +62,8 @@ const js_host_gateway_provider = gateway_provider.Provider{
 
 const js_host_provider_set = provider_set.gateway_only(.{
     .presentation = provider_catalog.find(.gateway),
-    .auth_strategy = .vercel,
-    .fallback_model_capabilities_fn = vercel_model_policy.capabilitiesForModel,
+    .auth_strategy = .api_key,
     .agent_stream = js_host_stream_provider.provider(),
-    .cli_model_catalog = .{ .fetch_fn = fetchCliModelCatalog },
-    .model_catalog = js_host_model_catalog.provider,
-    .credits = .{ .fetch_fn = fetchCredits },
 });
 
 fn resolveChatUrl(_: ?*anyopaque, fallback: []const u8) []const u8 {

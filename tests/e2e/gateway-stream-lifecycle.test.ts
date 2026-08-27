@@ -136,9 +136,13 @@ function writeProjectOmissionFixture(root: FixtureRoot) {
 }
 
 function sse(body: string): Response {
-  return new Response(body, {
-    headers: { "content-type": "text/event-stream" },
+  const events = body.split("\n").flatMap((line) => {
+    if (!line.startsWith("data: ")) return [];
+    const data = line.slice("data: ".length);
+    if (data === "[DONE]") return [];
+    return [JSON.parse(data) as object];
   });
+  return fakeGatewaySse(events);
 }
 
 function startGateway(
@@ -262,10 +266,12 @@ function fixtureEnv(
 ): Record<string, string | undefined> {
   return {
     HOME: root.home,
-    AI_GATEWAY_API_KEY: "fake-gateway-lifecycle-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-gateway-lifecycle-key",
+    Y2_API_KEY: undefined,
     VERCEL_OIDC_TOKEN: undefined,
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
     FX_MODEL: MODEL,
     FX_TRACE_LOG: tracePath,
@@ -330,7 +336,71 @@ type GatewayRequestBody = {
 };
 
 function gatewayRequest(body: string): GatewayRequestBody {
-  return JSON.parse(body) as GatewayRequestBody;
+  const parsed = JSON.parse(body) as {
+    prompt?: PromptMessage[];
+    messages?: Array<{
+      role: string;
+      content: unknown;
+      tool_calls?: Array<{
+        id: string;
+        function: { name: string; arguments: string };
+      }>;
+      tool_call_id?: string;
+      name?: string;
+    }>;
+    tools?: Array<Record<string, any>>;
+  };
+  if (parsed.prompt) return parsed as GatewayRequestBody;
+
+  const prompt = (parsed.messages ?? []).map((message): PromptMessage => {
+    if (message.role === "assistant" && message.tool_calls?.length) {
+      const parts: Array<Record<string, unknown>> = [];
+      if (typeof message.content === "string" && message.content.length > 0) {
+        parts.push({ type: "text", value: message.content });
+      }
+      for (const call of message.tool_calls) {
+        let input: unknown = {};
+        try {
+          input = JSON.parse(call.function.arguments);
+        } catch {
+          input = {};
+        }
+        parts.push({
+          type: "tool-call",
+          toolCallId: call.id,
+          toolName: call.function.name,
+          input,
+        });
+      }
+      return { role: message.role, content: parts };
+    }
+    if (message.role === "tool") {
+      return {
+        role: message.role,
+        content: [{
+          type: "tool-result",
+          toolCallId: message.tool_call_id,
+          toolName: message.name,
+          output: { type: "text", value: contentText(message.content) },
+        }],
+      };
+    }
+    return { role: message.role, content: message.content };
+  });
+  const tools = (parsed.tools ?? []).map((tool) => {
+    const fn = tool.function && typeof tool.function === "object"
+      ? tool.function as Record<string, unknown>
+      : undefined;
+    return fn
+      ? {
+        type: tool.type,
+        name: fn.name,
+        description: fn.description,
+        inputSchema: fn.parameters,
+      }
+      : tool;
+  });
+  return { prompt, tools } as GatewayRequestBody;
 }
 
 function promptText(body: string): string {
@@ -602,6 +672,83 @@ async function waitForMcpServerReady(
 }
 
 describe("gateway stream lifecycle", () => {
+  test("direct OpenAI-compatible endpoint uses Chat Completions without gateway headers", async () => {
+    const root = createFixtureRoot("direct-openai-compatible");
+    const responseText = "DIRECT_OPENAI_COMPATIBLE_RESPONSE";
+    const gateway = startGateway(() =>
+      sse(
+        `data: ${JSON.stringify({
+          id: "chat_direct_1",
+          object: "chat.completion.chunk",
+          choices: [{
+            index: 0,
+            delta: { content: responseText },
+            finish_reason: null,
+          }],
+        })}\n\n` +
+          `data: ${JSON.stringify({
+            id: "chat_direct_1",
+            object: "chat.completion.chunk",
+            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
+            usage: { prompt_tokens: 8, completion_tokens: 4 },
+          })}\n\n` +
+          "data: [DONE]\n\n",
+      )
+    );
+    const submitted = "Exercise the direct endpoint.";
+
+    try {
+      const result = await runFx(
+        [
+          "--context-limit",
+          "skill_catalog_bytes=off",
+          "ask",
+          "--json",
+          "--no-save",
+          submitted,
+        ],
+        {
+          cwd: root.workspace,
+          env: {
+            HOME: root.home,
+            OPENAI_BASE_URL: gateway.baseUrl,
+            OPENAI_API_KEY: "direct-openai-key",
+            FX_API_CHAT_URL: gateway.chatUrl,
+            FX_MODEL: MODEL,
+            Y2_API_KEY: undefined,
+            VERCEL_OIDC_TOKEN: undefined,
+          },
+          timeoutMs: 30_000,
+        },
+      );
+
+      expect(result.code).toBe(0);
+      expect(result.stderr).toBe("");
+      expect(parseAskJson(result.stdout).output).toBe(responseText);
+      expect(gateway.requests).toHaveLength(1);
+
+      const observed = gateway.requests[0]!;
+      const body = JSON.parse(observed.body) as {
+        model: string;
+        stream: boolean;
+        messages: Array<{ role: string; content: unknown }>;
+        tools?: Array<{ function?: { name?: string } }>;
+        prompt?: unknown;
+      };
+      expect(body.model).toBe(MODEL);
+      expect(body.stream).toBe(true);
+      expect(body.messages.at(-1)).toEqual({ role: "user", content: submitted });
+      expect(body.tools?.some((tool) => tool.function?.name === "web_search") ?? false).toBe(false);
+      expect(body.prompt).toBeUndefined();
+      expect(observed.headers.get("authorization")).toBe("Bearer direct-openai-key");
+      expect(observed.headers.get("ai-gateway-protocol-version")).toBeNull();
+      expect(observed.headers.get("x-vercel-ai-gateway-team")).toBeNull();
+    } finally {
+      gateway.stop();
+      rmSync(root.root, { recursive: true, force: true });
+    }
+  });
+
   test("bounded conditional guidance oracle distinguishes capabilities from ordinary prose", () => {
     const fixture = (
       systemText: string,
@@ -729,12 +876,14 @@ describe("gateway stream lifecycle", () => {
       const oracleRequest = parseGatewayRequest(gateway.requests[0]!.body);
       expect(promptText(gateway.requests[0]!.body)).toContain(submitted);
       expect(serializedToolNames(oracleRequest)).toEqual(
-        AUTO_PERPLEXITY_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES,
+        AUTO_PERPLEXITY_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES.filter(
+          (name) => name !== "perplexity_search" && name !== "vision",
+        ),
       );
-      expect(request.tools).toHaveLength(25);
+      expect(request.tools).toHaveLength(23);
       expect(findUnavailableCapabilityReferences(oracleRequest)).toEqual([]);
       expect(customProviderGuidanceState(oracleRequest)).toEqual({
-        providerToolIndices: [22],
+        providerToolIndices: [],
         guidanceMessageIndices: [1],
       });
       expect(request.prompt[0]?.role).toBe("system");
@@ -1881,9 +2030,7 @@ describe("gateway stream lifecycle", () => {
       });
       expect(gateway.requestCount()).toBe(3);
 
-      const first = JSON.parse(gateway.requests[0].body) as {
-        prompt: PromptMessage[];
-      };
+      const first = gatewayRequest(gateway.requests[0].body);
       const firstTexts = first.prompt.map((message) =>
         contentText(message.content)
       );
@@ -1926,9 +2073,7 @@ describe("gateway stream lifecycle", () => {
       expect(firstText).not.toContain("\ninjected_shell");
       expect(firstText).not.toContain("<injected>description</injected>");
 
-      const followup = JSON.parse(gateway.requests[1].body) as {
-        prompt: PromptMessage[];
-      };
+      const followup = gatewayRequest(gateway.requests[1].body);
       const followupTexts = followup.prompt.map((message) =>
         contentText(message.content)
       );
@@ -1959,9 +2104,7 @@ describe("gateway stream lifecycle", () => {
         "Inspect the dynamic context fixture.",
       );
 
-      const duplicateFollowup = JSON.parse(gateway.requests[2].body) as {
-        prompt: PromptMessage[];
-      };
+      const duplicateFollowup = gatewayRequest(gateway.requests[2].body);
       const duplicateParts = duplicateFollowup.prompt.flatMap((message) =>
         Array.isArray(message.content) ? message.content : []
       ) as Array<Record<string, unknown>>;
@@ -2069,9 +2212,7 @@ describe("gateway stream lifecycle", () => {
         name: MALFORMED_TOOL_NAME,
         status: "error",
       });
-      const followup = JSON.parse(gateway.requests[1].body) as {
-        prompt: Array<{ role: string; content: Array<Record<string, unknown>> }>;
-      };
+      const followup = gatewayRequest(gateway.requests[1].body);
       const parts = followup.prompt.flatMap((message) => message.content ?? []);
       expect(parts).toContainEqual({
         type: "tool-call",
@@ -2465,9 +2606,7 @@ describe("gateway stream lifecycle", () => {
         },
       );
       const json = parseAskJson(result.stdout);
-      const followup = JSON.parse(gateway.requests[2].body) as {
-        prompt: Array<{ role: string; content: Array<Record<string, unknown>> }>;
-      };
+      const followup = gatewayRequest(gateway.requests[2].body);
       const parts = followup.prompt.flatMap((message) => message.content ?? []);
       const resultPart = parts.find((part) =>
         part.type === "tool-result" &&
@@ -2676,9 +2815,7 @@ describe("gateway stream lifecycle", () => {
       expect(gateway.requestCount()).toBe(3);
       expect(existsSync(sideEffectPath)).toBe(false);
 
-      const resumedRequest = JSON.parse(gateway.requests[2].body) as {
-        prompt: Array<{ role: string; content: Array<Record<string, unknown>> }>;
-      };
+      const resumedRequest = gatewayRequest(gateway.requests[2].body);
       const resumedParts = resumedRequest.prompt.flatMap((message) => message.content ?? []);
       const historicalCalls = resumedParts.filter((part) =>
         part.type === "tool-call" &&
@@ -3591,9 +3728,7 @@ describe("gateway stream lifecycle", () => {
         expect(resumed.stderr).toBe("");
         expect(gateway.requests).toHaveLength(3);
 
-        const request = JSON.parse(gateway.requests[2].body) as {
-          prompt: Array<{ role: string; content: unknown }>;
-        };
+        const request = gatewayRequest(gateway.requests[2].body);
         const userTexts = request.prompt
           .filter((message) => message.role === "user")
           .map((message) => contentText(message.content));
@@ -3875,7 +4010,7 @@ describe("gateway stream lifecycle", () => {
             cwd: root.workspace,
             env: {
               HOME: root.home,
-              AI_GATEWAY_API_KEY: "fake-gateway-lifecycle-key",
+              Y2_API_KEY: "fake-gateway-lifecycle-key",
               VERCEL_OIDC_TOKEN: undefined,
               FX_E2E_GATEWAY_CHAT_URL:
                 `http://127.0.0.1:${address.port}/v1/ai/chat/completions`,
@@ -4006,7 +4141,7 @@ describe("gateway stream lifecycle", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            AI_GATEWAY_API_KEY: "fake-gateway-lifecycle-key",
+            Y2_API_KEY: "fake-gateway-lifecycle-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_E2E_GATEWAY_CHAT_URL:
               `http://127.0.0.1:${address.port}/v1/ai/chat/completions`,

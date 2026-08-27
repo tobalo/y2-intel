@@ -73,28 +73,26 @@ function sse(events) {
 
 function toolCall(id, command) {
   return sse([
-    { type: "tool-call", toolCallId: id, toolName: "terminal", input: { action: "exec", command } },
-    { type: "finish", finishReason: { unified: "tool-calls", raw: "tool-calls" } },
+    { id: "chat_tool", choices: [{ index: 0, delta: { tool_calls: [{ index: 0, id, function: { name: "terminal", arguments: JSON.stringify({ action: "exec", command }) } }] }, finish_reason: null }] },
+    { id: "chat_tool", choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] },
   ]);
 }
 
 function terminalToolCalls(calls) {
-  const events = calls.flatMap(({ id, input }) => {
+  const events = calls.flatMap(({ id, input }, index) => {
     const serialized = JSON.stringify(input);
     const deltas = [];
     for (let offset = 0; offset < serialized.length; offset += 4096) {
-      deltas.push({ type: "tool-input-delta", id, delta: serialized.slice(offset, offset + 4096) });
+      deltas.push({ id: "chat_tools", choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: serialized.slice(offset, offset + 4096) } }] }, finish_reason: null }] });
     }
     return [
-      { type: "tool-input-start", id, toolName: "terminal" },
+      { id: "chat_tools", choices: [{ index: 0, delta: { tool_calls: [{ index, id, function: { name: "terminal", arguments: "" } }] }, finish_reason: null }] },
       ...deltas,
-      { type: "tool-input-end", id },
-      { type: "tool-call", toolCallId: id, toolName: "terminal" },
     ];
   });
   const responseEvents = [
     ...events,
-    { type: "finish", finishReason: { unified: "tool-calls", raw: "tool-calls" } },
+    { id: "chat_tools", choices: [{ index: 0, delta: {}, finish_reason: "tool_calls" }] },
   ];
   return new Response(new ReadableStream({
     start(controller) {
@@ -109,13 +107,13 @@ function terminalToolCalls(calls) {
 
 function textResponse(value) {
   return sse([
-    { type: "text-delta", delta: value },
-    { type: "finish", finishReason: { unified: "stop", raw: "stop" } },
+    { id: "chat_text", choices: [{ index: 0, delta: { content: value }, finish_reason: null }] },
+    { id: "chat_text", choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
   ]);
 }
 
 function toolResult(body, id) {
-  const prompt = body.prompt || [];
+  const prompt = body.messages || [];
   let lastUser = -1;
   for (let index = prompt.length - 1; index >= 0; index -= 1) {
     if (prompt[index].role === "user") {
@@ -124,13 +122,12 @@ function toolResult(body, id) {
     }
   }
   return prompt.slice(lastUser + 1)
-    .flatMap((message) => Array.isArray(message.content) ? message.content : [])
-    .find((part) => part.type === "tool-result" && part.toolCallId === id);
+    .find((message) => message.role === "tool" && message.tool_call_id === id);
 }
 
 function latestUserText(body) {
-  for (let index = (body.prompt || []).length - 1; index >= 0; index -= 1) {
-    const message = body.prompt[index];
+  for (let index = (body.messages || []).length - 1; index >= 0; index -= 1) {
+    const message = body.messages[index];
     if (message.role === "user") return JSON.stringify(message.content);
   }
   return "";
@@ -152,7 +149,7 @@ const fetch = async (_url, init = {}) => {
   }
   const body = JSON.parse(requestDecoder.decode(init.body));
   if (!checkedBrowserCapabilityContext) {
-    const serializedPrompt = JSON.stringify(body.prompt || []);
+    const serializedPrompt = JSON.stringify(body.messages || []);
     for (const guidance of [
       "embedded browser version of fx",
       "Public web fetch, web search, and general outbound network access are unavailable",
@@ -166,10 +163,10 @@ const fetch = async (_url, init = {}) => {
     checkedBrowserCapabilityContext = true;
   }
   if (!checkedToolProjection) {
-    if (body.tools?.length !== 1 || body.tools[0]?.name !== "terminal") {
+    if (body.tools?.length !== 1 || body.tools[0]?.function?.name !== "terminal") {
       throw new Error(`workspace advertised unexpected tools: ${JSON.stringify(body.tools)}`);
     }
-    const schema = body.tools[0]?.inputSchema;
+    const schema = body.tools[0]?.function?.parameters;
     if (JSON.stringify(schema?.required) !== JSON.stringify(["action", "command"]) ||
         schema?.properties?.action?.enum?.[0] !== "exec" ||
         schema?.properties?.command?.maxLength !== 65_536 ||
@@ -230,7 +227,10 @@ const runtime = await createFxTerminal({
   backend: "wasm",
   wasm: await readFile(wasmPath),
   terminal: xtermAdapter(terminal),
-  env: { AI_GATEWAY_API_KEY: "workspace-key" },
+  env: {
+    OPENAI_BASE_URL: "https://models.example/v1",
+    OPENAI_API_KEY: "workspace-key",
+  },
   fetch,
   configStore: { get(id) { return config.get(id) ?? null; }, set(id, value) { config.set(id, value); } },
   stderr(chunk) { stderr += stderrDecoder.decode(chunk, { stream: true }); },
@@ -257,7 +257,7 @@ async function prompt(value, expected) {
   await waitFor(() => grid().includes(expected), expected);
 }
 
-await waitFor(() => grid().includes("𝒇x"), "startup");
+await waitFor(() => grid().includes("Y2 INFORMATION DOMINANCE"), "startup");
 await prompt("workspace success", "success record checked");
 await prompt("workspace truncation", "truncation record checked");
 await prompt("workspace timeout", "timeout mapping checked");

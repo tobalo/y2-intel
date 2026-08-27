@@ -3,7 +3,6 @@ const permission_auto_classifier = @import("../core/permissions/auto_classifier.
 const stream_provider = @import("../core/agent/stream_provider.zig");
 const types = @import("../core/shared/types.zig");
 const io_mod = @import("../core/shared/io.zig");
-const vercel_protocol = @import("vercel_protocol.zig");
 
 const Allocator = std.mem.Allocator;
 
@@ -68,7 +67,7 @@ fn buildReviewPayload(
     cancel_flag: *std.atomic.Value(bool),
 ) ![]u8 {
     const runtime: *Runtime = @ptrCast(@alignCast(raw));
-    const expanded = try vercel_protocol.expandPendingToolReviewMessages(
+    const expanded = try expandPendingToolReviewMessages(
         alloc,
         messages,
         target_call_id,
@@ -87,6 +86,52 @@ fn buildReviewPayload(
     });
 }
 
+fn expandPendingToolReviewMessages(
+    alloc: Allocator,
+    messages: []const types.ChatMessage,
+    target_call_id: []const u8,
+    deadline: std.Io.Clock.Timestamp,
+    cancel_flag: *std.atomic.Value(bool),
+) ![]types.ChatMessage {
+    try checkBudget(deadline, cancel_flag);
+    if (messages.len < 2) return error.InvalidPermissionReviewMessages;
+    const pending_index = messages.len - 2;
+    const pending = messages[pending_index];
+    if (pending.role != .assistant or pending.tool_calls.len == 0) {
+        return error.InvalidPermissionReviewMessages;
+    }
+    var target_present = false;
+    for (pending.tool_calls) |call| {
+        if (std.mem.eql(u8, call.id, target_call_id)) target_present = true;
+    }
+    if (!target_present) return error.InvalidPermissionReviewMessages;
+
+    const expanded_len = try std.math.add(usize, messages.len, pending.tool_calls.len);
+    const expanded = try alloc.alloc(types.ChatMessage, expanded_len);
+    errdefer alloc.free(expanded);
+    @memcpy(expanded[0 .. pending_index + 1], messages[0 .. pending_index + 1]);
+    for (pending.tool_calls, 0..) |call, index| {
+        try checkBudget(deadline, cancel_flag);
+        expanded[pending_index + 1 + index] = .{
+            .role = .tool,
+            .content = "The pending tool call has not executed. Review it from the supplied evidence.",
+            .tool_call_id = call.id,
+            .tool_name = call.name,
+        };
+    }
+    expanded[expanded.len - 1] = messages[messages.len - 1];
+    return expanded;
+}
+
+fn checkBudget(
+    deadline: std.Io.Clock.Timestamp,
+    cancel_flag: *std.atomic.Value(bool),
+) !void {
+    if (cancel_flag.load(.seq_cst)) return error.Cancelled;
+    const now = std.Io.Clock.Timestamp.now(io_mod.getIo(), .awake);
+    if (!std.Io.Clock.Timestamp.compare(now, .lt, deadline)) return error.TimedOut;
+}
+
 pub fn buildPayloadForTest(
     alloc: Allocator,
     model: []const u8,
@@ -99,7 +144,7 @@ pub fn buildPayloadForTest(
     var runtime = Runtime{
         .input = .{},
         .adapter = .{
-            .source = .ai_gateway_api_key,
+            .source = .api_key,
             .model = model,
             .build_fn = build_fn,
             .validate_fn = validateUnavailable,

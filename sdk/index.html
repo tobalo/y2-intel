@@ -169,10 +169,10 @@
       }
       return new Response(new ReadableStream({
         async start(controller) {
-          controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"hello"}\n'));
+          controller.enqueue(encoded.encode('data: {"id":"browser_core","choices":[{"index":0,"delta":{"content":"hello"},"finish_reason":null}]}\n\n'));
           await sleep(chunkDelay);
-          controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":" world"}\n'));
-          controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":3},"outputTokens":{"total":2}}}\n'));
+          controller.enqueue(encoded.encode('data: {"id":"browser_core","choices":[{"index":0,"delta":{"content":" world"},"finish_reason":null}]}\n\n'));
+          controller.enqueue(encoded.encode('data: {"id":"browser_core","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":3,"completion_tokens":2}}\n\n'));
           controller.enqueue(encoded.encode("data: [DONE]\n"));
           controller.close();
         },
@@ -285,7 +285,10 @@
           wasm: location.hostname === "localhost" || location.hostname === "127.0.0.1"
             ? "../zig-out/bin/fx-core.wasm"
             : "./fx-core.wasm",
-          env: { AI_GATEWAY_API_KEY: localStorage.getItem("FX_API_KEY") || "sdk-test-key" },
+          env: {
+            FX_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
+            OPENAI_API_KEY: "browser-session",
+          },
           fetch: dispatchFetch,
           onEvent: observe,
           onPermission: resolvePermission,

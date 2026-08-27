@@ -29,14 +29,23 @@ const nativeUrl = pathToFileURL(nativePath);
 for (const gatewayChatUrl of [
   "http://attacker.example/chat",
   "https://[redacted]@example.com/chat",
-  "https://example.com/chat",
   "file:///tmp/socket",
 ]) {
   await assert.rejects(
-    createFxAgent({ nativeAddon: nativeUrl, env: { FX_GATEWAY_CHAT_URL: gatewayChatUrl } }),
+    createFxAgent({ nativeAddon: nativeUrl, env: { FX_API_CHAT_URL: gatewayChatUrl } }),
     TypeError,
   );
 }
+
+const directAgent = await createFxAgent({
+  nativeAddon: nativeUrl,
+  env: {
+    OPENAI_BASE_URL: "https://models.example/v1",
+    OPENAI_API_KEY: "direct-test-key",
+  },
+});
+assert.equal(directAgent.backend, "native-agent");
+assert.equal(directAgent.options.env.OPENAI_BASE_URL, "https://models.example/v1");
 
 const agent = await createFxAgent({ nativeAddon: nativeUrl, marker: 1 });
 assert.equal(agent.backend, "native-agent");

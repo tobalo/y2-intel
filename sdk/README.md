@@ -15,7 +15,7 @@ Requirements:
 - Node.js 20 or later
 - Chrome or Edge 137 or later for browser WebAssembly
 - JSPI when using the WebAssembly backend
-- A Vercel AI Gateway credential or a host-provided authenticated `fetch`
+- A Y2 API key, or an API key and base URL for a direct OpenAI-compatible endpoint
 
 The package includes:
 
@@ -51,7 +51,7 @@ import { createFxAgent } from "libfx";
 
 const agent = await createFxAgent({
   env: {
-    AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+    Y2_API_KEY: process.env.Y2_API_KEY,
   },
   onEvent(event) {
     console.log(event.type);
@@ -148,7 +148,11 @@ if (!supportsJspi()) {
 
 const agent = await createFxAgent({
   env: {
-    AI_GATEWAY_API_KEY: "<short-lived credential>",
+    FX_API_CHAT_URL: `${location.origin}/api/harness/chat`,
+    OPENAI_API_KEY: "browser-session",
+  },
+  fetch(input, init) {
+    return fetch(input, { ...init, credentials: "same-origin" });
   },
 });
 
@@ -164,8 +168,11 @@ The browser entry point resolves `fx-core.wasm` and `fx-term.wasm` relative to
 the installed package. Pass `wasm` explicitly to provide a URL, `Response`,
 `ArrayBuffer`, typed array, or precompiled `WebAssembly.Module`.
 
-Do not embed a long-lived API key in public browser code. Use a short-lived
-credential or an authenticated server-side proxy.
+Agent Y2 workspace keys must never enter browser code, bundles, storage, or
+network logs. The example targets an authenticated same-origin proxy that owns
+`Y2_API_KEY` on the server and exposes an OpenAI-compatible streaming response.
+`browser-session` is a non-secret runtime placeholder; the proxy must authorize
+the browser session independently and must not treat that value as a credential.
 
 ## Interactive terminal
 
@@ -204,7 +211,8 @@ fit.fit();
 const runtime = await createFxTerminal({
   terminal: xtermAdapter(terminal),
   env: {
-    AI_GATEWAY_API_KEY: "<short-lived credential>",
+    FX_API_CHAT_URL: `${location.origin}/api/harness/chat`,
+    OPENAI_API_KEY: "browser-session",
   },
 });
 
@@ -226,7 +234,8 @@ The terminal runtime provides:
 | `resize()` | Notifies fx of terminal geometry changes |
 | `abort()` | Stops the terminal and releases subscriptions |
 
-Try the hosted terminal at [fx.sh/try](https://fx.sh/try).
+The Y2-hosted terminal is not published yet. Run the repository demo locally
+while the hosted harness route is being prepared.
 
 ## Backend selection
 
@@ -276,7 +285,7 @@ Hosts may provide adapters for runtime state and external effects:
 
 | Option | Purpose |
 | --- | --- |
-| `fetch` | Routes Gateway requests through the host |
+| `fetch` | Routes model API requests through the host |
 | `env` | Supplies runtime configuration without changing process globals |
 | `onEvent` | Receives runtime, ACP, terminal, and lifecycle events |
 | `onPermission` | Resolves agent permission requests |
@@ -289,12 +298,14 @@ Hosts may provide adapters for runtime state and external effects:
 
 ## Security boundaries
 
-`nativeAddon` and `env.FX_GATEWAY_CHAT_URL` are trusted host configuration. Do
-not populate them from request, tenant, or other untrusted input.
+`nativeAddon`, `env.OPENAI_BASE_URL`, and `env.FX_API_CHAT_URL` are trusted host
+configuration. Do not populate them from request, tenant, or other untrusted
+input.
 
-The native backend sends production credentials only to the canonical Vercel
-AI Gateway endpoint. Custom Gateway endpoints are limited to explicit loopback
-HTTP URLs for local development.
+The default endpoint is Agent Y2. A host can instead configure an HTTPS
+OpenAI-compatible endpoint with `OPENAI_BASE_URL` and `OPENAI_API_KEY`, or pass
+the full endpoint as `FX_API_CHAT_URL`. Plain HTTP is limited to explicit
+loopback URLs for local development.
 
 The WebAssembly runtime intentionally does not provide:
 
@@ -357,5 +368,5 @@ These are local development pages and are not publicly hosted links.
 
 Maintainer references:
 
-- [SDK contributor guide](https://github.com/vercel-labs/fx/blob/main/sdk/AGENTS.md)
-- [Native Node-API design and security model](https://github.com/vercel-labs/fx/blob/main/sdk/NAPI.md)
+- [SDK contributor guide](https://github.com/tobalo/y2-intel/blob/main/sdk/AGENTS.md)
+- [Native Node-API design and security model](https://github.com/tobalo/y2-intel/blob/main/sdk/NAPI.md)

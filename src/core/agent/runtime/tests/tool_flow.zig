@@ -445,36 +445,29 @@ fn expectPermissionDeniedToolResult(gateway: *const FakeGateway, index: usize, t
     var parsed = try std.json.parseFromSlice(std.json.Value, alloc, gateway.request_bodies.items[index], .{});
     defer parsed.deinit();
 
-    const prompt = parsed.value.object.get("prompt").?.array.items;
+    const prompt = parsed.value.object.get("messages").?.array.items;
     for (prompt) |entry| {
         if (entry != .object) continue;
         const role = entry.object.get("role") orelse continue;
         if (role != .string or !std.mem.eql(u8, role.string, "tool")) continue;
+        const part_tool_name = entry.object.get("name") orelse continue;
+        if (part_tool_name != .string or !std.mem.eql(u8, part_tool_name.string, tool_name)) continue;
         const content = entry.object.get("content") orelse continue;
-        if (content != .array) continue;
-        for (content.array.items) |part| {
-            if (part != .object) continue;
-            const part_tool_name = part.object.get("toolName") orelse continue;
-            if (part_tool_name != .string or !std.mem.eql(u8, part_tool_name.string, tool_name)) continue;
-            const output = part.object.get("output") orelse continue;
-            if (output != .object) continue;
-            const value = output.object.get("value") orelse continue;
-            if (value != .string) continue;
+        if (content != .string) continue;
 
-            try std.testing.expect(tool_result_errors.isToolPermissionDeniedOutput(value.string));
-            var payload = try std.json.parseFromSlice(std.json.Value, alloc, value.string, .{});
-            defer payload.deinit();
-            const error_obj = payload.value.object.get("error").?.object;
-            try std.testing.expectEqualStrings("tool_permission_denied", error_obj.get("type").?.string);
-            try std.testing.expectEqualStrings(tool_name, error_obj.get("tool_name").?.string);
-            if (expectedPermissionDeniedMessage(reason)) |message| {
-                try std.testing.expectEqualStrings(message, error_obj.get("message").?.string);
-            }
-            try std.testing.expectEqualStrings(@tagName(reason), error_obj.get("reason").?.string);
-            try std.testing.expect(error_obj.get("denied").?.bool);
-            try std.testing.expect(error_obj.get("suggestion") != null);
-            return;
+        try std.testing.expect(tool_result_errors.isToolPermissionDeniedOutput(content.string));
+        var payload = try std.json.parseFromSlice(std.json.Value, alloc, content.string, .{});
+        defer payload.deinit();
+        const error_obj = payload.value.object.get("error").?.object;
+        try std.testing.expectEqualStrings("tool_permission_denied", error_obj.get("type").?.string);
+        try std.testing.expectEqualStrings(tool_name, error_obj.get("tool_name").?.string);
+        if (expectedPermissionDeniedMessage(reason)) |message| {
+            try std.testing.expectEqualStrings(message, error_obj.get("message").?.string);
         }
+        try std.testing.expectEqualStrings(@tagName(reason), error_obj.get("reason").?.string);
+        try std.testing.expect(error_obj.get("denied").?.bool);
+        try std.testing.expect(error_obj.get("suggestion") != null);
+        return;
     }
 
     return error.TestExpectedToolResultMissing;
@@ -504,54 +497,48 @@ fn expectMalformedArgumentToolPair(
 
     var call_count: usize = 0;
     var result_count: usize = 0;
-    const prompt = parsed.value.object.get("prompt").?.array.items;
+    const prompt = parsed.value.object.get("messages").?.array.items;
     for (prompt) |entry| {
         if (entry != .object) continue;
         const role = entry.object.get("role") orelse continue;
         if (role != .string) continue;
-        const content = entry.object.get("content") orelse continue;
-        if (content != .array) continue;
-
-        for (content.array.items) |part| {
-            if (part != .object) continue;
-            const part_type = part.object.get("type") orelse continue;
-            if (part_type != .string) continue;
-            const part_call_id = part.object.get("toolCallId") orelse continue;
-            const part_tool_name = part.object.get("toolName") orelse continue;
-            if (part_call_id != .string or part_tool_name != .string) continue;
-            if (!std.mem.eql(u8, part_call_id.string, tool_call_id) or
-                !std.mem.eql(u8, part_tool_name.string, tool_name))
-            {
-                continue;
-            }
-
-            if (std.mem.eql(u8, role.string, "assistant") and
-                std.mem.eql(u8, part_type.string, "tool-call"))
-            {
-                const input = part.object.get("input") orelse return error.TestExpectedToolCallInputMissing;
-                try std.testing.expect(input == .object);
-                try std.testing.expectEqual(@as(usize, 0), input.object.count());
+        if (std.mem.eql(u8, role.string, "assistant")) {
+            const calls = entry.object.get("tool_calls") orelse continue;
+            if (calls != .array) continue;
+            for (calls.array.items) |part| {
+                if (part != .object) continue;
+                const part_call_id = part.object.get("id") orelse continue;
+                const function = part.object.get("function") orelse continue;
+                if (part_call_id != .string or function != .object) continue;
+                const part_tool_name = function.object.get("name") orelse continue;
+                if (part_tool_name != .string or
+                    !std.mem.eql(u8, part_call_id.string, tool_call_id) or
+                    !std.mem.eql(u8, part_tool_name.string, tool_name)) continue;
+                const input = function.object.get("arguments") orelse return error.TestExpectedToolCallInputMissing;
+                try std.testing.expect(input == .string);
+                try std.testing.expectEqualStrings("{}", input.string);
                 call_count += 1;
-                continue;
             }
+            continue;
+        }
 
-            if (std.mem.eql(u8, role.string, "tool") and
-                std.mem.eql(u8, part_type.string, "tool-result"))
-            {
-                const output = part.object.get("output") orelse return error.TestExpectedToolResultMissing;
-                if (output != .object) return error.TestExpectedToolResultMissing;
-                const value = output.object.get("value") orelse return error.TestExpectedToolResultMissing;
-                if (value != .string) return error.TestExpectedToolResultMissing;
-                try std.testing.expect(tool_result_errors.isToolExecutionFailedOutput(value.string));
+        if (std.mem.eql(u8, role.string, "tool")) {
+            const part_call_id = entry.object.get("tool_call_id") orelse continue;
+            const part_tool_name = entry.object.get("name") orelse continue;
+            if (part_call_id != .string or part_tool_name != .string or
+                !std.mem.eql(u8, part_call_id.string, tool_call_id) or
+                !std.mem.eql(u8, part_tool_name.string, tool_name)) continue;
+            const content = entry.object.get("content") orelse return error.TestExpectedToolResultMissing;
+            if (content != .string) return error.TestExpectedToolResultMissing;
+            try std.testing.expect(tool_result_errors.isToolExecutionFailedOutput(content.string));
 
-                var failure = try std.json.parseFromSlice(std.json.Value, alloc, value.string, .{});
-                defer failure.deinit();
-                const error_obj = failure.value.object.get("error").?.object;
-                try std.testing.expectEqualStrings("tool_execution_failed", error_obj.get("type").?.string);
-                try std.testing.expectEqualStrings(tool_name, error_obj.get("tool_name").?.string);
-                try std.testing.expect(std.mem.find(u8, error_obj.get("suggestion").?.string, "tool schema") != null);
-                result_count += 1;
-            }
+            var failure = try std.json.parseFromSlice(std.json.Value, alloc, content.string, .{});
+            defer failure.deinit();
+            const error_obj = failure.value.object.get("error").?.object;
+            try std.testing.expectEqualStrings("tool_execution_failed", error_obj.get("type").?.string);
+            try std.testing.expectEqualStrings(tool_name, error_obj.get("tool_name").?.string);
+            try std.testing.expect(std.mem.find(u8, error_obj.get("suggestion").?.string, "tool schema") != null);
+            result_count += 1;
         }
     }
 
@@ -1753,7 +1740,7 @@ test "vision uses generic lifecycle execution memory persistence and reprojectio
     try std.testing.expectEqualStrings("anthropic/claude-opus-4.6", gateway.request_models.items[0]);
     try std.testing.expectEqualStrings("google/gemini-2.5-flash", gateway.request_models.items[1]);
     try std.testing.expectEqualStrings("anthropic/claude-opus-4.6", gateway.request_models.items[2]);
-    try expectBodyContains(&gateway, 1, "\"type\":\"file\"");
+    try expectBodyContains(&gateway, 1, "\"type\":\"image_url\"");
     try expectBodyNotContains(&gateway, 1, catalog[0].path);
     try expectBodyContains(&gateway, 2, "compiler error");
     try expectBodyContains(&gateway, 2, "error: expected expression");
@@ -1964,8 +1951,8 @@ test "vision denial settles the authorized attempt without reading the image" {
         hooks.lifecycle_events.items[2].terminal.outcome.kind,
     );
     try std.testing.expectEqual(@as(usize, 2), gateway.request_bodies.items.len);
-    try expectBodyContains(&gateway, 0, "\"toolChoice\":{\"type\":\"required\"}");
-    try expectBodyNotContains(&gateway, 1, "\"toolChoice\":{\"type\":\"required\"}");
+    try expectBodyContains(&gateway, 0, "\"tool_choice\":\"required\"");
+    try expectBodyNotContains(&gateway, 1, "\"tool_choice\":\"required\"");
     try std.testing.expectEqualStrings("Final", hooks.finish_assistant_text.?);
 }
 
@@ -4916,7 +4903,7 @@ test "web_search denial trace records redacted query without api keys or result 
     tool_dispatch.traceDeniedWebSearch(.{}, toolCall(
         "call_search",
         "web_search",
-        "{\"query\":\"latest AI_GATEWAY_API_KEY=secret-value news\"}",
+        "{\"query\":\"latest Y2_API_KEY=secret-value news\"}",
     ), .user_denied);
     debug_trace.shutdown();
 
@@ -4924,7 +4911,7 @@ test "web_search denial trace records redacted query without api keys or result 
     defer alloc.free(trace);
     try std.testing.expect(std.mem.find(u8, trace, "event=web_search_denied") != null);
     try std.testing.expect(std.mem.find(u8, trace, "tool_name=web_search") != null);
-    try std.testing.expect(std.mem.find(u8, trace, "query=latest AI_GATEWAY_API_KEY=[redacted] news") != null);
+    try std.testing.expect(std.mem.find(u8, trace, "query=latest Y2_API_KEY=[redacted] news") != null);
     try std.testing.expect(std.mem.find(u8, trace, "secret-value") == null);
     try std.testing.expect(std.mem.find(u8, trace, "result body") == null);
 }

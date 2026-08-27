@@ -411,7 +411,7 @@ test "capability resolver uses provider catalog metadata" {
         std.testing.allocator,
         fake.provider(),
         .{
-            .access = credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", "team_123"),
+            .access = credentials.catalogAccessForCredential(.api_key, "test-key", "team_123"),
             .endpoint = "/v1/models",
             .cancel_flag = &cancel_flag,
         },
@@ -447,7 +447,7 @@ test "capability resolver retries rejected authenticated catalog access anonymou
         std.testing.allocator,
         fake.provider(),
         .{
-            .access = credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", "team_123"),
+            .access = credentials.catalogAccessForCredential(.api_key, "test-key", "team_123"),
             .endpoint = "/v1/models",
         },
         "provider/model",

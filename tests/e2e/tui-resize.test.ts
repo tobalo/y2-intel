@@ -132,7 +132,7 @@ async function launchRecordedSurfaceSession(
     cwd: workspace,
     env: {
       HOME: home,
-      AI_GATEWAY_API_KEY: undefined,
+      Y2_API_KEY: undefined,
       VERCEL_OIDC_TOKEN: undefined,
       FX_AUTO_UPGRADE: "0",
       FX_RECORD: join(root, "session.fxtape"),
@@ -295,7 +295,7 @@ function selectedSlashRow(escapes: string): string | null {
 }
 
 test("selected slash row ignores the welcome header help hint", () => {
-  const header = `${SELECTED_COMPLETION_SGR}𝒇x\x1b[0m\x1b[38;5;245m v0.3.27 · Run /help for commands`;
+  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m\x1b[38;5;245m v0.3.27 · Run /help for commands`;
   const command = `${SELECTED_COMPLETION_SGR}  /clear\x1b[38;5;245m start a fresh session and keep background processes`;
 
   expect(selectedSlashRow(`${header}\n${command}`)).toBe(command);
@@ -1117,7 +1117,7 @@ async function runLargeSkillResizeAttempt(attempt: number): Promise<string> {
       cwd: fixture.workspace,
       env: {
         HOME: fixture.home,
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         VERCEL_OIDC_TOKEN: undefined,
         FX_AUTO_UPGRADE: "0",
         FX_RECORD: tapePath,
@@ -1208,7 +1208,7 @@ async function runLargeSkillResizeAttempt(attempt: number): Promise<string> {
     const restoredPane = await s.waitForPane((pane) => {
       const grid = pane.split("\n");
       return (
-        pane.includes("𝒇x") &&
+        pane.includes("Y2 INFORMATION DOMINANCE") &&
         !pane.includes("↑↓ Navigate") &&
         findFooter(grid) !== null
       );
@@ -1318,7 +1318,7 @@ async function runRapidSkillResizeAttempt(
       cwd: fixture.workspace,
       env: {
         HOME: fixture.home,
-        AI_GATEWAY_API_KEY: undefined,
+        Y2_API_KEY: undefined,
         VERCEL_OIDC_TOKEN: undefined,
         FX_AUTO_UPGRADE: "0",
         FX_RECORD: tapePath,
@@ -1385,7 +1385,7 @@ async function runRapidSkillResizeAttempt(
     const dismissed = await s.waitForPane(
       (pane) => {
         const grid = pane.replace(/\n$/, "").split("\n");
-        return pane.includes("𝒇x") &&
+        return pane.includes("Y2 INFORMATION DOMINANCE") &&
           !pane.includes("↑↓ Navigate") &&
           findFooter(grid) !== null;
       },
@@ -1463,7 +1463,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       session = await launchAt(120, 40);
 
       const grid = await session.capturePaneGrid();
-      const headerRow = grid.findIndex((line) => line.includes("𝒇x v"));
+      const headerRow = grid.findIndex((line) => line.includes("Y2 INFORMATION DOMINANCE v"));
       expect(headerRow).toBe(0);
     },
     TIMEOUT,
@@ -1553,10 +1553,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-long-resize-key",
+          Y2_API_KEY: "fake-long-resize-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_TRACE_LOG: tracePath,
@@ -1585,7 +1585,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         session,
         "PRE_FX_MARKER_",
       );
-      expect(scrollback.match(/𝒇x v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+      expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
       expectOrderedMarkersWithoutBlankHole(scrollback, markers);
       const grid = await waitForSettledFooter(session);
@@ -1632,11 +1632,11 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-resize-command-key",
+          Y2_API_KEY: "fake-resize-command-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_RECORD: tapePath,
@@ -1662,7 +1662,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       await waitForLiveScrollbackText(session, finalResponse, TIMEOUT);
 
       const scrollback = await session.captureFullScrollback();
-      expect(scrollback.match(/𝒇x v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+      expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
       expect(scrollback).toContain("stream the resize marker command");
       expect(scrollback).not.toContain(preFxMarker);
@@ -1765,10 +1765,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-retention-scrollback-key",
+          Y2_API_KEY: "fake-retention-scrollback-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_MAX_AGENT_STEPS: "4",
@@ -1868,10 +1868,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-approval-cancel-resize-key",
+          Y2_API_KEY: "fake-approval-cancel-resize-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -1958,7 +1958,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       const afterCancelScrollback = await captureScrollback("after-cancel");
 
       const transcriptCopyCounts = (scrollback: string) => ({
-        startup: scrollback.match(/𝒇x v\d+\.\d+\.\d+\b/g)?.length ?? 0,
+        startup: scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)?.length ?? 0,
         help: countOccurrences(scrollback, "Run /help for commands"),
         recording: countOccurrences(
           scrollback,
@@ -2023,10 +2023,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-thematic-rule-key",
+          Y2_API_KEY: "fake-thematic-rule-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           NO_COLOR: "1",
@@ -2111,10 +2111,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-nested-blockquote-key",
+          Y2_API_KEY: "fake-nested-blockquote-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_TRACE_LOG: tracePath,
@@ -2257,11 +2257,11 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-gated-resize-key",
+          Y2_API_KEY: "fake-gated-resize-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_RECORD: tapePath,
@@ -2387,7 +2387,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -2518,7 +2518,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           NO_COLOR: "1",
@@ -2804,10 +2804,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-wide-user-key",
+          Y2_API_KEY: "fake-wide-user-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -3018,10 +3018,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: root.workspace,
         env: {
           HOME: root.home,
-          AI_GATEWAY_API_KEY: "fake-resize-file-approval-key",
+          Y2_API_KEY: "fake-resize-file-approval-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -3159,10 +3159,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: root.workspace,
         env: {
           HOME: root.home,
-          AI_GATEWAY_API_KEY: "fake-resize-gate-key",
+          Y2_API_KEY: "fake-resize-gate-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           NO_COLOR: "1",
@@ -3245,10 +3245,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: root.workspace,
         env: {
           HOME: root.home,
-          AI_GATEWAY_API_KEY: "fake-post-approval-resize-key",
+          Y2_API_KEY: "fake-post-approval-resize-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_TRACE_LOG: tracePath,
@@ -3302,9 +3302,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         120,
         40,
         {
-          AI_GATEWAY_API_KEY: "fake-resize-activity-key",
+          Y2_API_KEY: "fake-resize-activity-key",
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           FX_E2E_GATEWAY_CREDITS_URL: undefined,
@@ -3445,7 +3445,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       await session.sendKeys("Escape");
       await session.waitForText("Run /help for commands", 5_000);
       const restored = captureScrollback();
-      expect(restored.match(/𝒇x v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+      expect(restored.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(restored.match(/Run \/help for commands/g)).toHaveLength(1);
       expect(restored).not.toContain("Commands 37");
       expect(findFooter(await session.capturePaneGrid())).not.toBeNull();
@@ -3491,10 +3491,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         stderrPath,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "test-key",
+          Y2_API_KEY: "test-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_RECORD: tapePath,
           FX_RECORD_INPUT: "1",
           FX_TRACE_LOG: tracePath,
@@ -3650,9 +3650,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          AI_GATEWAY_API_KEY: "test-key",
+          Y2_API_KEY: "test-key",
           VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_TRACE_LOG: tracePath,
           FX_TRACE_SCOPES: "input,worker,resize",
         },
@@ -3710,9 +3710,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          AI_GATEWAY_API_KEY: "test-key",
+          Y2_API_KEY: "test-key",
           VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_TRACE_LOG: tracePath,
           FX_TRACE_SCOPES: "input,worker,resize",
         },
@@ -3792,9 +3792,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          AI_GATEWAY_API_KEY: "test-key",
+          Y2_API_KEY: "test-key",
           VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_TRACE_LOG: tracePath,
           FX_TRACE_SCOPES: "input,worker,resize",
           TMUX: undefined,
@@ -3903,9 +3903,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         height: 40,
         stderrPath,
         env: {
-          AI_GATEWAY_API_KEY: "test-key",
+          Y2_API_KEY: "test-key",
           VERCEL_OIDC_TOKEN: undefined,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_TRACE_LOG: tracePath,
           FX_TRACE_SCOPES: "input,worker,resize",
           TMUX: undefined,
@@ -3973,9 +3973,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         await session.waitForText("Run /help for commands", 5_000);
         const scrollback = await session.captureFullScrollback();
         expect(scrollback).not.toContain(marker);
-        expect(scrollback.match(/𝒇x v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
+        expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
         expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
-        expect(scrollback.split("\n")[0]).toMatch(/𝒇x v\d+\.\d+\.\d+\b/);
+        expect(scrollback.split("\n")[0]).toMatch(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/);
         expect(scrollback).not.toContain("Commands 37");
         const finalGrid = await session.capturePaneGrid();
         expect(findFooter(finalGrid), finalGrid.join("\n")).not.toBeNull();
@@ -4019,10 +4019,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-theme-reset-key",
+          Y2_API_KEY: "fake-theme-reset-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,

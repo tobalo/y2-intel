@@ -24,7 +24,7 @@ Requirements:
 
 * interactive terminal for manual shell testing
 
-* a Vercel OAuth session via `fx login` for model-backed flows. macOS Keychain API keys (via `fx setup`), `AI_GATEWAY_API_KEY`, and `VERCEL_OIDC_TOKEN` are also supported
+* `Y2_API_KEY` for Agent Y2, or `OPENAI_API_KEY` with `OPENAI_BASE_URL` for a direct OpenAI-compatible endpoint. macOS Keychain API keys configured through `fx setup` are also supported
 
 Common commands:
 
@@ -83,7 +83,7 @@ If you cannot manage labels, a maintainer or repository agent will apply the lab
 
 * `src/ui/`: terminal rendering, event loop, input, transcript
 
-* `src/gateway/`: AI Gateway client transport
+* `src/gateway/`: Y2 and direct provider transports
 
 * `.fx/skills/`: optional fx-native workspace-level skill root
 
@@ -335,11 +335,26 @@ Releases are triggered automatically when the version in `src/main.zig` changes 
 2. Merge to `main`
 3. The release workflow checks if `vX.Y.Z` tag exists; if not, it builds four platform binaries, creates the git tag, and publishes a GitHub Release with the binaries attached
 
-The install script and `fx upgrade` fetch binaries from `releases.fx.sh`, backed by the public Vercel Blob CDN. No authentication or external CLI tools are required. The release workflow also publishes binaries to the CDN and updates `latest.txt` automatically.
+The hosted installer and Y2 release origin are not published yet. The future
+installer route is `https://y2.dev/harness/install.sh`, and `fx upgrade` is
+already isolated from the upstream fx release origin by targeting
+`https://y2.dev/harness/releases`. Until those routes and signed artifacts are
+live, build this fork from source or download a verified GitHub Actions
+artifact for the exact commit under test.
 
-After CI passes for a push to `main`, the dev release workflow publishes commit-addressed binaries and then updates `dev.json`. Dogfooders opt in with `fx upgrade --channel dev`; the choice is stored in their user settings and applies to manual upgrades, automatic upgrades, and the `ctrl+g` handoff. `fx upgrade --channel stable` returns to tagged releases. Dev publishing does not create tags or GitHub Releases.
+After CI passes for a push to `main`, the dev release workflow builds retained
+GitHub Actions artifacts for all four supported platforms and the WebAssembly
+surface. It does not publish a hosted update channel, create tags, or create a
+GitHub Release. The `stable` and `dev` upgrade-channel settings remain dormant
+until the Y2 release origin is published.
 
-Release notes are public product copy. Describe user-visible behavior, always spell the product `fx`, and omit contributor attribution, tracker references, repository or website work, delivery infrastructure, CI and test details, branch history, and implementation-only refactors. Use commits and pull requests as research evidence only. Changelog formatting and release-marker rules live in `AGENTS.md`.
+Release notes are public product copy. Describe user-visible behavior, spell
+the product `Y2 Information Dominance`, retain `fx` only for exact compatibility
+identifiers, and omit contributor attribution, tracker references, repository
+or website work, delivery infrastructure, CI and test details, branch history,
+and implementation-only refactors. Use commits and pull requests as research
+evidence only. Changelog formatting and release-marker rules live in
+`AGENTS.md`.
 
 Do not create tags manually. The workflow owns tag creation.
 

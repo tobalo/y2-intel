@@ -13,6 +13,7 @@ const Allocator = std.mem.Allocator;
 
 pub const Bundle = struct {
     pub const AuthStrategy = enum {
+        api_key,
         vercel,
         chatgpt,
         grok,
@@ -117,7 +118,7 @@ test "provider set selects each provider's complete route" {
     const gateway = Bundle{
         .capabilities = .{ .fx_search = true, .vision_fallback = true, .deferred_usage = true },
         .presentation = provider_catalog.find(.gateway),
-        .auth_strategy = .vercel,
+        .auth_strategy = .api_key,
         .agent_stream = stream_provider.Provider{
             .context = &gateway_tag,
             .stream_fn = stream_provider.unavailable_provider.stream_fn,
@@ -152,8 +153,8 @@ test "provider set selects each provider's complete route" {
     try std.testing.expect(providers.select(.gateway).capabilities.vision_fallback);
     try std.testing.expect(providers.select(.gateway).capabilities.deferred_usage);
     try std.testing.expect(providers.select(.gateway).deferred_usage != null);
-    try std.testing.expectEqualStrings("vercel", providers.select(.gateway).presentation.?.slug);
-    try std.testing.expectEqual(Bundle.AuthStrategy.vercel, providers.select(.gateway).auth_strategy.?);
+    try std.testing.expectEqualStrings("y2", providers.select(.gateway).presentation.?.slug);
+    try std.testing.expectEqual(Bundle.AuthStrategy.api_key, providers.select(.gateway).auth_strategy.?);
     try std.testing.expect(!providers.select(.codex).capabilities.fx_search);
     try std.testing.expect(!providers.select(.codex).capabilities.deferred_usage);
     try std.testing.expect(providers.select(.codex).deferred_usage == null);

@@ -3244,9 +3244,9 @@ fn testGatewayUsageReference(
         .provider = .gateway,
         .generation_id = generation_id,
         .scope = scope,
-        .credential_source = .ai_gateway_api_key,
+        .credential_source = .api_key,
         .credential_identity = credential_authority.derive(
-            .ai_gateway_api_key,
+            .api_key,
             null,
         ),
     };
@@ -5450,7 +5450,7 @@ test "resumed provider reconciliation uses Gateway credential slot identity" {
     usage.replaceProviderReconciliationCredential(
         alloc,
         .gateway,
-        .ai_gateway_api_key,
+        .api_key,
         null,
         "fresh-secret-key",
     );
@@ -5466,7 +5466,7 @@ test "resumed provider reconciliation uses Gateway credential slot identity" {
     usage.replaceProviderReconciliationCredential(
         alloc,
         .gateway,
-        .ai_gateway_api_key,
+        .api_key,
         null,
         "secret-key",
     );

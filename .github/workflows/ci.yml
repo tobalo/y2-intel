@@ -372,7 +372,7 @@ jobs:
         run: bun test acp.test.ts
         working-directory: tests/e2e
         env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          Y2_API_KEY: ${{ secrets.Y2_API_KEY }}
 
   e2e-acp-full:
     name: E2E ACP (full)

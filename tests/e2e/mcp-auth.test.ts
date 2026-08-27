@@ -593,7 +593,7 @@ function baseEnv(root: ReturnType<typeof createRoot>) {
   return {
     HOME: root.home,
     PATH: `${root.bin}${delimiter}${process.env.PATH ?? ""}`,
-    AI_GATEWAY_API_KEY: "fake-mcp-auth-key",
+    Y2_API_KEY: "fake-mcp-auth-key",
     VERCEL_OIDC_TOKEN: undefined,
     FX_AUTO_UPGRADE: "0",
     FX_PERMISSION_MODE: "auto",
@@ -818,7 +818,7 @@ describe("MCP remote authentication lifecycle", () => {
         const env = {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         };
         tui = await TmuxSession.create({
           isolated: true,
@@ -893,7 +893,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 25_000,
       },
@@ -980,7 +980,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 25_000,
       },
@@ -1069,7 +1069,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_MCP_AUTH_AUTOMATE: "1",
         },
         timeoutMs: 25_000,
@@ -1195,7 +1195,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 30_000,
       },
@@ -1288,7 +1288,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 25_000,
         },
@@ -1360,7 +1360,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 30_000,
       },
@@ -1417,7 +1417,7 @@ describe("MCP remote authentication lifecycle", () => {
             ...baseEnv(root),
             FX_E2E_MCP_AUTH_AUTOMATE: "1",
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -1465,7 +1465,7 @@ describe("MCP remote authentication lifecycle", () => {
           ...baseEnv(root),
           FX_E2E_MCP_AUTH_AUTOMATE: "1",
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 20_000,
       },
@@ -1531,7 +1531,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -1603,7 +1603,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -1650,7 +1650,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -1707,7 +1707,7 @@ describe("MCP remote authentication lifecycle", () => {
             env: {
               ...keychainEnv,
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
             },
             timeoutMs: 20_000,
           },
@@ -1746,7 +1746,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...keychainEnv,
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           width: 110,
           height: 34,
@@ -1796,7 +1796,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -1870,7 +1870,7 @@ describe("MCP remote authentication lifecycle", () => {
       const tuiEnv = {
         ...baseEnv(root),
         FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+        FX_API_CHAT_URL: gateway.chatUrl,
       };
       tui = await TmuxSession.create({
         isolated: true,
@@ -1927,7 +1927,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -1962,7 +1962,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2019,7 +2019,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 120,
         height: 34,
@@ -2074,7 +2074,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 140,
         height: 36,
@@ -2114,7 +2114,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2150,7 +2150,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2298,7 +2298,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_E2E_MCP_AUTH_AUTOMATE: "1",
           },
           timeoutMs: 20_000,
@@ -2335,7 +2335,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -2370,7 +2370,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },
@@ -2648,7 +2648,7 @@ describe("MCP remote authentication lifecycle", () => {
             env: {
               ...baseEnv(root),
               FX_GATEWAY_BASE_URL: gateway.baseUrl,
-              FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+              FX_API_CHAT_URL: gateway.chatUrl,
             },
             timeoutMs: 25_000,
           },
@@ -2691,7 +2691,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 25_000,
         },
@@ -2736,7 +2736,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2799,7 +2799,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2832,7 +2832,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2892,7 +2892,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -2969,7 +2969,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
         height: 34,
@@ -3015,7 +3015,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
         },

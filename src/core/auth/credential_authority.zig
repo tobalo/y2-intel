@@ -22,7 +22,7 @@ pub fn derive(
     hash.update(@tagName(source));
     switch (source) {
         .vercel_oidc_token,
-        .ai_gateway_api_key,
+        .api_key,
         .fx_login,
         .stored_key,
         => hash.update("\x00slot\x00"),
@@ -53,8 +53,8 @@ test "credential authority uses account identity for provider subscriptions" {
 }
 
 test "credential authority uses non-secret Gateway credential slots" {
-    const api_key = derive(.ai_gateway_api_key, null).?;
-    const same_slot = derive(.ai_gateway_api_key, "ignored-account").?;
+    const api_key = derive(.api_key, null).?;
+    const same_slot = derive(.api_key, "ignored-account").?;
     const stored_key = derive(.stored_key, null).?;
     try std.testing.expect(api_key.eql(same_slot));
     try std.testing.expect(!api_key.eql(stored_key));

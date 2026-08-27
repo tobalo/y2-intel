@@ -8392,9 +8392,9 @@ const VisionGatewayFixture = struct {
                 .generation_id = response.generation_id orelse "gen_test",
                 .scope = "https://ai-gateway.vercel.sh",
                 .tenant = request.credential.tenant,
-                .credential_source = request.credential.source orelse .ai_gateway_api_key,
+                .credential_source = request.credential.source orelse .api_key,
                 .credential_identity = credential_authority.derive(
-                    request.credential.source orelse .ai_gateway_api_key,
+                    request.credential.source orelse .api_key,
                     request.credential.account_id,
                 ),
             } },
@@ -8946,15 +8946,15 @@ test "vision runtime resolves historical authorized images and batches twenty as
 
     try std.testing.expectEqual(tool_contracts.ToolExecutionStatus.success, result.status);
     try std.testing.expectEqual(@as(usize, 3), fixture.call_count);
-    try std.testing.expectEqual(@as(usize, 8), std.mem.count(u8, fixture.payloads.items[0], "\"type\":\"file\""));
-    try std.testing.expectEqual(@as(usize, 8), std.mem.count(u8, fixture.payloads.items[1], "\"type\":\"file\""));
-    try std.testing.expectEqual(@as(usize, 4), std.mem.count(u8, fixture.payloads.items[2], "\"type\":\"file\""));
+    try std.testing.expectEqual(@as(usize, 8), std.mem.count(u8, fixture.payloads.items[0], "\"type\":\"image_url\""));
+    try std.testing.expectEqual(@as(usize, 8), std.mem.count(u8, fixture.payloads.items[1], "\"type\":\"image_url\""));
+    try std.testing.expectEqual(@as(usize, 4), std.mem.count(u8, fixture.payloads.items[2], "\"type\":\"image_url\""));
     try std.testing.expectEqualStrings("google/gemini-2.5-flash", fixture.last_model);
     try std.testing.expectEqualStrings("gateway-key", fixture.last_api_key);
     try std.testing.expectEqualStrings("team_vision", fixture.last_team.?);
     try std.testing.expectEqual(@as(usize, 2), fixture.last_retry_count);
     try expectContains(fixture.payloads.items[0], "Read the build state");
-    try expectContains(fixture.payloads.items[0], "\"mediaType\":\"image/png\"");
+    try expectContains(fixture.payloads.items[0], "data:image/png;base64,");
     for (fixture.payloads.items) |payload| {
         for (catalog) |image| try expectNotContains(payload, image.path);
     }
@@ -9053,7 +9053,7 @@ test "vision runtime loads approved paths into a transient authorized catalog" {
     try std.testing.expectEqual(tool_contracts.ToolExecutionStatus.success, result.status);
     try expectContains(result.model_output, "\"image_id\":1");
     try std.testing.expectEqual(@as(usize, 1), fixture.call_count);
-    try expectContains(fixture.payloads.items[0], "\"type\":\"file\"");
+    try expectContains(fixture.payloads.items[0], "\"type\":\"image_url\"");
     try expectNotContains(fixture.payloads.items[0], source_path);
 }
 

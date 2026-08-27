@@ -218,10 +218,10 @@ function mockFxEnvironment(
 ): Record<string, string | undefined> {
   return {
     HOME: current.home,
-    AI_GATEWAY_API_KEY: "fake-file-picker-key",
+    Y2_API_KEY: "fake-file-picker-key",
     VERCEL_OIDC_TOKEN: undefined,
     FX_GATEWAY_BASE_URL: activeGateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: activeGateway.chatUrl,
+    FX_API_CHAT_URL: activeGateway.chatUrl,
     FX_MODEL: FAKE_GATEWAY_MODEL,
     FX_AUTO_UPGRADE: "0",
     FX_TRACE_LOG: current.tracePath,
@@ -1853,7 +1853,7 @@ describe("@ file picker", () => {
         cwd: current.workspace,
         env: {
           HOME: current.home,
-          AI_GATEWAY_API_KEY: process.env.AI_GATEWAY_API_KEY,
+          Y2_API_KEY: process.env.Y2_API_KEY,
           VERCEL_OIDC_TOKEN: process.env.VERCEL_OIDC_TOKEN,
           FX_AUTO_UPGRADE: "0",
           FX_MODEL: process.env.FX_FILE_PICKER_LIVE_MODEL ?? "anthropic/claude-sonnet-4.6",

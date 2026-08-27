@@ -1,7 +1,7 @@
 const std = @import("std");
 const builtin = @import("builtin");
 
-pub const permission_reviewer = @import("gateway/permission_reviewer.zig");
+pub const permission_reviewer = @import("../gateway/openai_chat_permission_reviewer.zig");
 
 const api_key_validator_contract = @import("../core/auth/api_key_validator.zig");
 const agent_stream_provider_contract = @import("../core/agent/stream_provider.zig");
@@ -12,6 +12,7 @@ const collections = @import("../core/shared/collections.zig");
 const debug_trace = @import("../core/shared/debug_trace.zig");
 const gateway_error_format = @import("../core/shared/gateway_error_format.zig");
 const gateway_client = @import("../gateway/client.zig");
+const openai_chat = @import("../gateway/openai_chat.zig");
 const vercel_failure_diagnostics = @import("../gateway/vercel_failure_diagnostics.zig");
 const vercel_protocol = @import("../gateway/vercel_protocol.zig");
 const io_mod = @import("../core/shared/io.zig");
@@ -40,13 +41,13 @@ const Request = web_search_contract.ProviderRequest;
 const Response = web_search_contract.ProviderResponse;
 const ProgressFn = web_search_contract.ProgressFn;
 
-pub const default_model = "moonshotai/kimi-k3";
-pub const default_chat_url = "https://ai-gateway.vercel.sh/v3/ai/language-model";
-pub const models_path = "/coding-agent/v1/models";
+pub const default_model = openai_chat.default_model;
+pub const default_chat_url = openai_chat.default_y2_chat_url;
+pub const models_path = "/models";
 const credits_path = "/coding-agent/v1/credits";
 pub const retry_count: usize = 3;
-pub const chat_url_env = "FX_GATEWAY_CHAT_URL";
-pub const default_model_catalog_base_url = "https://ai-gateway.vercel.sh";
+pub const chat_url_env = openai_chat.chat_url_env;
+pub const default_model_catalog_base_url = "https://api.y2.dev/api/v1";
 const base_url_env = "FX_GATEWAY_BASE_URL";
 const e2e_gateway_models_url_env = "FX_E2E_GATEWAY_MODELS_URL";
 const oauth_request_timeout_ms: i64 = 15_000;
@@ -113,7 +114,7 @@ pub fn agentChatUrl() []const u8 {
 }
 
 pub const cli_model_catalog_provider = gateway_provider.CliModelCatalogProvider{
-    .fetch_fn = fetchCliModelCatalog,
+    .fetch_fn = fetchStaticCliModelCatalog,
 };
 
 pub const credits_provider = gateway_provider.CreditsProvider{
@@ -130,23 +131,22 @@ pub const oauth_transport_provider = oauth_transport.Provider{
 
 pub const generation_usage_provider = gateway_generation_usage.provider;
 
-pub const agent_stream_provider = agent_stream_provider_contract.Provider{
-    .stream_fn = streamAgentCompletion,
-};
+pub const agent_stream_provider = openai_chat.agent_stream_provider;
 
 pub const provider_bundle = provider_set.Bundle{
-    .capabilities = .{ .fx_search = true, .vision_fallback = true, .deferred_usage = true },
+    .capabilities = .{},
     .presentation = provider_catalog.find(.gateway),
-    .auth_strategy = .vercel,
-    .fallback_model_capabilities_fn = vercel_model_policy.capabilitiesForModel,
+    .auth_strategy = .api_key,
+    .fallback_model_capabilities_fn = fallbackModelCapabilities,
     .agent_stream = agent_stream_provider,
     .cli_model_catalog = cli_model_catalog_provider,
     .model_catalog = model_catalog_provider,
     .permission_reviewer = permission_reviewer.provider,
-    .deferred_usage = generation_usage_provider,
-    .credits = credits_provider,
-    .fx_search = default_web_search_provider,
 };
+
+fn fallbackModelCapabilities(_: []const u8) model_capabilities.Capabilities {
+    return .{ .supports_tool_use = true };
+}
 
 pub const provider = gateway_provider.Provider{
     .oauth_transport = oauth_transport_provider,
@@ -157,81 +157,7 @@ pub fn buildAgentRequest(
     alloc: Allocator,
     request: agent_stream_provider_contract.RequestData,
 ) anyerror![]u8 {
-    const budget: ?vercel_protocol.BuildBudget = if (request.budget) |value|
-        .{ .deadline = value.deadline, .cancel_flag = value.cancel_flag }
-    else
-        null;
-    if (budget) |active| try active.check();
-
-    const tools_json = try buildAgentToolsJson(alloc, request);
-    defer alloc.free(tools_json);
-
-    if (request.verified_images) |images| {
-        const response_format = request.response_format orelse
-            return error.MissingStructuredResponseFormat;
-        const body = try vercel_protocol.buildGatewayRequestBodyWithVerifiedImagesAndBudget(
-            alloc,
-            tools_json,
-            request.messages,
-            images,
-            request.provider_options,
-            request.tool_choice,
-            .{
-                .name = response_format.name,
-                .description = response_format.description,
-                .schema = response_format.schema,
-            },
-            budget orelse .{},
-        );
-        return finalizeAgentRequestBody(alloc, request.model, body);
-    }
-    if (request.response_format != null) return error.StructuredResponseRequiresVerifiedImages;
-
-    if (request.vision_mode != .required) {
-        const body = if (budget) |active|
-            vercel_protocol.buildGatewayRequestBodyWithOptionsAndBudget(
-                alloc,
-                tools_json,
-                request.messages,
-                request.provider_options,
-                request.tool_choice,
-                request.max_output_tokens,
-                active,
-            )
-        else
-            vercel_protocol.buildGatewayRequestBodyWithOptionsAndOutputLimit(
-                alloc,
-                tools_json,
-                request.messages,
-                request.provider_options,
-                request.tool_choice,
-                request.max_output_tokens,
-            );
-        return finalizeAgentRequestBody(alloc, request.model, try body);
-    }
-
-    if (request.vision_mode == .required) {
-        const body = if (budget) |active|
-            vercel_protocol.buildGatewayRequiredToolRequestBodyWithOptionsAndBudget(
-                alloc,
-                tools_json,
-                request.messages,
-                request.provider_options,
-                request.max_output_tokens,
-                active,
-            )
-        else
-            vercel_protocol.buildGatewayRequiredToolRequestBodyWithOptionsAndOutputLimit(
-                alloc,
-                tools_json,
-                request.messages,
-                request.provider_options,
-                request.max_output_tokens,
-            );
-        return finalizeAgentRequestBody(alloc, request.model, try body);
-    }
-
-    unreachable;
+    return openai_chat.buildRequest(alloc, request, .openai_compatible);
 }
 
 fn resolveGatewayProviderOptions(
@@ -349,43 +275,32 @@ test "agent request builder keeps default reasoning silent and emits output limi
     });
     defer std.testing.allocator.free(body);
 
-    try std.testing.expect(std.mem.find(u8, body, "\"maxOutputTokens\":32000") != null);
+    try std.testing.expect(std.mem.find(u8, body, "\"max_tokens\":32000") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"reasoning\"") == null);
     try std.testing.expect(std.mem.find(u8, body, "\"providerOptions\"") == null);
 }
 
-test "agent request builder scopes the product user agent to GLM 5.2" {
+test "agent request builder does not embed transport headers in the JSON body" {
     const alloc = std.testing.allocator;
     const messages = [_]shared_types.ChatMessage{.{ .role = .user, .content = "question" }};
-    const cases = [_]struct {
-        model: []const u8,
-        include_user_agent: bool,
-    }{
-        .{ .model = "zai/glm-5.2", .include_user_agent = true },
-        .{ .model = "poolside/laguna-s-2.1-free", .include_user_agent = false },
+    const models = [_][]const u8{
+        "zai/glm-5.2",
+        "poolside/laguna-s-2.1-free",
     };
 
-    for (cases) |case| {
+    for (models) |model| {
         const body = try buildAgentRequest(alloc, .{
-            .model = case.model,
+            .model = model,
             .messages = &messages,
             .tool_choice = .auto,
-            .provider_options = resolveGatewayProviderOptions(case.model, .auto, false),
+            .provider_options = resolveGatewayProviderOptions(model, .auto, false),
         });
         defer alloc.free(body);
 
         var parsed = try std.json.parseFromSlice(std.json.Value, alloc, body, .{});
         defer parsed.deinit();
 
-        const headers = parsed.value.object.get("headers");
-        if (!case.include_user_agent) {
-            try std.testing.expect(headers == null);
-            continue;
-        }
-        const user_agent = headers.?.object.get("user-agent") orelse
-            return error.TestExpectedGatewayUserAgent;
-        try std.testing.expect(user_agent == .string);
-        try std.testing.expectEqualStrings(gateway_client.user_agent, user_agent.string);
+        try std.testing.expect(parsed.value.object.get("headers") == null);
     }
 }
 
@@ -417,7 +332,7 @@ test "agent request builder overlays selected dynamic schemas" {
     defer std.testing.allocator.free(body);
 
     try std.testing.expect(std.mem.find(u8, body, "\"name\":\"mcp_fs_read\"") != null);
-    try std.testing.expect(std.mem.find(u8, body, "\"maxOutputTokens\":64000") != null);
+    try std.testing.expect(std.mem.find(u8, body, "\"max_tokens\":64000") != null);
 }
 
 test "required vision request contains only the registered vision schema" {
@@ -488,12 +403,12 @@ test "required vision request contains only the registered vision schema" {
     });
     defer std.testing.allocator.free(body);
 
-    try std.testing.expect(std.mem.find(u8, body, "\"toolChoice\":{\"type\":\"required\"}") != null);
+    try std.testing.expect(std.mem.find(u8, body, "\"tool_choice\":\"required\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"name\":\"vision\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "registry-owned vision schema sentinel") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"name\":\"read_file\"") == null);
     try std.testing.expect(std.mem.find(u8, body, "\"name\":\"mcp_fs_read\"") == null);
-    try std.testing.expect(std.mem.find(u8, body, "\"maxOutputTokens\":128000") != null);
+    try std.testing.expect(std.mem.find(u8, body, "\"max_tokens\":128000") != null);
 }
 
 fn streamAgentCompletion(
@@ -812,15 +727,12 @@ test "oauth transport user agent uses the product version" {
 
 fn validateApiKey(
     _: ?*anyopaque,
-    alloc: Allocator,
+    _: Allocator,
     api_key: []const u8,
 ) api_key_validator_contract.Result {
-    var result = gateway_client.fetchGatewayGetResult(alloc, api_key, models_path) catch |err| {
-        debug_trace.logf("auth", "api key validation failed err={s}", .{@errorName(err)});
-        return .unavailable;
-    };
-    defer result.deinit(alloc);
-    return apiKeyValidationForStatus(result.status);
+    const trimmed = std.mem.trim(u8, api_key, " \t\r\n");
+    if (trimmed.len == 0 or trimmed.len != api_key.len or trimmed.len > 4096) return .refused;
+    return .accepted;
 }
 
 fn apiKeyValidationForStatus(status: std.http.Status) api_key_validator_contract.Result {
@@ -918,12 +830,42 @@ fn fetchCliModelCatalog(
     };
 }
 
+fn fetchStaticCliModelCatalog(
+    _: ?*anyopaque,
+    alloc: Allocator,
+    input: gateway_provider.CliModelCatalogInput,
+) gateway_provider.CliModelCatalogResult {
+    if (input.cancel_flag) |flag| if (flag.load(.seq_cst)) return .{ .failure = .{
+        .access = .init(input.access),
+        .anonymous_fallback_used = false,
+        .failure = .{ .category = .cancellation },
+    } };
+    var ids: std.ArrayList([]u8) = .empty;
+    const id = alloc.dupe(u8, default_model) catch return .{ .failure = .{
+        .access = .init(input.access),
+        .anonymous_fallback_used = false,
+        .failure = .{ .category = .resource_exhausted },
+    } };
+    ids.append(alloc, id) catch {
+        alloc.free(id);
+        return .{ .failure = .{
+            .access = .init(input.access),
+            .anonymous_fallback_used = false,
+            .failure = .{ .category = .resource_exhausted },
+        } };
+    };
+    return .{ .loaded = .{
+        .ids = ids,
+        .provenance = .{ .access = .init(input.access) },
+    } };
+}
+
 pub fn resolveChatUrl(fallback: []const u8, override: ?[]const u8) []const u8 {
     const candidate = override orelse return fallback;
-    // The chat URL carries the bearer token and full request payload; only a
-    // loopback HTTP override is trusted for local testing.
-    if (!gateway_client.isLoopbackHttpUrl(candidate)) return fallback;
-    return candidate;
+    const uri = std.Uri.parse(candidate) catch return fallback;
+    if (uri.host == null or uri.user != null or uri.password != null or uri.fragment != null) return fallback;
+    if (std.ascii.eqlIgnoreCase(uri.scheme, "https") or gateway_client.isLoopbackHttpUrl(candidate)) return candidate;
+    return fallback;
 }
 
 pub const StreamFn = *const fn (
@@ -1049,7 +991,7 @@ fn gatewayWorkerUsageOutcome(
 ) agent_stream_provider_contract.UsageOutcome {
     const generation_id = completion.generation_id orelse
         return .{ .unavailable = .possibly_billed };
-    const source = config.credential_source orelse .ai_gateway_api_key;
+    const source = config.credential_source orelse .api_key;
     const reference = agent_stream_provider_contract.DeferredUsageReference{
         .provider = .gateway,
         .generation_id = generation_id,
@@ -1843,12 +1785,12 @@ test "possibly sent web search failure marks billing incomplete" {
     try std.testing.expectEqual(@as(u64, 1), snapshot.settled_through_sequence);
 }
 
-test "built-in gateway defaults preserve active provider policy" {
-    try std.testing.expectEqualStrings("moonshotai/kimi-k3", default_model);
-    try std.testing.expectEqualStrings("https://ai-gateway.vercel.sh/v3/ai/language-model", default_chat_url);
-    try std.testing.expectEqualStrings("/coding-agent/v1/models", models_path);
+test "built-in API defaults select Agent Y2" {
+    try std.testing.expectEqualStrings("y2-agent", default_model);
+    try std.testing.expectEqualStrings("https://api.y2.dev/api/v1/chat/completions", default_chat_url);
+    try std.testing.expectEqualStrings("/models", models_path);
     try std.testing.expectEqual(@as(usize, 3), retry_count);
-    try std.testing.expectEqualStrings("FX_GATEWAY_CHAT_URL", chat_url_env);
+    try std.testing.expectEqualStrings("FX_API_CHAT_URL", chat_url_env);
 }
 
 fn stubFetchCreditsError(
@@ -2058,15 +2000,15 @@ test "built-in credits provider ignores non-string fields" {
 test "built-in model catalog owns default and loopback target resolution" {
     const default_url = try modelCatalogUrl(std.testing.allocator, models_path, null);
     defer std.testing.allocator.free(default_url);
-    try std.testing.expectEqualStrings("https://ai-gateway.vercel.sh/coding-agent/v1/models", default_url);
+    try std.testing.expectEqualStrings("https://api.y2.dev/api/v1/models", default_url);
 
     const loopback_url = try modelCatalogUrl(std.testing.allocator, models_path, "http://127.0.0.1:43123");
     defer std.testing.allocator.free(loopback_url);
-    try std.testing.expectEqualStrings("http://127.0.0.1:43123/coding-agent/v1/models", loopback_url);
+    try std.testing.expectEqualStrings("http://127.0.0.1:43123/models", loopback_url);
 
     const rejected_url = try modelCatalogUrl(std.testing.allocator, models_path, "https://gateway.example");
     defer std.testing.allocator.free(rejected_url);
-    try std.testing.expectEqualStrings("https://ai-gateway.vercel.sh/coding-agent/v1/models", rejected_url);
+    try std.testing.expectEqualStrings("https://api.y2.dev/api/v1/models", rejected_url);
 }
 
 test "built-in gateway owns the admitted web search provider policy" {
@@ -2127,10 +2069,13 @@ test "built-in gateway chat url honors loopback override before fallback" {
     );
 }
 
-test "built-in gateway chat url ignores untrusted overrides and falls back" {
-    const fallback = "https://ai-gateway.vercel.sh/v3/ai/language-model";
+test "built-in API chat url accepts HTTPS and rejects unsafe overrides" {
+    const fallback = "https://api.y2.dev/api/v1/chat/completions";
+    try std.testing.expectEqualStrings(
+        "https://models.example/v1/chat/completions",
+        resolveChatUrl(fallback, "https://models.example/v1/chat/completions"),
+    );
     for ([_][]const u8{
-        "https://evil.example/chat",
         "http://evil.example/chat",
         "http://127.0.0.1:8080@evil.example/chat",
         "ftp://evil.example/chat",
@@ -2209,11 +2154,32 @@ pub fn fetchPickerModelCatalogCancellable(
 }
 
 pub const model_catalog_provider = model_catalog.Provider{
-    .fetch_fn = fetchCatalogForProvider,
+    .fetch_fn = fetchStaticModelCatalog,
 };
 
 pub const ModelCatalogEntry = model_catalog.ModelCatalogEntry;
 pub const freeModelCatalog = model_catalog.freeModelCatalog;
+
+fn fetchStaticModelCatalog(
+    _: ?*anyopaque,
+    alloc: Allocator,
+    input: model_catalog.FetchInput,
+) std.mem.Allocator.Error!model_catalog.ProviderResult {
+    if (input.cancel_flag) |flag| if (flag.load(.seq_cst)) return .{
+        .failure = .{ .category = .cancellation },
+    };
+    var catalog: std.ArrayList(ModelCatalogEntry) = .empty;
+    errdefer freeModelCatalog(alloc, &catalog);
+    const id = try alloc.dupe(u8, default_model);
+    errdefer alloc.free(id);
+    const model_type = try alloc.dupe(u8, "language");
+    errdefer alloc.free(model_type);
+    try catalog.append(alloc, .{
+        .id = id,
+        .model_type = model_type,
+    });
+    return .{ .catalog = catalog };
+}
 
 fn parseSortedModelIds(alloc: std.mem.Allocator, json_text: []const u8) !std.ArrayList([]u8) {
     return parseModelIdsForView(alloc, json_text, .full);
@@ -2433,7 +2399,7 @@ test "model catalog GET includes selected team header" {
     const env = try installLoopbackModelsEnv(std.testing.allocator, fixture.port());
     defer env.deinit();
 
-    var ids = try fetchModelIds(std.testing.allocator, credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", "team_123"), models_path);
+    var ids = try fetchModelIds(std.testing.allocator, credentials.catalogAccessForCredential(.api_key, "test-key", "team_123"), models_path);
     defer collections.freeStringList(std.testing.allocator, &ids);
 
     try std.testing.expectEqualStrings("Bearer test-key", fixture.capturedHeaderValue("authorization").?);
@@ -2453,7 +2419,7 @@ test "cancellable model catalog GET includes selected team header" {
     var cancel_flag = std.atomic.Value(bool).init(false);
     var ids = try fetchModelIdsCancellable(
         std.testing.allocator,
-        credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", "team_123"),
+        credentials.catalogAccessForCredential(.api_key, "test-key", "team_123"),
         models_path,
         &cancel_flag,
     );
@@ -2473,7 +2439,7 @@ fn expectModelCatalogTeamHeaderOmitted(gateway_team: ?[]const u8) !void {
     const env = try installLoopbackModelsEnv(std.testing.allocator, fixture.port());
     defer env.deinit();
 
-    var ids = try fetchModelIds(std.testing.allocator, credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", gateway_team), models_path);
+    var ids = try fetchModelIds(std.testing.allocator, credentials.catalogAccessForCredential(.api_key, "test-key", gateway_team), models_path);
     defer collections.freeStringList(std.testing.allocator, &ids);
 
     try std.testing.expectEqualStrings("Bearer test-key", fixture.capturedHeaderValue("authorization").?);
@@ -2495,7 +2461,7 @@ test "model catalog GET sends fx user agent without attribution headers" {
     const env = try installLoopbackModelsEnv(std.testing.allocator, fixture.port());
     defer env.deinit();
 
-    var ids = try fetchModelIds(std.testing.allocator, credentials.catalogAccessForCredential(.ai_gateway_api_key, "test-key", null), models_path);
+    var ids = try fetchModelIds(std.testing.allocator, credentials.catalogAccessForCredential(.api_key, "test-key", null), models_path);
     defer collections.freeStringList(std.testing.allocator, &ids);
 
     try std.testing.expectEqualStrings(gateway_client.user_agent, fixture.capturedHeaderValue("user-agent").?);

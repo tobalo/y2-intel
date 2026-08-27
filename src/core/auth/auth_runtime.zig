@@ -24,9 +24,7 @@ pub const CredentialRefreshMode = enum {
 };
 
 const credential_source_order = [_]credentials.Source{
-    .vercel_oidc_token,
-    .ai_gateway_api_key,
-    .fx_login,
+    .api_key,
     .stored_key,
     .chatgpt_subscription,
     .grok_subscription,
@@ -401,9 +399,9 @@ pub const PickerView = struct {
             .root => if (self.include_skip)
                 connectionChoiceCount()
             else if (comptime host_target.is_wasm)
-                3
+                2
             else
-                4,
+                3,
             .connections => connectionChoiceCount(),
             .provider => if (comptime host_target.is_wasm) 2 else 3,
             .sign_in, .api_key => 0,
@@ -423,15 +421,13 @@ pub const PickerView = struct {
             .root => if (self.include_skip) connectionChoiceAt(index) else if (comptime host_target.is_wasm)
                 switch (index) {
                     0 => .{ .action = .connections },
-                    1 => .{ .action = .change_team },
-                    2 => .{ .action = .switch_credential },
+                    1 => .{ .action = .switch_credential },
                     else => null,
                 }
             else switch (index) {
                 0 => .{ .action = .connections },
                 1 => .{ .action = .switch_provider },
-                2 => .{ .action = .change_team },
-                3 => .{ .action = .switch_credential },
+                2 => .{ .action = .switch_credential },
                 else => null,
             },
             .connections => connectionChoiceAt(index),
@@ -480,7 +476,7 @@ pub const PickerView = struct {
             .source => |source| credentials.sourceLabel(source),
             .action => |action| switch (action) {
                 .connections => "Connections",
-                .login => "Sign in with Vercel",
+                .login => "Vercel sign-in removed",
                 .chatgpt_login => "Sign in with Codex",
                 .grok_login => "Sign in with Grok",
                 .setup => if (self.include_skip) "Add an API key" else "API key",
@@ -528,22 +524,20 @@ pub const PickerView = struct {
 };
 
 fn connectionChoiceCount() usize {
-    return if (comptime host_target.is_wasm) 2 else 4;
+    return if (comptime host_target.is_wasm) 1 else 3;
 }
 
 fn connectionChoiceAt(index: usize) ?Choice {
     if (comptime host_target.is_wasm) {
         return switch (index) {
-            0 => .{ .action = .login },
-            1 => .{ .action = .setup },
+            0 => .{ .action = .setup },
             else => null,
         };
     }
     return switch (index) {
-        0 => .{ .action = .login },
+        0 => .{ .action = .setup },
         1 => .{ .action = .chatgpt_login },
         2 => .{ .action = .grok_login },
-        3 => .{ .action = .setup },
         else => null,
     };
 }
@@ -697,7 +691,7 @@ pub fn loadStatusSnapshotForProvider(
     const gateway_probe_required = provider == .codex or provider == .grok or
         resolved_source == .chatgpt_subscription or resolved_source == .grok_subscription;
     if (gateway_probe_required) {
-        for ([_]credentials.Source{ .vercel_oidc_token, .ai_gateway_api_key, .fx_login, .stored_key }) |source| {
+        for ([_]credentials.Source{ .api_key, .stored_key }) |source| {
             if (credentials.sourceExists(alloc, secret_store, source) catch |err| switch (err) {
                 error.OutOfMemory => return err,
                 else => false,
@@ -880,9 +874,7 @@ pub const Runtime = struct {
     }
 
     fn statusSnapshotAt(self: *const Self, now_ms: i64) StatusSnapshot {
-        const gateway_connected = self.source_inventory.contains(.vercel_oidc_token) or
-            self.source_inventory.contains(.ai_gateway_api_key) or
-            self.source_inventory.contains(.fx_login) or
+        const gateway_connected = self.source_inventory.contains(.api_key) or
             self.source_inventory.contains(.stored_key);
         const chatgpt_connected = self.source_inventory.contains(.chatgpt_subscription);
         const grok_connected = self.source_inventory.contains(.grok_subscription);
@@ -1943,7 +1935,7 @@ fn expectApiKeyAllocationCleared(
 }
 
 test "auth runtime token refresher ignores non-refreshable credential sources" {
-    for ([_]credentials.Source{ .vercel_oidc_token, .ai_gateway_api_key, .stored_key }) |source| {
+    for ([_]credentials.Source{ .vercel_oidc_token, .api_key, .stored_key }) |source| {
         try std.testing.expect((try refreshCredentialToken(
             oauth_transport.unavailable_provider,
             std.testing.allocator,
@@ -1956,7 +1948,7 @@ test "auth runtime token refresher ignores non-refreshable credential sources" {
 test "auth failure snapshot names every selected source without exposing styling" {
     const sources = [_]credentials.Source{
         .vercel_oidc_token,
-        .ai_gateway_api_key,
+        .api_key,
         .fx_login,
         .stored_key,
     };
@@ -2017,7 +2009,7 @@ test "catalog access records a refresh failure until another credential is adopt
     const failed = runtime.modelCatalogAccess();
     try std.testing.expectEqual(credentials.CatalogPublicOnlyReason.credential_refresh_failed, failed.publicOnlyReason().?);
 
-    var api_key = try makeTestCredential(alloc, "api-key", .ai_gateway_api_key, null, null);
+    var api_key = try makeTestCredential(alloc, "api-key", .api_key, null, null);
     defer api_key.deinit(alloc);
     _ = runtime.adoptCredential(alloc, &api_key);
 
@@ -2131,7 +2123,7 @@ test "auth status snapshot labels every credential source without exposing token
     const alloc = std.testing.allocator;
     const sources = [_]credentials.Source{
         .vercel_oidc_token,
-        .ai_gateway_api_key,
+        .api_key,
         .fx_login,
         .stored_key,
     };
@@ -2230,14 +2222,14 @@ test "auth runtime detects only credential sources that exist" {
     };
 
     var runtime: Runtime = .{};
-    var probe = Probe{ .existing = SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login }) };
+    var probe = Probe{ .existing = SourceSet.initMany(&.{ .api_key, .fx_login }) };
 
     try runtime.refreshSourceInventoryWithProbe(std.testing.allocator, &probe, Probe.exists);
 
     const inventory = runtime.view().available_inactive_sources;
-    try std.testing.expectEqual(@as(usize, 2), inventory.count());
-    try std.testing.expect(inventory.contains(.ai_gateway_api_key));
-    try std.testing.expect(inventory.contains(.fx_login));
+    try std.testing.expectEqual(@as(usize, 1), inventory.count());
+    try std.testing.expect(inventory.contains(.api_key));
+    try std.testing.expect(!inventory.contains(.fx_login));
     try std.testing.expect(!inventory.contains(.vercel_oidc_token));
     try std.testing.expect(!inventory.contains(.stored_key));
 }
@@ -2257,7 +2249,7 @@ test "auth runtime pins every supported credential source to the session" {
 
     const sources = [_]credentials.Source{
         .vercel_oidc_token,
-        .ai_gateway_api_key,
+        .api_key,
         .fx_login,
         .stored_key,
     };
@@ -2307,20 +2299,20 @@ test "auth runtime failed selection preserves the active credential" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
     defer runtime.deinit(alloc);
-    var active = try makeTestCredential(alloc, "active-token", .ai_gateway_api_key, null, null);
+    var active = try makeTestCredential(alloc, "active-token", .api_key, null, null);
     defer active.deinit(alloc);
     _ = runtime.adoptCredential(alloc, &active);
 
     var loader = Loader{ .missing = .fx_login, .failing = .stored_key };
     try std.testing.expect((try runtime.selectSourceWithLoader(alloc, .fx_login, &loader, Loader.load)) == null);
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, runtime.credentialSource().?);
+    try std.testing.expectEqual(credentials.Source.api_key, runtime.credentialSource().?);
     try std.testing.expectEqualStrings("active-token", runtime.apiKey().?);
 
     try std.testing.expectError(
         error.SourceReadFailed,
         runtime.selectSourceWithLoader(alloc, .stored_key, &loader, Loader.load),
     );
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, runtime.credentialSource().?);
+    try std.testing.expectEqual(credentials.Source.api_key, runtime.credentialSource().?);
     try std.testing.expectEqualStrings("active-token", runtime.apiKey().?);
 }
 
@@ -2352,7 +2344,7 @@ test "logout replaces an active fx login with the next available source" {
     _ = runtime.adoptCredential(alloc, &active);
 
     var fixture = LogoutFixture{
-        .existing = SourceSet.initMany(&.{ .ai_gateway_api_key, .stored_key }),
+        .existing = SourceSet.initMany(&.{ .api_key, .stored_key }),
     };
     try std.testing.expect(try runtime.reconcileAfterFxLoginLogoutWithDeps(
         alloc,
@@ -2361,8 +2353,8 @@ test "logout replaces an active fx login with the next available source" {
         LogoutFixture.load,
     ));
 
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, runtime.credentialSource().?);
-    try std.testing.expectEqualStrings("ai_gateway_api_key", runtime.apiKey().?);
+    try std.testing.expectEqual(credentials.Source.api_key, runtime.credentialSource().?);
+    try std.testing.expectEqualStrings("api_key", runtime.apiKey().?);
     try std.testing.expect(!runtime.source_inventory.contains(.fx_login));
     try std.testing.expect(runtime.source_inventory.contains(.stored_key));
     try std.testing.expect(runtime.view().onboarding_skipped);
@@ -2373,12 +2365,12 @@ test "logout preserves an active non-login credential" {
     var runtime: Runtime = .{};
     defer runtime.deinit(alloc);
 
-    var active = try makeTestCredential(alloc, "active-api-key", .ai_gateway_api_key, null, null);
+    var active = try makeTestCredential(alloc, "active-api-key", .api_key, null, null);
     defer active.deinit(alloc);
     _ = runtime.adoptCredential(alloc, &active);
     runtime.source_inventory.insert(.fx_login);
 
-    var fixture = LogoutFixture{ .existing = SourceSet.initOne(.ai_gateway_api_key) };
+    var fixture = LogoutFixture{ .existing = SourceSet.initOne(.api_key) };
     try std.testing.expect(!try runtime.reconcileAfterFxLoginLogoutWithDeps(
         alloc,
         &fixture,
@@ -2386,7 +2378,7 @@ test "logout preserves an active non-login credential" {
         LogoutFixture.load,
     ));
 
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, runtime.credentialSource().?);
+    try std.testing.expectEqual(credentials.Source.api_key, runtime.credentialSource().?);
     try std.testing.expectEqualStrings("active-api-key", runtime.apiKey().?);
     try std.testing.expect(!runtime.source_inventory.contains(.fx_login));
     try std.testing.expectEqual(@as(usize, 0), fixture.load_count);
@@ -2415,7 +2407,7 @@ test "logout clears the active login and re-enables auth selection when no sourc
     try std.testing.expect(!runtime.view().onboarding_skipped);
 }
 
-test "logout reconciliation adopts a newer concurrent fx login" {
+test "logout reconciliation ignores a newer unsupported fx login" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
     defer runtime.deinit(alloc);
@@ -2432,18 +2424,19 @@ test "logout reconciliation adopts a newer concurrent fx login" {
         LogoutFixture.load,
     ));
 
-    try std.testing.expectEqual(credentials.Source.fx_login, runtime.credentialSource().?);
-    try std.testing.expectEqualStrings("fx_login", runtime.apiKey().?);
-    try std.testing.expect(runtime.source_inventory.contains(.fx_login));
+    try std.testing.expect(runtime.credentialSource() == null);
+    try std.testing.expect(runtime.apiKey() == null);
+    try std.testing.expect(!runtime.source_inventory.contains(.fx_login));
+    try std.testing.expectEqual(@as(usize, 0), fixture.load_count);
 }
 
-test "auth picker root exposes four setup sections" {
+test "auth picker root exposes supported setup sections" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
     defer runtime.deinit(alloc);
 
-    runtime.source_inventory = SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
-    var credential = try makeTestCredential(alloc, "token", .ai_gateway_api_key, null, null);
+    runtime.source_inventory = SourceSet.initMany(&.{ .api_key, .fx_login });
+    var credential = try makeTestCredential(alloc, "token", .api_key, null, null);
     defer credential.deinit(alloc);
     _ = runtime.adoptCredential(alloc, &credential);
 
@@ -2452,20 +2445,20 @@ test "auth picker root exposes four setup sections" {
     const picker = runtime.pickerView();
     try std.testing.expect(picker.active);
     try std.testing.expect((Choice{ .action = .connections }).eql(picker.selected_choice.?));
-    try std.testing.expectEqual(@as(usize, 4), picker.choiceCount());
+    try std.testing.expectEqual(@as(usize, 3), picker.choiceCount());
 }
 
 test "credential switcher excludes provider-routed subscription sessions" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
     defer runtime.deinit(alloc);
-    runtime.source_inventory = SourceSet.initMany(&.{ .ai_gateway_api_key, .chatgpt_subscription, .grok_subscription });
+    runtime.source_inventory = SourceSet.initMany(&.{ .api_key, .chatgpt_subscription, .grok_subscription });
     runtime.openPicker(alloc);
     runtime.openSwitchCredentialPicker(alloc);
 
     const picker = runtime.pickerView();
     try std.testing.expectEqual(@as(usize, 2), picker.choiceCount());
-    try std.testing.expect((Choice{ .source = .ai_gateway_api_key }).eql(picker.choiceAt(0).?));
+    try std.testing.expect((Choice{ .source = .api_key }).eql(picker.choiceAt(0).?));
     try std.testing.expect((Choice{ .action = .automatic }).eql(picker.choiceAt(1).?));
     try std.testing.expectEqualStrings(
         "use the first available source",
@@ -2473,17 +2466,15 @@ test "credential switcher excludes provider-routed subscription sessions" {
     );
 }
 
-test "auth picker navigation wraps across the four setup sections" {
+test "auth picker navigation wraps across supported setup sections" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
-    runtime.source_inventory = SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
+    runtime.source_inventory = SourceSet.initMany(&.{ .api_key, .fx_login });
     runtime.fx_login_session_available = true;
     runtime.openPicker(alloc);
 
     try std.testing.expect(runtime.movePicker(1));
     try std.testing.expectEqualStrings("Switch provider", runtime.pickerView().choiceLabel(runtime.pickerView().selected_choice.?));
-    try std.testing.expect(runtime.movePicker(1));
-    try std.testing.expect((Choice{ .action = .change_team }).eql(runtime.pickerView().selected_choice.?));
     try std.testing.expect(runtime.movePicker(1));
     try std.testing.expect((Choice{ .action = .switch_credential }).eql(runtime.pickerView().selected_choice.?));
     try std.testing.expect(runtime.movePicker(1));
@@ -2542,18 +2533,19 @@ test "adopting fx login publishes Vercel session availability to setup" {
     try std.testing.expect(picker.choiceEnabled(.{ .action = .change_team }));
 }
 
-test "connections picker closes before returning its typed choice" {
+test "connections picker returns the API key setup choice" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
-    runtime.source_inventory = SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
+    runtime.source_inventory = SourceSet.initMany(&.{ .api_key, .fx_login });
 
     try std.testing.expect(runtime.takePickerChoice(alloc) == null);
     runtime.openPicker(alloc);
     try std.testing.expect(runtime.takePickerChoice(alloc) == null);
     try std.testing.expectEqual(PickerStage.connections, runtime.pickerView().stage);
 
-    try std.testing.expect((Choice{ .action = .login }).eql(runtime.takePickerChoice(alloc).?));
-    try std.testing.expect(!runtime.pickerView().active);
+    try std.testing.expect((Choice{ .action = .setup }).eql(runtime.takePickerChoice(alloc).?));
+    try std.testing.expect(runtime.pickerView().active);
+    try std.testing.expectEqual(PickerStage.connections, runtime.pickerView().stage);
 }
 
 test "auth picker without credentials exposes acquisition actions" {
@@ -2565,7 +2557,7 @@ test "auth picker without credentials exposes acquisition actions" {
     try std.testing.expect(picker.active_source == null);
     try std.testing.expect((Choice{ .action = .connections }).eql(picker.selected_choice.?));
     try std.testing.expectEqual(@as(usize, 0), picker.available_sources.count());
-    try std.testing.expectEqual(@as(usize, 4), picker.choiceCount());
+    try std.testing.expectEqual(@as(usize, 3), picker.choiceCount());
     try std.testing.expect(!picker.choiceEnabled(.{ .action = .change_team }));
     try std.testing.expectEqualStrings("missing", picker.activeSourceLabel());
 }
@@ -2577,13 +2569,12 @@ test "auth onboarding picker exposes the setup paths" {
 
     const picker = runtime.pickerView();
     try std.testing.expect(picker.include_skip);
-    try std.testing.expectEqual(@as(usize, 4), picker.choiceCount());
-    try std.testing.expect((Choice{ .action = .login }).eql(picker.choiceAt(0).?));
+    try std.testing.expectEqual(@as(usize, 3), picker.choiceCount());
+    try std.testing.expect((Choice{ .action = .setup }).eql(picker.choiceAt(0).?));
     try std.testing.expect((Choice{ .action = .chatgpt_login }).eql(picker.choiceAt(1).?));
     try std.testing.expect((Choice{ .action = .grok_login }).eql(picker.choiceAt(2).?));
-    try std.testing.expect((Choice{ .action = .setup }).eql(picker.choiceAt(3).?));
-    try std.testing.expectEqualStrings("Add an API key", picker.choiceLabel(picker.choiceAt(3).?));
-    try std.testing.expect(picker.choiceAt(4) == null);
+    try std.testing.expectEqualStrings("Add an API key", picker.choiceLabel(picker.choiceAt(0).?));
+    try std.testing.expect(picker.choiceAt(3) == null);
 }
 
 test "clearing a remembered choice re-resolves even when no login was active" {
@@ -2599,7 +2590,7 @@ test "clearing a remembered choice re-resolves even when no login was active" {
     try std.testing.expectEqual(credentials.Source.stored_key, runtime.credentialSource().?);
 
     var fixture = LogoutFixture{
-        .existing = SourceSet.initMany(&.{ .ai_gateway_api_key, .stored_key }),
+        .existing = SourceSet.initMany(&.{ .api_key, .stored_key }),
     };
     const changed = try runtime.reselectByPrecedenceWithDeps(
         alloc,
@@ -2608,7 +2599,7 @@ test "clearing a remembered choice re-resolves even when no login was active" {
         LogoutFixture.load,
     );
     try std.testing.expect(changed);
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, runtime.credentialSource().?);
+    try std.testing.expectEqual(credentials.Source.api_key, runtime.credentialSource().?);
 }
 
 test "switch credential stage includes the active source and pops to its root action" {
@@ -2759,8 +2750,8 @@ test "auth picker cancellation preserves the active credential source" {
     const alloc = std.testing.allocator;
     var runtime: Runtime = .{};
     defer runtime.deinit(alloc);
-    runtime.source_inventory = SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
-    var active = try makeTestCredential(alloc, "active-token", .ai_gateway_api_key, null, null);
+    runtime.source_inventory = SourceSet.initMany(&.{ .api_key, .fx_login });
+    var active = try makeTestCredential(alloc, "active-token", .api_key, null, null);
     defer active.deinit(alloc);
     _ = runtime.adoptCredential(alloc, &active);
 
@@ -2768,7 +2759,7 @@ test "auth picker cancellation preserves the active credential source" {
     _ = runtime.movePicker(1);
     runtime.closePicker(alloc);
 
-    try std.testing.expectEqual(credentials.Source.ai_gateway_api_key, runtime.credentialSource().?);
+    try std.testing.expectEqual(credentials.Source.api_key, runtime.credentialSource().?);
     try std.testing.expectEqualStrings("active-token", runtime.apiKey().?);
 }
 
@@ -2810,7 +2801,6 @@ test "api key save from setup returns to the selected Connections row" {
     runtime.openPicker(alloc);
     try std.testing.expect(runtime.takePickerChoice(alloc) == null);
     try std.testing.expectEqual(PickerStage.connections, runtime.pickerView().stage);
-    for (0..3) |_| try std.testing.expect(runtime.movePicker(1));
     try std.testing.expect((Choice{ .action = .setup }).eql(runtime.takePickerChoice(alloc).?));
 
     runtime.openApiKeyPickerFromRoot(alloc);
@@ -2825,7 +2815,7 @@ test "api key save from setup returns to the selected Connections row" {
     const picker = runtime.pickerView();
     try std.testing.expectEqual(PickerStage.connections, picker.stage);
     try std.testing.expect((Choice{ .action = .setup }).eql(picker.selected_choice.?));
-    try std.testing.expect(picker.choiceIsSelected(picker.choiceAt(3).?));
+    try std.testing.expect(picker.choiceIsSelected(picker.choiceAt(0).?));
 }
 
 test "auth runtime saves and reloads through its injected secret store" {

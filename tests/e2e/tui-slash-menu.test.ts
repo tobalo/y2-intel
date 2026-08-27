@@ -62,7 +62,7 @@ function selectedSlashRowIndex(escapes: string): number {
 }
 
 test("slash menu selection index ignores the welcome header help hint", () => {
-  const header = `${SELECTED_COMPLETION_SGR}𝒇x\x1b[0m${DIM_SGR} v0.3.27 · Run /help for commands`;
+  const header = `${SELECTED_COMPLETION_SGR}Y2 INFORMATION DOMINANCE\x1b[0m${DIM_SGR} v0.3.27 · Run /help for commands`;
   const unselected = "\x1b[38;5;245m/help show available slash commands";
   const selected = `${SELECTED_COMPLETION_SGR}  /clear\x1b[38;5;245m start a fresh session and keep background processes`;
 
@@ -614,10 +614,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-linked-menu-key",
+          Y2_API_KEY: "fake-linked-menu-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         },
@@ -664,10 +664,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-linked-metadata-key",
+          Y2_API_KEY: "fake-linked-metadata-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         },
@@ -712,7 +712,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -755,7 +755,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -808,10 +808,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       const env = {
         HOME: home,
-        AI_GATEWAY_API_KEY: "fake-title-rename-key",
+        Y2_API_KEY: "fake-title-rename-key",
         VERCEL_OIDC_TOKEN: undefined,
         FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+        FX_API_CHAT_URL: gateway.chatUrl,
         FX_MODEL: model,
         FX_AUTO_UPGRADE: "0",
         NO_COLOR: "1",
@@ -830,16 +830,16 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       // Before the first turn names the session, the workspace distinguishes
       // parallel tabs while the model remains visible.
-      expect(await session.paneTitle()).toBe(`fx · workspace · ${model}`);
+      expect(await session.paneTitle()).toBe(`Y2 · workspace · ${model}`);
 
       // The first prompt names the session, and the tab follows it.
       await session.sendText("generate the release notes");
       await session.waitForText("TITLE_RENAME_COMPLETE", 30_000);
-      await waitForPaneTitle(session, `fx · generate the release notes · ${model}`, 5_000);
+      await waitForPaneTitle(session, `Y2 · generate the release notes · ${model}`, 5_000);
 
       await session.sendText("/rename deploy pipeline fix");
       await session.waitForText("renamed: deploy pipeline fix", 10_000);
-      await waitForPaneTitle(session, `fx · deploy pipeline fix · ${model}`, 5_000);
+      await waitForPaneTitle(session, `Y2 · deploy pipeline fix · ${model}`, 5_000);
 
       await session.sendText("/quit");
       expect(await session.waitForSessionEnd(10_000)).toBe(true);
@@ -863,7 +863,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           ...env,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
         },
         stderrPath: resumedStderrPath,
         width: 120,
@@ -871,7 +871,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         isolated: true,
       });
       await session.waitForComposer(10_000);
-      await waitForPaneTitle(session, `fx · deploy pipeline fix · ${model}`, 5_000);
+      await waitForPaneTitle(session, `Y2 · deploy pipeline fix · ${model}`, 5_000);
 
       await session.sendText("/quit");
       expect(await session.waitForSessionEnd(10_000)).toBe(true);
@@ -904,10 +904,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-slash-footer-key",
+          Y2_API_KEY: "fake-slash-footer-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: "openai/gpt-5",
           FX_AUTO_UPGRADE: "0",
           NO_COLOR: "1",
@@ -945,10 +945,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: "fake-slash-footer-key",
+          Y2_API_KEY: "fake-slash-footer-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: "openai/gpt-5",
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -1163,7 +1163,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1229,7 +1229,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: workspace,
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: undefined,
+            Y2_API_KEY: undefined,
             VERCEL_OIDC_TOKEN: undefined,
             FX_AUTO_UPGRADE: "0",
           },
@@ -1322,7 +1322,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1386,7 +1386,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1429,7 +1429,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       await session.sendKeys("Escape");
       await session.waitForPane(
-        (current) => hasEmptyComposer(current) && current.includes("𝒇x") && !current.includes("Commands"),
+        (current) => hasEmptyComposer(current) && current.includes("Y2 INFORMATION DOMINANCE") && !current.includes("Commands"),
         5_000,
       );
       await session.sendLiteralText("/resume ");
@@ -1446,7 +1446,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       await session.sendKeys("Escape");
       await session.waitForPane(
-        (current) => hasEmptyComposer(current) && current.includes("𝒇x") && !current.includes("Sessions"),
+        (current) => hasEmptyComposer(current) && current.includes("Y2 INFORMATION DOMINANCE") && !current.includes("Sessions"),
         5_000,
       );
       for (const retired of ["/appearance", "/input", "/maxxing"]) {
@@ -1497,7 +1497,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1509,7 +1509,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.sendText("/help");
       let grid = await waitForHelpMenu(session, 37);
       let pane = grid.join("\n");
-      expect(pane).not.toContain("𝒇x");
+      expect(pane).not.toContain("Y2 INFORMATION DOMINANCE");
       expect(pane).not.toContain("Run /help for commands");
       expect(pane).toContain("General");
       expect(pane).toContain("/help");
@@ -1549,7 +1549,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           composerContains(current, "/workspace") &&
           current.includes("list") &&
           current.includes("add") &&
-          current.includes("𝒇x"),
+          current.includes("Y2 INFORMATION DOMINANCE"),
         5_000,
       );
       expect(pane).not.toContain("Commands 1");
@@ -1562,7 +1562,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForText("No commands found.", 5_000);
       await session.sendKeys("Escape");
       await session.waitForPane(
-        (current) => hasEmptyComposer(current) && current.includes("𝒇x") && !current.includes("Enter Open"),
+        (current) => hasEmptyComposer(current) && current.includes("Y2 INFORMATION DOMINANCE") && !current.includes("Enter Open"),
         5_000,
       );
 
@@ -1594,7 +1594,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1606,7 +1606,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.sendText("/settings");
       const grid = await waitForSettingsMenu(session);
       let pane = grid.join("\n");
-      expect(pane).not.toContain("𝒇x");
+      expect(pane).not.toContain("Y2 INFORMATION DOMINANCE");
       expect(pane).not.toContain("Run /help for commands");
       expect(pane).toContain("Settings");
       expect(pane).toContain("Interface");
@@ -1630,7 +1630,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       pane = await session.waitForPane(
         (current) =>
           hasEmptyComposer(current) &&
-          current.includes("𝒇x") &&
+          current.includes("Y2 INFORMATION DOMINANCE") &&
           current.includes("workspace-statusline-visible") &&
           !current.includes("←→ Change"),
         5_000,
@@ -1658,7 +1658,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1717,7 +1717,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1762,7 +1762,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForPane(
         (current) =>
           hasEmptyComposer(current) &&
-          current.includes("𝒇x") &&
+          current.includes("Y2 INFORMATION DOMINANCE") &&
           current.includes("compact-statusline-workspace") &&
           !current.includes("←→ Change"),
         5_000,
@@ -1798,7 +1798,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1858,7 +1858,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1895,7 +1895,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -1966,7 +1966,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2044,7 +2044,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2160,7 +2160,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2261,7 +2261,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspaceRoot,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2322,7 +2322,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -2340,12 +2340,12 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.sendKeys("-l '/sk'");
       await session.waitForText("browse and manage skills", 5_000);
       let grid = await session.capturePaneGrid();
-      expect(grid.join("\n")).toContain("𝒇x");
+      expect(grid.join("\n")).toContain("Y2 INFORMATION DOMINANCE");
       expect(grid.join("\n")).not.toContain("Skills 4");
       await session.sendKeys("Enter");
       grid = await waitForSkillsMenu(session, 4);
       const pane = grid.join("\n");
-      expect(pane).toContain("𝒇x");
+      expect(pane).toContain("Y2 INFORMATION DOMINANCE");
       expect(pane).toContain("Run /help for commands");
       expect(alternateCount("\x1b[?1049h")).toBe(entersBeforeSkills);
       expect(alternateCount("\x1b[?1049l")).toBe(leavesBeforeSkills);
@@ -2367,7 +2367,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       expect(deep_history).not.toContain("Visible skills (");
       expect(deep_history).not.toContain("skill discovery warning:");
       expect(leadingBlankLineCount(tail_history)).toBeLessThan(3);
-      expect(tail_history).not.toContain("𝒇x v0.3.7");
+      expect(tail_history).not.toContain("Y2 INFORMATION DOMINANCE v0.3.7");
       const escapes = await session.capturePaneEscapes();
       expect(escapes).not.toContain(`${DIM_SGR}fx-review`);
       expect(deep_history).not.toMatch(/┃ \/sk/);
@@ -2382,7 +2382,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForPane(
         (current) =>
           hasEmptyComposer(current) &&
-          current.includes("𝒇x") &&
+          current.includes("Y2 INFORMATION DOMINANCE") &&
           !current.includes("↑↓ Navigate"),
         5_000,
       );
@@ -2393,14 +2393,14 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.sendLiteralText("$work");
       grid = await waitForSkillsMenu(session, 1);
       expect(composerContains(grid.join("\n"), "$work")).toBe(true);
-      expect(grid.join("\n")).toContain("𝒇x");
+      expect(grid.join("\n")).toContain("Y2 INFORMATION DOMINANCE");
       expect(alternateCount("\x1b[?1049h")).toBe(entersBeforeDollar);
       expect(alternateCount("\x1b[?1049l")).toBe(leavesBeforeDollar);
       await session.sendKeys("C-[");
       await session.waitForPane(
         (current) =>
           composerContains(current, "$work") &&
-          current.includes("𝒇x") &&
+          current.includes("Y2 INFORMATION DOMINANCE") &&
           !current.includes("↑↓ Navigate"),
         5_000,
       );
@@ -2412,7 +2412,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForPane(
         (current) =>
           composerContains(current, " $") &&
-          current.includes("𝒇x") &&
+          current.includes("Y2 INFORMATION DOMINANCE") &&
           !current.includes("Skills 4"),
         5_000,
       );
@@ -2422,7 +2422,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForPane(
         (current) =>
           composerContains(current, "hello $") &&
-          current.includes("𝒇x") &&
+          current.includes("Y2 INFORMATION DOMINANCE") &&
           !current.includes("Skills 4"),
         5_000,
       );
@@ -2542,7 +2542,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.sendKeys("Enter");
       grid = await session.capturePaneGrid();
       expect(composerContains(grid.join("\n"), "workspace-menu")).toBe(true);
-      expect(grid.join("\n")).toContain("𝒇x");
+      expect(grid.join("\n")).toContain("Y2 INFORMATION DOMINANCE");
       expect(grid.join("\n")).not.toContain("↑↓ Navigate");
       expect(capturePaneHistory(session, -1000)).not.toContain("Unknown command");
       expect(session.isAlive()).toBe(true);
@@ -2582,7 +2582,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath: fixture.stderrPath,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2690,10 +2690,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-models-menu-key",
+          Y2_API_KEY: "fake-models-menu-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           FX_MODEL: currentModel,
           FX_AUTO_UPGRADE: "0",
@@ -2704,12 +2704,12 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         height: 32,
       });
       await session.waitForComposer(10_000);
-      expect(await session.paneTitle()).toBe(`fx · workspace · ${currentModel}`);
+      expect(await session.paneTitle()).toBe(`Y2 · workspace · ${currentModel}`);
 
       await session.sendText("/models");
       let grid = await waitForModelsMenu(session, 4);
       let pane = grid.join("\n");
-      expect(pane).not.toContain("𝒇x");
+      expect(pane).not.toContain("Y2 INFORMATION DOMINANCE");
       expect(pane).toContain("[All]");
       expect(pane).toContain(currentModel);
       expect(pane).toContain("1M context · 32K output · Fast");
@@ -2738,7 +2738,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       await session.sendKeys("C-[");
       await session.waitForPane(
-        (current) => hasEmptyComposer(current) && current.includes("𝒇x") && !current.includes("Tab Provider"),
+        (current) => hasEmptyComposer(current) && current.includes("Y2 INFORMATION DOMINANCE") && !current.includes("Tab Provider"),
         5_000,
       );
 
@@ -2764,7 +2764,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       const settings = JSON.parse(readFileSync(fixture.settingsPath, "utf8")) as { models?: { gateway?: string } };
       expect(settings.models?.gateway).toBe(selectedModel);
-      expect(await session.paneTitle()).toBe(`fx · workspace · ${selectedModel}`);
+      expect(await session.paneTitle()).toBe(`Y2 · workspace · ${selectedModel}`);
       expect(session.isAlive()).toBe(true);
 
       await session.sendText("/quit");
@@ -2803,10 +2803,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-models-menu-key",
+          Y2_API_KEY: "fake-models-menu-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           FX_MODEL: modelIds[0],
           FX_AUTO_UPGRADE: "0",
@@ -2854,10 +2854,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath: fixture.stderrPath,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-model-picker-key",
+          Y2_API_KEY: "fake-model-picker-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
           FX_MODEL: "openai/gpt-4o",
           FX_AUTO_UPGRADE: "0",
@@ -2878,7 +2878,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       expect(pane).not.toContain("Reasoning effort");
       expect(pane).not.toContain("default");
       expect(JSON.parse(readFileSync(fixture.settingsPath, "utf8")).models.gateway).toBe(selectedModel);
-      expect(await session.paneTitle()).toBe(`fx · workspace · ${selectedModel}`);
+      expect(await session.paneTitle()).toBe(`Y2 · workspace · ${selectedModel}`);
       expect(session.isAlive()).toBe(true);
       expect(readFileSync(fixture.stderrPath, "utf8")).toBe("");
 
@@ -2897,7 +2897,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2940,10 +2940,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-active-skills-stream-key",
+          Y2_API_KEY: "fake-active-skills-stream-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         },
@@ -2989,10 +2989,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath: fixture.stderrPath,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-active-slash-stream-key",
+          Y2_API_KEY: "fake-active-slash-stream-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
         },
@@ -3052,10 +3052,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-catalog-approval-key",
+          Y2_API_KEY: "fake-catalog-approval-key",
           VERCEL_OIDC_TOKEN: undefined,
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_PERMISSION_MODE: "ask",
           FX_AUTO_UPGRADE: "0",
@@ -3102,9 +3102,9 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            AI_GATEWAY_API_KEY: "fake-skill-token-key",
+            Y2_API_KEY: "fake-skill-token-key",
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
             FX_AUTO_UPGRADE: "0",
           },
@@ -3168,9 +3168,9 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            AI_GATEWAY_API_KEY: "fake-mention-guard-key",
+            Y2_API_KEY: "fake-mention-guard-key",
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
             FX_AUTO_UPGRADE: "0",
           },
@@ -3184,7 +3184,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         await session.waitForPane(
           (pane) =>
             composerContains(pane, "Explain echo $HOME") &&
-            pane.includes("𝒇x") &&
+            pane.includes("Y2 INFORMATION DOMINANCE") &&
             !pane.includes("No skills found."),
           5_000,
         );
@@ -3217,9 +3217,9 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            AI_GATEWAY_API_KEY: "fake-mention-space-key",
+            Y2_API_KEY: "fake-mention-space-key",
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
             FX_AUTO_UPGRADE: "0",
           },
@@ -3262,9 +3262,9 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          AI_GATEWAY_API_KEY: "fake-exact-picker-key",
+          Y2_API_KEY: "fake-exact-picker-key",
           FX_GATEWAY_BASE_URL: gateway.baseUrl,
-          FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+          FX_API_CHAT_URL: gateway.chatUrl,
           FX_MODEL: FAKE_GATEWAY_MODEL,
           FX_AUTO_UPGRADE: "0",
           FX_TRACE_LOG: tracePath,
@@ -3360,7 +3360,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },
@@ -3428,7 +3428,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
         },

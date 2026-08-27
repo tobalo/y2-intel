@@ -22,6 +22,7 @@ const fetchOperationBackpressure = 2;
 const require = createRequire(import.meta.url);
 const defaultCoreWasm = new URL("./fx-core.wasm", import.meta.url);
 const defaultTermWasm = new URL("./fx-term.wasm", import.meta.url);
+const defaultY2ChatUrl = "https://api.y2.dev/api/v1/chat/completions";
 const defaultNativeCandidates = [
   "./libfx.node",
   `./libfx.${process.platform}-${process.arch}.node`,
@@ -110,26 +111,56 @@ async function wasmBytes(input) {
   return input;
 }
 
-function validateGatewayChatUrl(value) {
+function validateApiChatUrl(value) {
   if (value === undefined) return;
-  if (typeof value !== "string") throw new TypeError("FX_GATEWAY_CHAT_URL must be a string");
+  if (typeof value !== "string") throw new TypeError("FX_API_CHAT_URL must be a string");
   let url;
-  try { url = new URL(value); } catch { throw new TypeError("FX_GATEWAY_CHAT_URL must be a valid URL"); }
+  try { url = new URL(value); } catch { throw new TypeError("FX_API_CHAT_URL must be a valid URL"); }
   if (url.username || url.password || url.hash) {
-    throw new TypeError("FX_GATEWAY_CHAT_URL must not contain credentials or a fragment");
+    throw new TypeError("FX_API_CHAT_URL must not contain credentials or a fragment");
   }
-  if (url.href === "https://ai-gateway.vercel.sh/v3/ai/language-model") return;
+  if (url.protocol === "https:") return;
   const loopback = url.hostname === "127.0.0.1" || url.hostname === "[::1]" || url.hostname === "localhost";
   if (url.protocol !== "http:" || !loopback || !url.port) {
-    throw new TypeError("FX_GATEWAY_CHAT_URL must use the canonical Gateway or explicit loopback HTTP");
+    throw new TypeError("FX_API_CHAT_URL must use HTTPS or explicit loopback HTTP");
   }
 }
 
+function resolveApiChatUrl(env = {}) {
+  if (env.FX_API_CHAT_URL !== undefined) {
+    validateApiChatUrl(env.FX_API_CHAT_URL);
+    return env.FX_API_CHAT_URL;
+  }
+  if (env.OPENAI_BASE_URL === undefined) return undefined;
+  validateApiChatUrl(env.OPENAI_BASE_URL);
+  const url = new URL(env.OPENAI_BASE_URL);
+  const trimmedPath = url.pathname.replace(/\/+$/, "");
+  if (!trimmedPath.endsWith("/chat/completions")) {
+    url.pathname = `${trimmedPath}/chat/completions`;
+  }
+  return url.href;
+}
+
+function isY2AgentChatUrl(value) {
+  if (value === undefined) return true;
+  const url = new URL(value);
+  url.hash = "";
+  return url.href.replace(/\/+$/, "") === defaultY2ChatUrl;
+}
+
+function normalizeRuntimeEnv(env = {}) {
+  const gatewayChatUrl = resolveApiChatUrl(env);
+  if (gatewayChatUrl === undefined || env.FX_API_CHAT_URL !== undefined) return env;
+  return { ...env, FX_API_CHAT_URL: gatewayChatUrl };
+}
+
 function createNativeCoreRuntime(addon, options) {
-  const apiKey = options.env?.AI_GATEWAY_API_KEY;
+  const gatewayChatUrl = resolveApiChatUrl(options.env);
+  const apiKey = isY2AgentChatUrl(gatewayChatUrl)
+    ? options.env?.Y2_API_KEY
+    : options.env?.OPENAI_API_KEY;
   const model = options.env?.FX_MODEL;
-  const gatewayChatUrl = options.env?.FX_GATEWAY_CHAT_URL;
-  validateGatewayChatUrl(gatewayChatUrl);
+  validateApiChatUrl(gatewayChatUrl);
   const core = addon.createCore({
     apiKey,
     home: options.home ?? homedir(),
@@ -247,8 +278,11 @@ function createNativeAgent(addon, options) {
 }
 
 async function createWithFallback(surface, nativeMethod, wasmFactory, defaultWasm, options) {
-  const { nativeAddon, backend = "auto", ...runtimeOptions } = options ?? {};
-  validateGatewayChatUrl(runtimeOptions.env?.FX_GATEWAY_CHAT_URL);
+  const { nativeAddon, backend = "auto", ...unresolvedRuntimeOptions } = options ?? {};
+  const runtimeOptions = {
+    ...unresolvedRuntimeOptions,
+    env: normalizeRuntimeEnv(unresolvedRuntimeOptions.env),
+  };
   if (!new Set(["auto", "native", "wasm"]).has(backend)) {
     throw new TypeError('backend must be "auto", "native", or "wasm"');
   }

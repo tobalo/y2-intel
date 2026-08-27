@@ -74,10 +74,10 @@ function permissionEnv(
 ) {
   return {
     HOME: home,
-    AI_GATEWAY_API_KEY: "permission-error-fake-key",
+    Y2_API_KEY: "permission-error-fake-key",
     VERCEL_OIDC_TOKEN: undefined,
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
     FX_MODEL: FAKE_GATEWAY_MODEL,
     FX_AUTO_UPGRADE: "0",
@@ -197,10 +197,10 @@ describe("generic permission typed errors", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            AI_GATEWAY_API_KEY: "permission-error-fake-key",
+            Y2_API_KEY: "permission-error-fake-key",
             VERCEL_OIDC_TOKEN: undefined,
             FX_GATEWAY_BASE_URL: gateway.baseUrl,
-            FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+            FX_API_CHAT_URL: gateway.chatUrl,
             FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
             FX_MODEL: FAKE_GATEWAY_MODEL,
             FX_AUTO_UPGRADE: "0",

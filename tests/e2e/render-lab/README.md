@@ -91,7 +91,7 @@ cd /Users/example/Developer/Fx/fx-worktree-rendering/tests/e2e
 bun test tui-render-lab.test.ts
 ```
 
-This wrapper is CI-safe apart from requiring tmux. It does not require `AI_GATEWAY_API_KEY`.
+This wrapper is CI-safe apart from requiring tmux. It does not require `Y2_API_KEY`.
 
 ## Native Scenarios
 

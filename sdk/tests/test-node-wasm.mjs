@@ -9,7 +9,6 @@ const commands = [
   [process.execPath, ["--experimental-wasm-jspi", fileURLToPath(new URL("test-core-home-unavailable.mjs", import.meta.url))]],
   [process.execPath, ["--experimental-wasm-jspi", fileURLToPath(new URL("test-term.mjs", import.meta.url))]],
   [process.execPath, ["--experimental-wasm-jspi", fileURLToPath(new URL("test-term-session-resume.mjs", import.meta.url))]],
-  [process.execPath, ["--experimental-wasm-jspi", fileURLToPath(new URL("test-term-login.mjs", import.meta.url))]],
   ["npm", ["run", "--prefix", "sdk/node", "test:term"]],
 ];
 

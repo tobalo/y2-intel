@@ -6,6 +6,7 @@ const background_process_provider = @import("core/execution/background_process_p
 const gateway_provider = @import("core/gateway/gateway_provider.zig");
 const provider_set = @import("core/gateway/provider_set.zig");
 const host = @import("core/hosts/host.zig");
+const secret = @import("core/auth/secret.zig");
 const debug_trace = @import("core/shared/debug_trace.zig");
 const io_mod = @import("core/shared/io.zig");
 const fetch_state = @import("napi_fetch_state.zig");
@@ -494,7 +495,7 @@ const Runtime = struct {
         self.fetch.deinit();
         self.input.deinit(self.alloc);
         self.output.deinit(self.alloc);
-        self.alloc.free(self.credential);
+        secret.zeroAndFree(self.alloc, self.credential);
         if (self.model) |model| self.alloc.free(model);
         self.alloc.free(self.home);
         self.alloc.free(self.workspace_root);
@@ -639,10 +640,6 @@ fn createRuntime(env: c.napi_env, options: c.napi_value) CreateError!*Runtime {
     }) orelse (alloc.dupe(u8, builtin_gateway.default_chat_url) catch return error.OutOfMemory);
     errdefer alloc.free(gateway_chat_url);
     streamable_http.validateEndpoint(gateway_chat_url) catch return error.InvalidGatewayUrl;
-    if (!std.mem.eql(u8, gateway_chat_url, builtin_gateway.default_chat_url)) {
-        const uri = std.Uri.parse(gateway_chat_url) catch return error.InvalidGatewayUrl;
-        if (!std.ascii.eqlIgnoreCase(uri.scheme, "http")) return error.InvalidGatewayUrl;
-    }
 
     const runtime = alloc.create(Runtime) catch return error.OutOfMemory;
     errdefer alloc.destroy(runtime);
@@ -655,7 +652,7 @@ fn createRuntime(env: c.napi_env, options: c.napi_value) CreateError!*Runtime {
         .gateway_chat_url = gateway_chat_url,
         .thread = undefined,
     };
-    runtime.stream_context = host_stream_provider.initContext(builtin_gateway.buildAgentRequest, .{ .fixed = runtime.gateway_chat_url }, .{
+    runtime.stream_context = host_stream_provider.initContext(.{ .fixed = runtime.gateway_chat_url }, .{
         .context = &runtime.fetch,
         .open_fn = FetchBridge.open,
         .status_fn = FetchBridge.statusFn,
@@ -673,7 +670,7 @@ fn throwCreateError(env: c.napi_env, err: CreateError) c.napi_value {
         error.InvalidModel => throw(env, "LIBFX_INVALID_ARGUMENT", "model must be a bounded string"),
         error.InvalidHome => throw(env, "LIBFX_INVALID_ARGUMENT", "home is required and must be a bounded string"),
         error.InvalidWorkspaceRoot => throw(env, "LIBFX_INVALID_ARGUMENT", "workspaceRoot is required and must be a bounded string"),
-        error.InvalidGatewayUrl => throw(env, "LIBFX_INVALID_ARGUMENT", "gatewayChatUrl must be a bounded string"),
+        error.InvalidGatewayUrl => throw(env, "LIBFX_INVALID_ARGUMENT", "gatewayChatUrl must use HTTPS or loopback HTTP without embedded credentials or a fragment"),
         error.OutOfMemory => throw(env, "LIBFX_NATIVE_OOM", "could not allocate native runtime"),
         error.ThreadFailed => throw(env, "LIBFX_NATIVE_THREAD", "could not start native runtime thread"),
     };

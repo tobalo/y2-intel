@@ -73,7 +73,7 @@ fn setupChoiceLabel(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
             .action => |action| switch (action) {
                 .connections => "Connections",
                 .switch_provider => "Model provider",
-                .change_team => "Vercel team",
+                .change_team => "Legacy team selection",
                 .switch_credential => "Credential source",
                 .login, .chatgpt_login, .grok_login, .setup, .automatic => "",
             },
@@ -81,10 +81,10 @@ fn setupChoiceLabel(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
         },
         .connections => switch (choice) {
             .action => |action| switch (action) {
-                .login => "Vercel account",
+                .login => "Vercel sign-in removed",
                 .chatgpt_login => "Codex subscription",
                 .grok_login => "Grok subscription",
-                .setup => "AI Gateway API key",
+                .setup => "Y2 / OpenAI API key",
                 .connections, .change_team, .switch_credential, .switch_provider, .automatic => "",
             },
             .provider, .source, .team => "",
@@ -121,7 +121,7 @@ fn setupChoiceValue(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
                 .grok_login => if (view.available_sources.contains(.grok_subscription)) "connected" else "not connected",
                 .setup => if (view.available_sources.contains(.stored_key))
                     "stored"
-                else if (view.available_sources.contains(.ai_gateway_api_key))
+                else if (view.available_sources.contains(.api_key))
                     "environment"
                 else
                     "not configured",
@@ -136,7 +136,7 @@ fn setupChoiceValue(view: auth_runtime.PickerView, choice: auth_runtime.Choice) 
 
 fn setupValueColumn(width: u16) usize {
     const width_usize: usize = width;
-    const minimum = display_width.visibleWidth("  AI Gateway API key") + 2;
+    const minimum = display_width.visibleWidth("  Y2 / OpenAI API key") + 2;
     return @min(width_usize, @max(width_usize * 2 / 3, minimum));
 }
 
@@ -311,8 +311,8 @@ fn signInProjectedRowIndex(snapshot: login_flow.SignInSnapshot, row_index: u16, 
     return 6;
 }
 
-const onboarding_note = "   ⚠︎ Note: fx is experimental and defaults to auto mode.";
-const onboarding_note_link = onboarding_note ++ " \x1b]8;id=fx-onboarding;https://fx.sh/docs/stability\x1b\\\x1b[4mLearn more\x1b[24m\x1b]8;;\x1b\\";
+const onboarding_note = "   Note: Y2 Information Dominance defaults to auto mode.";
+const onboarding_note_link = onboarding_note ++ " \x1b]8;id=y2-onboarding;https://y2.dev/docs/api\x1b\\\x1b[4mAPI docs\x1b[24m\x1b]8;;\x1b\\";
 
 fn onboardingProjectedRowIndex(view: auth_runtime.PickerView, row_index: u16, row_count: u16) u16 {
     if (row_count >= 18) return row_index;
@@ -368,10 +368,10 @@ fn composeOnboardingPickerRow(
 
     try row.appendSlice(alloc, ui_render.hint_style);
     const label = switch (source_row_index) {
-        0 => "   Welcome to fx",
+        0 => "   Welcome to Y2 Information Dominance",
         1 => "",
-        2 => "   fx can access AI models with an account, subscription, or API key.",
-        3 => "   Choose a sign-in option below, or add your own API key.",
+        2 => "   Connect Agent Y2 or a direct OpenAI-compatible endpoint.",
+        3 => "   Add an API key, or use an optional provider subscription.",
         4 => "",
         5 => "   You can change this anytime with /setup.",
         6 => "",
@@ -508,7 +508,7 @@ fn composeApiKeyPickerRow(
     else
         ui_render.dim_style);
     switch (row_index) {
-        0 => try row_text.appendClipped(alloc, &row, "   Paste your AI Gateway API key", width),
+        0 => try row_text.appendClipped(alloc, &row, "   Paste your Y2 or OpenAI-compatible API key", width),
         1 => {
             try row_text.appendClipped(alloc, &row, "   ┃ ", width);
             if (mask_count == 0) {
@@ -1767,7 +1767,7 @@ test "auth onboarding composes the welcome copy and setup choices" {
     const view = auth_runtime.PickerView{
         .active = true,
         .available_sources = .empty,
-        .selected_choice = .{ .action = .login },
+        .selected_choice = .{ .action = .setup },
         .active_source = null,
         .include_skip = true,
     };
@@ -1782,18 +1782,18 @@ test "auth onboarding composes the welcome copy and setup choices" {
         try screen.append(alloc, '\n');
     }
 
-    try std.testing.expect(std.mem.find(u8, screen.items, "Welcome to fx") != null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "fx can access AI models with an account, subscription, or API key") != null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Welcome to Y2 Information Dominance") != null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Connect Agent Y2 or a direct OpenAI-compatible endpoint") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "You can change this anytime with /setup.") != null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "⚠︎ Note: fx is experimental and defaults to auto mode. \x1b]8;id=fx-onboarding;https://fx.sh/docs/stability\x1b\\\x1b[4mLearn more\x1b[24m\x1b]8;;\x1b\\") != null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Note: Y2 Information Dominance defaults to auto mode. \x1b]8;id=y2-onboarding;https://y2.dev/docs/api\x1b\\\x1b[4mAPI docs\x1b[24m\x1b]8;;\x1b\\") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Learn more: https://") == null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "Sign in with Vercel") != null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Sign in with Vercel") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Add an API key") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Esc to set up later · Explore all commands with /help") != null);
 
     var body_row = try composeAuthPickerRow(alloc, view, 2, authPickerRowCount(view), 100);
     defer body_row.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, body_row.items, "fx can access AI models") != null);
+    try std.testing.expect(std.mem.find(u8, body_row.items, "Connect Agent Y2") != null);
 
     var spacer_row = try composeAuthPickerRow(alloc, view, 6, authPickerRowCount(view), 100);
     defer spacer_row.deinit(alloc);
@@ -1801,7 +1801,7 @@ test "auth onboarding composes the welcome copy and setup choices" {
 
     var selected_row = try composeAuthPickerRow(alloc, view, 8, authPickerRowCount(view), 100);
     defer selected_row.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, selected_row.items, "› Sign in with Vercel") != null);
+    try std.testing.expect(std.mem.find(u8, selected_row.items, "› Add an API key") != null);
 
     var chatgpt_row = try composeAuthPickerRow(alloc, view, 9, authPickerRowCount(view), 100);
     defer chatgpt_row.deinit(alloc);
@@ -1811,13 +1811,9 @@ test "auth onboarding composes the welcome copy and setup choices" {
     defer grok_row.deinit(alloc);
     try std.testing.expect(std.mem.find(u8, grok_row.items, "Sign in with Grok") != null);
 
-    var unselected_row = try composeAuthPickerRow(alloc, view, 11, authPickerRowCount(view), 100);
-    defer unselected_row.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, unselected_row.items, "Add an API key") != null);
-
     var narrow_note = try composeAuthPickerRow(alloc, view, 12, authPickerRowCount(view), 58);
     defer narrow_note.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, narrow_note.items, "https://fx.sh/docs/stability") == null);
+    try std.testing.expect(std.mem.find(u8, narrow_note.items, "https://y2.dev/docs/api") == null);
 
     var compact_screen: std.ArrayList(u8) = .empty;
     defer compact_screen.deinit(alloc);
@@ -1827,7 +1823,7 @@ test "auth onboarding composes the welcome copy and setup choices" {
         try compact_screen.appendSlice(alloc, row.items);
         try compact_screen.append(alloc, '\n');
     }
-    try std.testing.expect(std.mem.find(u8, compact_screen.items, "Sign in with Vercel") != null);
+    try std.testing.expect(std.mem.find(u8, compact_screen.items, "Sign in with Vercel") == null);
     try std.testing.expect(std.mem.find(u8, compact_screen.items, "Add an API key") != null);
     try std.testing.expect(std.mem.find(u8, compact_screen.items, "Sign in with Codex") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Sign in with Grok") != null);
@@ -1837,13 +1833,13 @@ test "setup root shows prerequisites and active routing values" {
     const alloc = std.testing.allocator;
     const view = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initOne(.ai_gateway_api_key),
+        .available_sources = auth_runtime.SourceSet.initOne(.api_key),
         .selected_choice = .{ .action = .switch_provider },
-        .active_source = .ai_gateway_api_key,
+        .active_source = .api_key,
         .include_skip = false,
     };
     const row_count = authPickerRowCount(view);
-    try std.testing.expectEqual(@as(u16, 6), row_count);
+    try std.testing.expectEqual(@as(u16, 5), row_count);
 
     var header = try composeAuthPickerRow(alloc, view, 0, row_count, 80);
     defer header.deinit(alloc);
@@ -1852,17 +1848,12 @@ test "setup root shows prerequisites and active routing values" {
     var provider = try composeAuthPickerRow(alloc, view, 3, row_count, 80);
     defer provider.deinit(alloc);
     try std.testing.expect(std.mem.find(u8, provider.items, "Model provider") != null);
-    try std.testing.expect(std.mem.find(u8, provider.items, "Vercel AI Gateway") != null);
+    try std.testing.expect(std.mem.find(u8, provider.items, "Y2 / OpenAI-compatible API") != null);
 
-    var team = try composeAuthPickerRow(alloc, view, 4, row_count, 80);
-    defer team.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, team.items, "Vercel team") != null);
-    try std.testing.expect(std.mem.find(u8, team.items, "sign in to manage") != null);
-
-    var credential = try composeAuthPickerRow(alloc, view, 5, row_count, 80);
+    var credential = try composeAuthPickerRow(alloc, view, 4, row_count, 80);
     defer credential.deinit(alloc);
     try std.testing.expect(std.mem.find(u8, credential.items, "Credential source") != null);
-    try std.testing.expect(std.mem.find(u8, credential.items, "AI_GATEWAY_API_KEY") != null);
+    try std.testing.expect(std.mem.find(u8, credential.items, "API key") != null);
 }
 
 test "setup root fits the inline picker with status and controls" {
@@ -1876,7 +1867,7 @@ test "setup root fits the inline picker with status and controls" {
         .include_skip = false,
     };
     const row_count = authPickerRowCount(view);
-    try std.testing.expectEqual(@as(u16, 6), row_count);
+    try std.testing.expectEqual(@as(u16, 5), row_count);
 
     var screen: std.ArrayList(u8) = .empty;
     defer screen.deinit(alloc);
@@ -1889,7 +1880,7 @@ test "setup root fits the inline picker with status and controls" {
 
     try std.testing.expect(std.mem.find(u8, screen.items, "Connections") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Model provider") != null);
-    try std.testing.expect(std.mem.find(u8, screen.items, "Vercel team") != null);
+    try std.testing.expect(std.mem.find(u8, screen.items, "Vercel team") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Credential source") != null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Enter Open") == null);
     try std.testing.expect(std.mem.find(u8, screen.items, "Esc Close") == null);
@@ -1921,9 +1912,9 @@ test "compact auth picker keeps the selected hub action visible" {
     const alloc = std.testing.allocator;
     const view = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login }),
+        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login }),
         .selected_choice = .{ .action = .switch_credential },
-        .active_source = .ai_gateway_api_key,
+        .active_source = .api_key,
         .include_skip = false,
     };
 
@@ -2186,29 +2177,29 @@ test "partially visible auth picker shows a source window without duplicates" {
     const alloc = std.testing.allocator;
     const view = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.full,
-        .selected_choice = .{ .source = .fx_login },
-        .active_source = .vercel_oidc_token,
+        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .stored_key }),
+        .selected_choice = .{ .source = .stored_key },
+        .active_source = .api_key,
         .include_skip = false,
         .stage = .switch_credential,
     };
 
     var first_source = try composeAuthPickerRow(alloc, view, 2, 4, 80);
     defer first_source.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, first_source.items, "AI_GATEWAY_API_KEY") != null);
-    try std.testing.expect(std.mem.find(u8, first_source.items, "fx login") == null);
+    try std.testing.expect(std.mem.find(u8, first_source.items, credentials.sourceLabel(.api_key)) != null);
+    try std.testing.expect(std.mem.find(u8, first_source.items, credentials.sourceLabel(.stored_key)) == null);
 
     var selected_source = try composeAuthPickerRow(alloc, view, 3, 4, 80);
     defer selected_source.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, selected_source.items, "fx login") != null);
+    try std.testing.expect(std.mem.find(u8, selected_source.items, credentials.sourceLabel(.stored_key)) != null);
 
     var scrolled_view = view;
-    scrolled_view.selected_choice = .{ .source = .stored_key };
+    scrolled_view.selected_choice = .{ .action = .automatic };
     var scrolled_first = try composeAuthPickerRow(alloc, scrolled_view, 2, 4, 80);
     defer scrolled_first.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, scrolled_first.items, "fx login") != null);
+    try std.testing.expect(std.mem.find(u8, scrolled_first.items, credentials.sourceLabel(.stored_key)) != null);
 
     var scrolled_selected = try composeAuthPickerRow(alloc, scrolled_view, 3, 4, 80);
     defer scrolled_selected.deinit(alloc);
-    try std.testing.expect(std.mem.find(u8, scrolled_selected.items, credentials.sourceLabel(.stored_key)) != null);
+    try std.testing.expect(std.mem.find(u8, scrolled_selected.items, "Automatic") != null);
 }

@@ -1419,7 +1419,7 @@ test "dispatchToolCall traces denied web_search query without secrets or executi
     }, registry, .{
         .id = "c1",
         .name = "web_search",
-        .arguments_json = "{\"query\":\"latest AI_GATEWAY_API_KEY=secret-value news\"}",
+        .arguments_json = "{\"query\":\"latest Y2_API_KEY=secret-value news\"}",
     });
     defer result.deinit(alloc);
     debug_trace.shutdown();
@@ -1434,7 +1434,7 @@ test "dispatchToolCall traces denied web_search query without secrets or executi
     defer alloc.free(trace);
     try std.testing.expect(std.mem.find(u8, trace, "event=web_search_denied") != null);
     try std.testing.expect(std.mem.find(u8, trace, "tool_name=web_search") != null);
-    try std.testing.expect(std.mem.find(u8, trace, "query=latest AI_GATEWAY_API_KEY=[redacted] news") != null);
+    try std.testing.expect(std.mem.find(u8, trace, "query=latest Y2_API_KEY=[redacted] news") != null);
     try std.testing.expect(std.mem.find(u8, trace, "secret-value") == null);
     try std.testing.expect(std.mem.find(u8, trace, "result body") == null);
 }

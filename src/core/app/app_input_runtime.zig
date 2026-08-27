@@ -3771,7 +3771,7 @@ test "app_input_runtime routes auth picker navigation before composer history" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).routeModifiedHistory(&app, .down, 1);
@@ -3784,7 +3784,7 @@ test "app_input_runtime Tab cycles the active auth picker" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\t', 4096, 100);
@@ -3871,7 +3871,7 @@ test "app_input_runtime auth picker enter closes before selecting a switched sou
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .stored_key });
     app.auth.openPicker(alloc);
     app.auth.openSwitchCredentialPicker(alloc);
     _ = app.auth.movePicker(1);
@@ -3879,14 +3879,14 @@ test "app_input_runtime auth picker enter closes before selecting a switched sou
     try Runtime(RoutingFakeApp).handleByte(&app, '\r', 4096, 100);
 
     try std.testing.expect(!app.auth.pickerView().active);
-    try std.testing.expectEqual(types.CredentialSource.fx_login, app.selected_credential_source.?);
+    try std.testing.expectEqual(types.CredentialSource.stored_key, app.selected_credential_source.?);
 }
 
 test "app_input_runtime connections picker delegates typed acquisition actions" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\r', 4096, 100);
@@ -3894,15 +3894,16 @@ test "app_input_runtime connections picker delegates typed acquisition actions" 
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\r', 4096, 100);
 
-    try std.testing.expect(!app.auth.pickerView().active);
-    try std.testing.expectEqual(auth_runtime.AcquisitionAction.login, app.selected_auth_action.?);
+    try std.testing.expect(app.auth.pickerView().active);
+    try std.testing.expectEqual(auth_runtime.PickerStage.connections, app.auth.pickerView().stage);
+    try std.testing.expectEqual(auth_runtime.AcquisitionAction.setup, app.selected_auth_action.?);
 }
 
 test "app_input_runtime Escape closes auth picker without arming composer clear" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initOne(.ai_gateway_api_key);
+    app.auth.source_inventory = auth_runtime.SourceSet.initOne(.api_key);
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).resolveEscape(&app, false, 1);
@@ -4108,7 +4109,7 @@ test "app_input_runtime composer editing dismisses auth picker before inserting"
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initOne(.ai_gateway_api_key);
+    app.auth.source_inventory = auth_runtime.SourceSet.initOne(.api_key);
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, 'x', 4096, 100);
@@ -7589,10 +7590,10 @@ fn openRoutingModelMenu(app: *RoutingFakeApp, model_ids: []const []const u8) !vo
 
 fn openRoutingAuthPicker(app: *RoutingFakeApp) !void {
     app.auth.source_inventory.insert(.vercel_oidc_token);
-    app.auth.source_inventory.insert(.ai_gateway_api_key);
+    app.auth.source_inventory.insert(.api_key);
     app.auth.openPicker(app.alloc);
     try std.testing.expect(app.auth.movePicker(1));
-    try std.testing.expectEqual(@as(usize, 4), app.auth.pickerView().choiceCount());
+    try std.testing.expectEqual(@as(usize, 3), app.auth.pickerView().choiceCount());
     try std.testing.expectEqual(@as(usize, 1), app.auth.pickerView().selectedIndex());
 }
 
@@ -7763,9 +7764,9 @@ test "app_input_runtime ctrl+j and ctrl+k navigate visible composer pickers" {
         bytes: []const u8,
         expected_index: usize,
     }{
-        .{ .bytes = "\x0a", .expected_index = 3 },
+        .{ .bytes = "\x0a", .expected_index = 2 },
         .{ .bytes = "\x0b", .expected_index = 0 },
-        .{ .bytes = "\x1b[106;5u", .expected_index = 3 },
+        .{ .bytes = "\x1b[106;5u", .expected_index = 2 },
         .{ .bytes = "\x1b[107;5u", .expected_index = 0 },
     };
 

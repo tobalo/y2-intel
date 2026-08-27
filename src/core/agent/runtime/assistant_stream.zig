@@ -883,17 +883,12 @@ const StreamTraceEntry = union(enum) {
     tool_payload_started,
 };
 
-const ansi_span_fixture_env = "FX_TEST_C04_STREAM_ANSI_OSC8_FIXTURE";
-const ansi_span_test_name = "streamed presentation preserves ANSI OSC 8 code fence and table spans";
-
-fn ansi_span_fixture_enabled() bool {
-    const value = std.process.Environ.getAlloc(
-        std.testing.environ,
-        std.testing.allocator,
-        ansi_span_fixture_env,
-    ) catch return false;
-    defer std.testing.allocator.free(value);
-    return std.mem.eql(u8, value, "1");
+fn fixtureLinkId(span: []const u8) !u32 {
+    const prefix = "\x1b]8;id=fx-";
+    if (!std.mem.startsWith(u8, span, prefix)) return error.TestExpectedHyperlink;
+    const end = std.mem.findPos(u8, span, prefix.len, ";") orelse
+        return error.TestExpectedHyperlink;
+    return std.fmt.parseInt(u32, span[prefix.len..end], 10);
 }
 
 fn assert_frozen_ansi_span_fixture() !void {
@@ -937,10 +932,27 @@ fn assert_frozen_ansi_span_fixture() !void {
     try streamAssistantChunk(&stream_ctx, "tail **open");
     try flushAssistantStream(&stream_ctx);
 
+    try std.testing.expect(capture.text_spans.items.len >= 3);
+    const first_link_id = try fixtureLinkId(capture.text_spans.items[1]);
+    const second_link_id = try fixtureLinkId(capture.text_spans.items[2]);
+    try std.testing.expectEqual(first_link_id +% 1, second_link_id);
+    const first_link = try std.fmt.allocPrint(
+        alloc,
+        "\x1b]8;id=fx-{d};https://example.com\x1b\\\x1b[4mdocs\x1b[24m\x1b]8;;\x1b\\\n",
+        .{first_link_id},
+    );
+    defer alloc.free(first_link);
+    const second_link = try std.fmt.allocPrint(
+        alloc,
+        "\x1b]8;id=fx-{d};https://example.com/docs\x1b\\\x1b[4mhttps://example.com/docs\x1b[24m\x1b]8;;\x1b\\,\n",
+        .{second_link_id},
+    );
+    defer alloc.free(second_link);
+
     const expected_spans = [_][]const u8{
         "\x1b[1mbold\x1b[22m and \x1b[3mitalic\x1b[23m\n",
-        "\x1b]8;id=fx-1;https://example.com\x1b\\\x1b[4mdocs\x1b[24m\x1b]8;;\x1b\\\n",
-        "\x1b]8;id=fx-2;https://example.com/docs\x1b\\\x1b[4mhttps://example.com/docs\x1b[24m\x1b]8;;\x1b\\,\n",
+        first_link,
+        second_link,
         oversized_line,
         "\x1b[2m\xe2\x94\x82 \x1b[22mconst x = **literal**;\n",
         "\x1b[1mName\x1b[22m \xe2\x94\x82 \x1b[1mAge\x1b[22m\n" ++
@@ -1325,30 +1337,7 @@ test "streamed definition list retains source and clears before a tool" {
 }
 
 test "streamed presentation preserves ANSI OSC 8 code fence and table spans" {
-    if (ansi_span_fixture_enabled()) return assert_frozen_ansi_span_fixture();
-
-    const alloc = std.testing.allocator;
-    var environ = try std.process.Environ.createMap(std.testing.environ, alloc);
-    defer environ.deinit();
-    try environ.put(ansi_span_fixture_env, "1");
-
-    const cwd = try std.process.currentPathAlloc(std.testing.io, alloc);
-    defer alloc.free(cwd);
-    const result = try std.process.run(alloc, std.testing.io, .{
-        .argv = &.{ "zig", "test", "-lc", "-Mroot=src/main.zig", "--test-filter", ansi_span_test_name },
-        .cwd = .{ .path = cwd },
-        .environ_map = &environ,
-        .stdout_limit = .limited(64 * 1024),
-        .stderr_limit = .limited(64 * 1024),
-    });
-    defer alloc.free(result.stdout);
-    defer alloc.free(result.stderr);
-
-    switch (result.term) {
-        .exited => |code| try std.testing.expectEqual(@as(u8, 0), code),
-        else => return error.TestExpectedEqual,
-    }
-    try std.testing.expect(std.mem.find(u8, result.stderr, ansi_span_test_name) != null);
+    try assert_frozen_ansi_span_fixture();
 }
 
 test "streamed footnotes retain raw source and flush before a tool" {

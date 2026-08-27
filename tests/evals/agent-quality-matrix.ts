@@ -793,7 +793,7 @@ export const AGENT_QUALITY_BASELINE_MATRIX: readonly AgentQualityMatrixRow[] = [
       type: "tool-call recorder test",
       status: "implemented",
       notes:
-        "Recorder assertions require the focused Bun test command and document that this path does not require AI_GATEWAY_API_KEY or model cost.",
+        "Recorder assertions require the focused Bun test command and document that this path does not require Y2_API_KEY or model cost.",
     },
     modelBackedEval: {
       required: true,
@@ -963,7 +963,7 @@ export const AGENT_QUALITY_BASELINE_MATRIX: readonly AgentQualityMatrixRow[] = [
       type: "tool-call recorder test",
       status: "implemented",
       notes:
-        "Recorder assertions cover first-tool routing; Zig unit tests assert deferred base advertisement, metadata search, exact schema selection, and selected-schema overlay without requiring AI_GATEWAY_API_KEY.",
+        "Recorder assertions cover first-tool routing; Zig unit tests assert deferred base advertisement, metadata search, exact schema selection, and selected-schema overlay without requiring Y2_API_KEY.",
     },
     modelBackedEval: {
       required: true,

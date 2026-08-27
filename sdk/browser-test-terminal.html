@@ -52,8 +52,8 @@
         pull(controller) {
           if (sent) return;
           sent = true;
-          controller.enqueue(encoded.encode(`data: ${JSON.stringify({ type: "text-delta", id: "browser_followup_1", delta: text })}\n\n`));
-          controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":1}}}\n\n'));
+          controller.enqueue(encoded.encode(`data: ${JSON.stringify({ id: "browser_followup_1", choices: [{ index: 0, delta: { content: text }, finish_reason: null }] })}\n\n`));
+          controller.enqueue(encoded.encode('data: {"id":"browser_followup_1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\n'));
           controller.enqueue(encoded.encode("data: [DONE]\n\n"));
           controller.close();
         },
@@ -83,16 +83,16 @@
           streamChunkCount += 1;
           testState.chunks = streamChunkCount;
           if (streamChunkCount === 1) {
-            controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"STREAM_STARTED"}\n'));
+            controller.enqueue(encoded.encode('data: {"id":"browser_stream","choices":[{"index":0,"delta":{"content":"STREAM_STARTED"},"finish_reason":null}]}\n\n'));
             return;
           }
           if (streamChunkCount <= 128) {
-            controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"."}\n'));
+            controller.enqueue(encoded.encode('data: {"id":"browser_stream","choices":[{"index":0,"delta":{"content":"."},"finish_reason":null}]}\n\n'));
             return;
           }
           await bufferedStreamFinished;
-          controller.enqueue(encoded.encode('data: {"type":"text-delta","delta":"STREAM_FINISHED"}\n'));
-          controller.enqueue(encoded.encode('data: {"type":"finish","finishReason":{"unified":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n'));
+          controller.enqueue(encoded.encode('data: {"id":"browser_stream","choices":[{"index":0,"delta":{"content":"STREAM_FINISHED"},"finish_reason":null}]}\n\n'));
+          controller.enqueue(encoded.encode('data: {"id":"browser_stream","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n'));
           controller.enqueue(encoded.encode("data: [DONE]\n"));
           controller.close();
           streamSourceClosed = true;
@@ -103,7 +103,7 @@
     runtime = await createFxTerminal({
       wasm: "../zig-out/bin/fx-term.wasm",
       terminal,
-      env: { AI_GATEWAY_API_KEY: "browser-terminal-test-key" },
+      env: { OPENAI_BASE_URL: "https://models.example/v1", OPENAI_API_KEY: "browser-terminal-test-key" },
       fetch: mockFetch,
     });
     testState.stage = "waiting-interactive";

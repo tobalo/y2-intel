@@ -14,11 +14,11 @@ pub const Entry = struct {
 pub const entries = [_]Entry{
     .{
         .id = .gateway,
-        .slug = "vercel",
-        .aliases = &.{ "gateway", "ai-gateway" },
-        .name = "Vercel AI Gateway",
-        .route_name = "Vercel AI Gateway",
-        .description = "Vercel account or AI Gateway billing",
+        .slug = "y2",
+        .aliases = &.{ "api", "openai-compatible" },
+        .name = "Y2 API",
+        .route_name = "Y2 / OpenAI-compatible API",
+        .description = "Agent Y2 or a directly configured OpenAI-compatible endpoint",
         .subscription = false,
     },
     .{
@@ -57,12 +57,14 @@ pub fn label(id: model_provider.ProviderId) []const u8 {
 }
 
 test "auth provider catalog uses the model provider identity and explicit aliases" {
-    try std.testing.expectEqual(model_provider.ProviderId.gateway, parse("vercel").?);
-    try std.testing.expectEqual(model_provider.ProviderId.gateway, parse("gateway").?);
+    try std.testing.expectEqual(model_provider.ProviderId.gateway, parse("y2").?);
+    try std.testing.expectEqual(model_provider.ProviderId.gateway, parse("openai-compatible").?);
     try std.testing.expectEqual(model_provider.ProviderId.codex, parse("codex").?);
     try std.testing.expectEqual(model_provider.ProviderId.grok, parse("grok").?);
     try std.testing.expect(parse("openai-codex") == null);
     try std.testing.expect(parse("chatgpt") == null);
+    try std.testing.expect(parse("vercel") == null);
+    try std.testing.expect(parse("gateway") == null);
     try std.testing.expect(parse("unknown") == null);
     try std.testing.expect(find(.codex).subscription);
     try std.testing.expect(find(.grok).subscription);

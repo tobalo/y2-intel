@@ -8,14 +8,14 @@ import { createFxAgent, supportsJspi } from "../node.js";
 const scriptDir = fileURLToPath(new URL(".", import.meta.url));
 const defaultWasm = resolve(scriptDir, "../../zig-out/bin/fx-core.wasm");
 const wasmPath = resolve(process.argv[2] || defaultWasm);
-const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.FX_API_KEY;
+const apiKey = process.env.Y2_API_KEY;
 
 if (!supportsJspi()) {
   console.error("Node JSPI is disabled. Run with: node --experimental-wasm-jspi sdk/scripts/test-core-live.mjs");
   process.exit(2);
 }
 if (!apiKey) {
-  console.error("Set AI_GATEWAY_API_KEY or FX_API_KEY to run the live gateway smoke test");
+  console.error("Set Y2_API_KEY to run the live Agent Y2 smoke test");
   process.exit(2);
 }
 
@@ -69,7 +69,7 @@ const tracedFetch = async (url, init) => {
 };
 
 const agent = await Promise.race([
-  createFxAgent({ wasm: await readFile(wasmPath), fetch: tracedFetch, env: { AI_GATEWAY_API_KEY: apiKey } }),
+  createFxAgent({ wasm: await readFile(wasmPath), fetch: tracedFetch, env: { Y2_API_KEY: apiKey } }),
   new Promise((_, reject) => setTimeout(() => reject(new Error("timed out waiting for fx-core initialize")), 5000)),
 ]);
 

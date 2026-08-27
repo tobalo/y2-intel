@@ -22,8 +22,8 @@ const server = createServer((request, response) => {
   request.on("data", (chunk) => { requestBody += chunk; });
   request.on("end", () => {
     response.writeHead(200, { "content-type": "text/event-stream" });
-    response.write('data: {"type":"text-delta","delta":"isolated"}\n\n');
-    response.write('data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":1}}}\n\n');
+    response.write('data: {"id":"chat_isolation","choices":[{"index":0,"delta":{"content":"isolated"},"finish_reason":null}]}\n\n');
+    response.write('data: {"id":"chat_isolation","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":1}}\n\n');
     response.end("data: [DONE]\n\n");
   });
 });
@@ -40,8 +40,8 @@ try {
     home: runtimeHome,
     workspaceRoot: runtimeWorkspace,
     env: {
-      AI_GATEWAY_API_KEY: "native-core-config-key",
-      FX_GATEWAY_CHAT_URL: `http://127.0.0.1:${port}/chat`,
+      OPENAI_API_KEY: "native-core-config-key",
+      FX_API_CHAT_URL: `http://127.0.0.1:${port}/chat`,
       FX_MODEL: "native/test-model",
     },
   });

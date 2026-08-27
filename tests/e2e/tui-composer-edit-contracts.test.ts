@@ -110,10 +110,10 @@ async function startFx(
     cwd: workspace,
     env: {
       HOME: home,
-      AI_GATEWAY_API_KEY: withGateway ? "fake-edit-contract-key" : undefined,
+      Y2_API_KEY: withGateway ? "fake-edit-contract-key" : undefined,
       VERCEL_OIDC_TOKEN: undefined,
       FX_GATEWAY_BASE_URL: gateway?.baseUrl,
-      FX_GATEWAY_CHAT_URL: gateway?.chatUrl,
+      FX_API_CHAT_URL: gateway?.chatUrl,
       FX_E2E_GATEWAY_MODELS_URL: gateway
         ? `${gateway.baseUrl}/coding-agent/v1/models`
         : undefined,

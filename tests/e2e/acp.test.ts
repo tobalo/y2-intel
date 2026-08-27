@@ -192,10 +192,10 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    AI_GATEWAY_API_KEY: "fake-acp-file-key",
+    Y2_API_KEY: "fake-acp-file-key",
     VERCEL_OIDC_TOKEN: "",
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_MODEL: FAKE_GATEWAY_MODEL,
     FX_AUTO_UPGRADE: "0",
   };
@@ -2017,7 +2017,7 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            AI_GATEWAY_API_KEY: "e2e-placeholder",
+            Y2_API_KEY: "e2e-placeholder",
             VERCEL_OIDC_TOKEN: "",
           },
         });
@@ -4321,7 +4321,7 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            AI_GATEWAY_API_KEY: "e2e-placeholder",
+            Y2_API_KEY: "e2e-placeholder",
             VERCEL_OIDC_TOKEN: "",
           },
         });
@@ -4370,7 +4370,7 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            AI_GATEWAY_API_KEY: "e2e-placeholder",
+            Y2_API_KEY: "e2e-placeholder",
             VERCEL_OIDC_TOKEN: "",
           },
         });
@@ -4488,7 +4488,7 @@ describe("acp: model-independent", () => {
             cwd: acceptedRoot.workspace,
             env: {
               ...fakeGatewayEnv(acceptedRoot, acceptedGateway),
-              AI_GATEWAY_API_KEY: undefined,
+              Y2_API_KEY: undefined,
               VERCEL_OIDC_TOKEN: undefined,
               FX_DISABLE_KEYCHAIN: "1",
             },
@@ -4846,7 +4846,7 @@ describe("acp: model-independent", () => {
           message.params?.update?.sessionUpdate === "agent_message_chunk"
         );
         expect(authUpdate?.params.update.content.text).toBe(
-          "AI_GATEWAY_API_KEY authentication failed · HTTP 401",
+          "Y2_API_KEY authentication failed · HTTP 401",
         );
         const serialized = JSON.stringify({ messages, response });
         expect(serialized).not.toContain("fake-acp-file-key");
@@ -5066,7 +5066,7 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            AI_GATEWAY_API_KEY: "",
+            Y2_API_KEY: "",
             VERCEL_OIDC_TOKEN: "",
             FX_DISABLE_KEYCHAIN: "1",
           },
@@ -5075,7 +5075,7 @@ describe("acp: model-independent", () => {
         expect(resp.error).toBeDefined();
         expect(resp.error.message).toContain("fx login");
         expect(resp.error.message).toContain("fx setup");
-        expect(resp.error.message).toContain("AI_GATEWAY_API_KEY");
+        expect(resp.error.message).toContain("Y2_API_KEY");
         expect(client.stderr).toBe("");
       } finally {
         await client?.close();
@@ -5089,7 +5089,7 @@ describe("acp: model-independent", () => {
     "invalid JSON returns parse error without stderr",
     async () => {
       client = await AcpClient.create({
-        env: { AI_GATEWAY_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
       });
       (client as any).proc.stdin!.write("this is not json\n");
       const resp = await client.readLine() as any;
@@ -5104,7 +5104,7 @@ describe("acp: model-independent", () => {
     "exact and oversized request frames preserve the ACP connection boundary",
     async () => {
       client = await AcpClient.create({
-        env: { AI_GATEWAY_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
       });
       const stdin = (client as any).proc.stdin!;
       const frameLimit = 8 * 1024 * 1024;
@@ -5155,7 +5155,7 @@ describe("acp: model-independent", () => {
     "method before initialize returns error -32600",
     async () => {
       client = await AcpClient.create({
-        env: { AI_GATEWAY_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "", VERCEL_OIDC_TOKEN: "" },
       });
       const resp = await client.request("session/new", {}, 1) as any;
       expect(resp.error).toBeDefined();
@@ -5179,7 +5179,7 @@ describe("acp: model-independent", () => {
           cwd: realpathSync(workspace),
           env: {
             HOME: realpathSync(home),
-            AI_GATEWAY_API_KEY: "e2e-placeholder",
+            Y2_API_KEY: "e2e-placeholder",
             VERCEL_OIDC_TOKEN: "",
             FX_E2E_FAIL_ON_DURABLE_MUTATION: "1",
           },
@@ -5326,7 +5326,7 @@ describe("acp: model-independent", () => {
           cwd: realpathSync(workspace),
           env: {
             HOME: realpathSync(home),
-            AI_GATEWAY_API_KEY: "e2e-placeholder",
+            Y2_API_KEY: "e2e-placeholder",
             VERCEL_OIDC_TOKEN: "",
             FX_E2E_FAIL_ON_DURABLE_MUTATION: "1",
           },
@@ -5353,7 +5353,7 @@ describe("acp: model-independent", () => {
       client = await AcpClient.create({
         omitHome: true,
         env: {
-          AI_GATEWAY_API_KEY: "e2e-placeholder",
+          Y2_API_KEY: "e2e-placeholder",
           VERCEL_OIDC_TOKEN: "",
         },
       });
@@ -5414,7 +5414,7 @@ describe("acp: model-independent", () => {
           cwd: workspaceRoot,
           env: {
             HOME: home,
-            AI_GATEWAY_API_KEY: "e2e-placeholder",
+            Y2_API_KEY: "e2e-placeholder",
             VERCEL_OIDC_TOKEN: "",
           },
         });
@@ -7407,7 +7407,7 @@ describe("acp: model catalog authentication", () => {
             cwd: root.workspace,
             env: {
               ...fakeGatewayEnv(root, gateway),
-              AI_GATEWAY_API_KEY: undefined,
+              Y2_API_KEY: undefined,
               VERCEL_OIDC_TOKEN: undefined,
               FX_DISABLE_KEYCHAIN: "1",
             },

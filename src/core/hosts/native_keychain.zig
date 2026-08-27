@@ -4,7 +4,7 @@ const debug_trace = @import("../shared/debug_trace.zig");
 const io_mod = @import("../shared/io.zig");
 const secret = @import("../auth/secret.zig");
 
-pub const service_name = "FX_AI_GATEWAY_API_KEY";
+pub const service_name = "FX_Y2_API_KEY";
 const mcp_credentials_service_name = "FX_MCP_OAUTH_CREDENTIALS_V1";
 pub const oauth_session_service_name = "FX_OAUTH_SESSION_V1";
 
@@ -651,7 +651,7 @@ fn deleteServiceItem(
     return error.KeychainDeleteFailed;
 }
 
-const test_service_name = "FX_TEST_AI_GATEWAY_API_KEY";
+const test_service_name = "FX_TEST_Y2_API_KEY";
 
 fn deleteTestServiceItem(alloc: std.mem.Allocator) void {
     _ = deleteServiceItem(alloc, test_service_name) catch {};

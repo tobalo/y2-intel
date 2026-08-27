@@ -1152,7 +1152,7 @@ describe.skipIf(!HAS_API_KEY)("eval: auto permission reliability", () => {
                 FX_MODEL: MODEL,
                 FX_AUTO_UPGRADE: "0",
                 FX_GATEWAY_BASE_URL: gateway.baseUrl,
-                FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+                FX_API_CHAT_URL: gateway.chatUrl,
                 FX_TRACE_LOG: tracePath,
                 FX_TRACE_SCOPES: "permission,tool",
               },

@@ -39,7 +39,7 @@ pub const CatalogPublicOnlyReason = std.meta.Tag(CatalogPublicOnly);
 
 pub const CatalogAuthenticatedSource = enum {
     vercel_oidc_token,
-    ai_gateway_api_key,
+    api_key,
     fx_login,
     stored_key,
     chatgpt_subscription,
@@ -48,7 +48,7 @@ pub const CatalogAuthenticatedSource = enum {
     fn credentialSource(self: CatalogAuthenticatedSource) Source {
         return switch (self) {
             .vercel_oidc_token => .vercel_oidc_token,
-            .ai_gateway_api_key => .ai_gateway_api_key,
+            .api_key => .api_key,
             .fx_login => .fx_login,
             .stored_key => .stored_key,
             .chatgpt_subscription => .chatgpt_subscription,
@@ -164,7 +164,7 @@ pub fn catalogAccessForCredentialAndAccount(
     const selected_source = source orelse return .{ .public_only = .no_credential };
     const authenticated_source: CatalogAuthenticatedSource = switch (selected_source) {
         .vercel_oidc_token => .vercel_oidc_token,
-        .ai_gateway_api_key => .ai_gateway_api_key,
+        .api_key => .api_key,
         .stored_key => .stored_key,
         .chatgpt_subscription => .chatgpt_subscription,
         .grok_subscription => .grok_subscription,
@@ -196,13 +196,13 @@ pub const LoadMode = enum { stored, refresh_if_needed };
 
 const FxLoginRefreshMode = enum { if_needed, force };
 
-pub const missing_credential_message = "Fx needs access to Vercel AI Gateway. Run fx login to sign in, fx setup to use an API key, or set AI_GATEWAY_API_KEY.";
-pub const missing_interactive_credential_message = "Fx needs access to Vercel AI Gateway. Run /login to sign in, /setup to use an API key, or set AI_GATEWAY_API_KEY.";
+pub const missing_credential_message = "Y2 Information Dominance needs an API key. Run fx setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.";
+pub const missing_interactive_credential_message = "Y2 Information Dominance needs an API key. Run /setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.";
 pub const missing_chatgpt_credential_message = "fx needs a Codex subscription login for this model. Run fx login codex.";
 pub const missing_chatgpt_interactive_credential_message = "Codex needs a subscription login. Run /login, open Connections, then choose Codex subscription.";
 pub const missing_grok_credential_message = "fx needs a Grok subscription login for this model. Run fx login grok.";
 pub const missing_grok_interactive_credential_message = "Grok needs a subscription login. Run /login, open Connections, then choose Grok subscription.";
-pub const unreadable_store_message = "Fx could not read the stored API key from " ++ stored_key_backend_label ++ ". A key may be saved but unreadable. Set FX_TRACE_LOG for the failing step, or set AI_GATEWAY_API_KEY.";
+pub const unreadable_store_message = "Y2 Information Dominance could not read the stored API key from " ++ stored_key_backend_label ++ ". A key may be saved but unreadable. Set FX_TRACE_LOG for the failing step, or set Y2_API_KEY.";
 
 pub const Credential = struct {
     token: []u8,
@@ -314,7 +314,9 @@ pub fn resolvePreferring(
     preferred: ?Source,
 ) !Resolution {
     if (preferred) |source| {
-        if (source != .stored_key or !secret_store.isDisabled()) {
+        if (source != .vercel_oidc_token and source != .fx_login and
+            (source != .stored_key or !secret_store.isDisabled()))
+        {
             const chosen = loadPreferredSource(alloc, transport, secret_store, mode, source) catch |err| blk: {
                 if (err == error.OutOfMemory) return err;
                 debug_trace.logf("auth", "preferred source load failed source={t} err={s}", .{ source, @errorName(err) });
@@ -325,23 +327,9 @@ pub fn resolvePreferring(
         }
     }
 
-    if (try loadSource(alloc, transport, secret_store, .vercel_oidc_token)) |credential| return .{ .credential = credential };
-    if (try loadSource(alloc, transport, secret_store, .ai_gateway_api_key)) |credential| return .{ .credential = credential };
+    if (try loadSource(alloc, transport, secret_store, .api_key)) |credential| return .{ .credential = credential };
 
-    // A login that cannot be loaded or refreshed is one silent source, not a
-    // reason to abandon resolution: the sources on either side of it already
-    // fall through on failure, and a rejected refresh token must not hide a
-    // stored key that works. OutOfMemory stays fatal, as it does for them.
-    var fx_login_status: FxLoginReadStatus = .absent;
-    const fx_login = loadFxLoginForPrecedence(alloc, transport, mode) catch |err| blk: {
-        if (err == error.OutOfMemory) return err;
-        fx_login_status = .unavailable;
-        debug_trace.logf("auth", "fx login load failed mode={t} err={s}; using precedence", .{ mode, @errorName(err) });
-        break :blk null;
-    };
-    if (fx_login) |credential| return .{ .credential = credential };
-
-    if (secret_store.isDisabled()) return .{ .fx_login_status = fx_login_status };
+    if (secret_store.isDisabled()) return .{ .fx_login_status = .absent };
 
     var status: StoredKeyReadStatus = .not_found;
     const stored = loadSource(alloc, transport, secret_store, .stored_key) catch |err| blk: {
@@ -350,8 +338,8 @@ pub fn resolvePreferring(
         debug_trace.logf("auth", "stored key load failed err={s} status={t}", .{ @errorName(err), status });
         break :blk null;
     };
-    if (stored) |credential| return .{ .credential = credential, .fx_login_status = fx_login_status };
-    return .{ .stored_key_status = status, .fx_login_status = fx_login_status };
+    if (stored) |credential| return .{ .credential = credential, .fx_login_status = .absent };
+    return .{ .stored_key_status = status, .fx_login_status = .absent };
 }
 
 fn loadFxLoginForPrecedence(
@@ -399,9 +387,8 @@ pub fn loadSource(
     source: Source,
 ) !?Credential {
     return switch (source) {
-        .vercel_oidc_token => loadEnvCredential(alloc, "VERCEL_OIDC_TOKEN", source),
-        .ai_gateway_api_key => loadEnvCredential(alloc, "AI_GATEWAY_API_KEY", source),
-        .fx_login => loadFxLoginCredential(alloc, transport),
+        .vercel_oidc_token, .fx_login => null,
+        .api_key => loadApiKeyEnvCredential(alloc),
         .stored_key => loadStoredKeyCredential(alloc, secret_store),
         .chatgpt_subscription => loadChatGptCredential(alloc, transport, .if_needed),
         .grok_subscription => loadGrokCredential(alloc, transport, .if_needed),
@@ -414,23 +401,18 @@ pub fn sourceExists(
     source: Source,
 ) !bool {
     return switch (source) {
-        .vercel_oidc_token => nonEmptyEnvValue("VERCEL_OIDC_TOKEN") != null,
-        .ai_gateway_api_key => nonEmptyEnvValue("AI_GATEWAY_API_KEY") != null,
-        .fx_login => blk: {
-            const loaded = oauth_session.load(alloc) catch |err| switch (err) {
-                error.OutOfMemory => return err,
-                else => {
-                    debug_trace.logf("auth", "source probe failed source=fx_login err={s}", .{@errorName(err)});
-                    break :blk false;
-                },
-            };
-            var session = loaded orelse break :blk false;
-            defer session.deinit(alloc);
-            break :blk true;
-        },
+        .vercel_oidc_token, .fx_login => false,
+        .api_key => if (usesDirectOpenAiEndpoint())
+            nonEmptyEnvValue("OPENAI_API_KEY") != null
+        else
+            nonEmptyEnvValue("Y2_API_KEY") != null,
         .chatgpt_subscription => chatgpt_oauth.sourceExists(alloc),
         .grok_subscription => grok_oauth.sourceExists(alloc),
         .stored_key => blk: {
+            // The profile/keychain slot is populated by the Y2 setup flow. A
+            // direct endpoint must use OPENAI_API_KEY so changing endpoints can
+            // never send a stored Y2 credential to another host.
+            if (usesDirectOpenAiEndpoint()) break :blk false;
             if (secret_store.isDisabled()) break :blk false;
             const stored = secret_store.load(alloc) catch |err| switch (err) {
                 error.OutOfMemory => return err,
@@ -458,10 +440,39 @@ fn loadEnvCredential(
     };
 }
 
+fn loadApiKeyEnvCredential(alloc: std.mem.Allocator) !?Credential {
+    return loadEnvCredential(
+        alloc,
+        if (usesDirectOpenAiEndpoint()) "OPENAI_API_KEY" else "Y2_API_KEY",
+        .api_key,
+    );
+}
+
+fn usesDirectOpenAiEndpoint() bool {
+    if (nonEmptyEnvValue("FX_API_CHAT_URL")) |endpoint| return !isY2AgentEndpoint(endpoint);
+    if (nonEmptyEnvValue("OPENAI_BASE_URL")) |base_url| return !isY2AgentBaseUrl(base_url);
+    return false;
+}
+
+fn isY2AgentEndpoint(endpoint: []const u8) bool {
+    return std.mem.eql(
+        u8,
+        std.mem.trimEnd(u8, endpoint, "/"),
+        "https://api.y2.dev/api/v1/chat/completions",
+    );
+}
+
+fn isY2AgentBaseUrl(base_url: []const u8) bool {
+    const trimmed = std.mem.trimEnd(u8, base_url, "/");
+    return std.mem.eql(u8, trimmed, "https://api.y2.dev/api/v1") or
+        std.mem.eql(u8, trimmed, "https://api.y2.dev/api/v1/chat/completions");
+}
+
 fn loadStoredKeyCredential(
     alloc: std.mem.Allocator,
     secret_store: host.SecretStore,
 ) !?Credential {
+    if (usesDirectOpenAiEndpoint()) return null;
     if (secret_store.isDisabled()) return null;
     const value = (try secret_store.load(alloc)) orelse return null;
     return .{ .token = value, .source = .stored_key };
@@ -651,7 +662,7 @@ fn credentialRefreshAfterMs(expires_at_ms: i64, refreshed_at_ms: ?i64) i64 {
 pub fn sourceLabel(source: Source) []const u8 {
     return switch (source) {
         .vercel_oidc_token => "VERCEL_OIDC_TOKEN",
-        .ai_gateway_api_key => "AI_GATEWAY_API_KEY",
+        .api_key => "API key",
         .fx_login => "fx login",
         .stored_key => "stored API key (" ++ stored_key_backend_label ++ ")",
         .chatgpt_subscription => "Codex subscription",
@@ -666,24 +677,20 @@ pub fn sourceRefreshable(source: Source) bool {
 test "stored key label discloses the backend that answered" {
     try std.testing.expect(std.mem.find(u8, sourceLabel(.stored_key), stored_key_backend_label) != null);
     try std.testing.expect(std.mem.find(u8, unreadable_store_message, stored_key_backend_label) != null);
-    for ([_]Source{ .vercel_oidc_token, .ai_gateway_api_key, .fx_login }) |source| {
+    for ([_]Source{ .vercel_oidc_token, .api_key, .fx_login }) |source| {
         try std.testing.expect(!std.mem.eql(u8, sourceLabel(source), sourceLabel(.stored_key)));
     }
 }
 
 test "missing credential messages use surface commands in preferred order" {
-    const cli_login = std.mem.find(u8, missing_credential_message, "fx login").?;
     const cli_setup = std.mem.find(u8, missing_credential_message, "fx setup").?;
-    const cli_env = std.mem.find(u8, missing_credential_message, "AI_GATEWAY_API_KEY").?;
+    const cli_env = std.mem.find(u8, missing_credential_message, "Y2_API_KEY").?;
 
-    try std.testing.expect(cli_login < cli_setup);
     try std.testing.expect(cli_setup < cli_env);
 
-    const tui_login = std.mem.find(u8, missing_interactive_credential_message, "/login").?;
     const tui_setup = std.mem.find(u8, missing_interactive_credential_message, "/setup").?;
-    const tui_env = std.mem.find(u8, missing_interactive_credential_message, "AI_GATEWAY_API_KEY").?;
+    const tui_env = std.mem.find(u8, missing_interactive_credential_message, "Y2_API_KEY").?;
 
-    try std.testing.expect(tui_login < tui_setup);
     try std.testing.expect(tui_setup < tui_env);
 }
 
@@ -773,7 +780,7 @@ test "fx login catalog access requires a fresh credential and selected team" {
 }
 
 test "authenticated catalog access carries source and permitted request context" {
-    for ([_]Source{ .vercel_oidc_token, .ai_gateway_api_key, .stored_key }) |source| {
+    for ([_]Source{ .vercel_oidc_token, .api_key, .stored_key }) |source| {
         var credential = Credential{
             .token = try std.testing.allocator.dupe(u8, "token"),
             .source = source,
@@ -892,47 +899,111 @@ const SecretStoreFixture = struct {
     }
 };
 
-test "source-specific credential loading bypasses generic precedence" {
+test "API credential resolution ignores retired Vercel environment sources" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
         .{ "VERCEL_OIDC_TOKEN", "oidc-token" },
-        .{ "AI_GATEWAY_API_KEY", "api-key" },
+        .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
 
     const resolution = try resolve(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .refresh_if_needed);
     var startup = resolution.credential orelse return error.TestExpectedCredential;
     defer startup.deinit(alloc);
-    try std.testing.expectEqualStrings("oidc-token", startup.token);
-    try std.testing.expectEqual(Source.vercel_oidc_token, startup.source);
+    try std.testing.expectEqualStrings("api-key", startup.token);
+    try std.testing.expectEqual(Source.api_key, startup.source);
 
-    var api_key = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .ai_gateway_api_key)).?;
+    var api_key = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)).?;
     defer api_key.deinit(alloc);
     try std.testing.expectEqualStrings("api-key", api_key.token);
-    try std.testing.expectEqual(Source.ai_gateway_api_key, api_key.source);
+    try std.testing.expectEqual(Source.api_key, api_key.source);
 
-    var oidc = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .vercel_oidc_token)).?;
-    defer oidc.deinit(alloc);
-    try std.testing.expectEqualStrings("oidc-token", oidc.token);
-    try std.testing.expectEqual(Source.vercel_oidc_token, oidc.source);
+    try std.testing.expect((try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .vercel_oidc_token)) == null);
 
-    try std.testing.expect(try sourceExists(alloc, host.unavailable_secret_store, .ai_gateway_api_key));
-    try std.testing.expect(try sourceExists(alloc, host.unavailable_secret_store, .vercel_oidc_token));
+    try std.testing.expect(try sourceExists(alloc, host.unavailable_secret_store, .api_key));
+    try std.testing.expect(!(try sourceExists(alloc, host.unavailable_secret_store, .vercel_oidc_token)));
     try std.testing.expect(!(try sourceExists(alloc, host.unavailable_secret_store, .stored_key)));
+}
+
+test "direct endpoint prefers OPENAI_API_KEY while Agent Y2 prefers Y2_API_KEY" {
+    const alloc = std.testing.allocator;
+    {
+        const env = try CredentialTestEnv.install(alloc, &.{
+            .{ "Y2_API_KEY", "y2-key" },
+            .{ "OPENAI_API_KEY", "openai-key" },
+            .{ "OPENAI_BASE_URL", "https://models.example/v1" },
+        });
+        defer env.deinit();
+        var credential = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)).?;
+        defer credential.deinit(alloc);
+        try std.testing.expectEqualStrings("openai-key", credential.token);
+    }
+    {
+        const env = try CredentialTestEnv.install(alloc, &.{
+            .{ "Y2_API_KEY", "y2-key" },
+            .{ "OPENAI_BASE_URL", "https://models.example/v1" },
+        });
+        defer env.deinit();
+        try std.testing.expect((try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)) == null);
+    }
+    {
+        const env = try CredentialTestEnv.install(alloc, &.{
+            .{ "Y2_API_KEY", "y2-key" },
+            .{ "OPENAI_API_KEY", "openai-key" },
+            .{ "FX_API_CHAT_URL", "https://api.y2.dev/api/v1/chat/completions/" },
+        });
+        defer env.deinit();
+        var credential = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)).?;
+        defer credential.deinit(alloc);
+        try std.testing.expectEqualStrings("y2-key", credential.token);
+    }
+    {
+        const env = try CredentialTestEnv.install(alloc, &.{
+            .{ "OPENAI_API_KEY", "openai-key" },
+            .{ "FX_API_CHAT_URL", "https://api.y2.dev/api/v1/chat/completions" },
+        });
+        defer env.deinit();
+        try std.testing.expect((try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)) == null);
+    }
+    {
+        const env = try CredentialTestEnv.install(alloc, &.{
+            .{ "Y2_API_KEY", "y2-key" },
+            .{ "OPENAI_API_KEY", "openai-key" },
+            .{ "OPENAI_BASE_URL", "https://api.y2.dev/api/v1" },
+        });
+        defer env.deinit();
+        var credential = (try loadSource(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .api_key)).?;
+        defer credential.deinit(alloc);
+        try std.testing.expectEqualStrings("y2-key", credential.token);
+    }
+}
+
+test "stored Y2 key is unavailable for direct OpenAI-compatible endpoints" {
+    const alloc = std.testing.allocator;
+    const env = try CredentialTestEnv.install(alloc, &.{
+        .{ "OPENAI_BASE_URL", "https://models.example/v1" },
+    });
+    defer env.deinit();
+    var store_fixture = SecretStoreFixture{ .value = "stored-y2-key" };
+
+    const stored = try loadSource(alloc, oauth_transport.unavailable_provider, store_fixture.provider(), .stored_key);
+    try std.testing.expect(stored == null);
+    try std.testing.expectEqual(@as(usize, 0), store_fixture.load_calls);
+    try std.testing.expect(!(try sourceExists(alloc, store_fixture.provider(), .stored_key)));
 }
 
 test "a remembered choice outranks the environment" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
         .{ "VERCEL_OIDC_TOKEN", "oidc-token" },
-        .{ "AI_GATEWAY_API_KEY", "api-key" },
+        .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
 
-    const resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .refresh_if_needed, .ai_gateway_api_key);
+    const resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .refresh_if_needed, .api_key);
     var credential = resolution.credential orelse return error.TestExpectedCredential;
     defer credential.deinit(alloc);
-    try std.testing.expectEqual(Source.ai_gateway_api_key, credential.source);
+    try std.testing.expectEqual(Source.api_key, credential.source);
     try std.testing.expectEqualStrings("api-key", credential.token);
 }
 
@@ -956,7 +1027,7 @@ test "a remembered fx login never refreshes in stored mode" {
 test "a remembered choice that no longer resolves falls back to precedence" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
-        .{ "AI_GATEWAY_API_KEY", "api-key" },
+        .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
 
@@ -964,14 +1035,14 @@ test "a remembered choice that no longer resolves falls back to precedence" {
     const resolution = try resolvePreferring(alloc, oauth_transport.unavailable_provider, host.unavailable_secret_store, .refresh_if_needed, .fx_login);
     var credential = resolution.credential orelse return error.TestExpectedCredential;
     defer credential.deinit(alloc);
-    try std.testing.expectEqual(Source.ai_gateway_api_key, credential.source);
+    try std.testing.expectEqual(Source.api_key, credential.source);
 }
 
 test "no remembered choice resolves exactly as plain precedence" {
     const alloc = std.testing.allocator;
     const env = try CredentialTestEnv.install(alloc, &.{
         .{ "VERCEL_OIDC_TOKEN", "oidc-token" },
-        .{ "AI_GATEWAY_API_KEY", "api-key" },
+        .{ "Y2_API_KEY", "api-key" },
     });
     defer env.deinit();
 
@@ -1037,13 +1108,13 @@ test "credential resolution preserves unreadable store classification" {
     try std.testing.expectEqual(StoredKeyReadStatus.unavailable, resolution.stored_key_status);
 }
 
-test "a failed fx-login refresh falls through to the stored key" {
+test "legacy fx login is ignored before resolving the stored key" {
     const alloc = std.testing.allocator;
     var fixture = try ExpiredFxLoginFixture.install(alloc);
     defer fixture.deinit();
     var store_fixture = SecretStoreFixture{ .value = "stored-key-that-works" };
 
-    // The refresh cannot succeed, but a working stored key is right behind it.
+    // Unsupported legacy login state is ignored; the stored key still resolves.
     var resolution = try resolve(
         alloc,
         oauth_transport.unavailable_provider,
@@ -1055,18 +1126,16 @@ test "a failed fx-login refresh falls through to the stored key" {
     const credential = resolution.credential orelse return error.TestExpectedCredential;
     try std.testing.expectEqual(Source.stored_key, credential.source);
     try std.testing.expectEqualStrings("stored-key-that-works", credential.token);
-    try std.testing.expectEqual(FxLoginReadStatus.unavailable, resolution.fx_login_status);
+    try std.testing.expectEqual(FxLoginReadStatus.absent, resolution.fx_login_status);
     try std.testing.expectEqual(@as(usize, 1), store_fixture.load_calls);
 }
 
-test "a failed fx-login refresh is still reported when nothing else resolves" {
+test "legacy fx login is ignored when nothing else resolves" {
     const alloc = std.testing.allocator;
     var fixture = try ExpiredFxLoginFixture.install(alloc);
     defer fixture.deinit();
     var store_fixture = SecretStoreFixture{};
 
-    // Falling through must not erase why the login was silent: an unrepairable
-    // session is a different problem from never having logged in.
     var resolution = try resolve(
         alloc,
         oauth_transport.unavailable_provider,
@@ -1076,7 +1145,7 @@ test "a failed fx-login refresh is still reported when nothing else resolves" {
     defer if (resolution.credential) |*credential| credential.deinit(alloc);
 
     try std.testing.expect(resolution.credential == null);
-    try std.testing.expectEqual(FxLoginReadStatus.unavailable, resolution.fx_login_status);
+    try std.testing.expectEqual(FxLoginReadStatus.absent, resolution.fx_login_status);
     try std.testing.expectEqual(StoredKeyReadStatus.not_found, resolution.stored_key_status);
 }
 
@@ -1122,14 +1191,12 @@ const ExpiredFxLoginFixture = struct {
     }
 };
 
-test "a disabled store still reports why the fx login was silent" {
+test "a disabled store ignores legacy fx login state" {
     const alloc = std.testing.allocator;
     var fixture = try ExpiredFxLoginFixture.install(alloc);
     defer fixture.deinit();
     var store_fixture = SecretStoreFixture{ .disabled = true };
 
-    // The store is switched off, so resolution ends at the login. Its failure is
-    // still the useful diagnostic and must survive the early return.
     var resolution = try resolve(
         alloc,
         oauth_transport.unavailable_provider,
@@ -1139,6 +1206,6 @@ test "a disabled store still reports why the fx login was silent" {
     defer if (resolution.credential) |*credential| credential.deinit(alloc);
 
     try std.testing.expect(resolution.credential == null);
-    try std.testing.expectEqual(FxLoginReadStatus.unavailable, resolution.fx_login_status);
+    try std.testing.expectEqual(FxLoginReadStatus.absent, resolution.fx_login_status);
     try std.testing.expectEqual(StoredKeyReadStatus.not_attempted, resolution.stored_key_status);
 }

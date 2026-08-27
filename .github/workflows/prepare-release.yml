@@ -67,20 +67,42 @@ jobs:
 
       - name: Generate changelog with AI
         env:
-          AI_GATEWAY_API_KEY: ${{ secrets.AI_GATEWAY_API_KEY }}
+          Y2_API_KEY: ${{ secrets.Y2_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          RELEASE_API_URL: ${{ vars.RELEASE_API_URL }}
+          RELEASE_MODEL: ${{ vars.RELEASE_MODEL }}
         run: |
+          set -euo pipefail
           NEW_VERSION="${{ steps.version.outputs.new }}"
           PREV_TAG="${{ steps.changes.outputs.prev_tag }}"
+          API_URL="${RELEASE_API_URL:-https://api.y2.dev/api/v1/chat/completions}"
+          MODEL="${RELEASE_MODEL:-y2-agent}"
+
+          if [ "$API_URL" = "https://api.y2.dev/api/v1/chat/completions" ]; then
+            API_KEY="${Y2_API_KEY:-}"
+            KEY_NAME="Y2_API_KEY"
+          else
+            API_KEY="${OPENAI_API_KEY:-}"
+            KEY_NAME="OPENAI_API_KEY"
+          fi
+          if [ -z "$API_KEY" ]; then
+            echo "::error::${KEY_NAME} is required for ${API_URL}"
+            exit 1
+          fi
+          case "$API_URL" in
+            https://*) ;;
+            *) echo "::error::RELEASE_API_URL must be an HTTPS chat-completions endpoint"; exit 1 ;;
+          esac
 
           cat > /tmp/system-prompt.txt <<'SYSPROMPT'
-          You write changelogs for fx, an open-source AI-powered CLI tool written in Zig.
+          You write changelogs for Y2 Information Dominance, an open-source AI-powered CLI harness written in Zig.
 
           You will receive the actual code diff since the last release, a diff stat summary, and a commit log. Treat the commit log as private research context.
 
           Rules:
           - Base your changelog ONLY on what the diff actually shows. Do not trust commit messages or PR descriptions as authoritative — they go stale. The diff is the source of truth.
           - Write public, user-facing product notes. Describe observable behavior and outcomes, not how the work was implemented or delivered.
-          - Always spell the product name fx. Preserve different casing only for exact code identifiers such as FX_MODEL.
+          - Spell the product name Y2 Information Dominance. Preserve fx only for exact compatibility identifiers such as the fx executable or FX_MODEL.
           - Group changes under ### Breaking Changes, ### New Features, ### Improvements, ### Bug Fixes, and ### Security as appropriate. Omit empty sections.
           - Bold a short feature or fix name, then describe the user-visible change after a colon.
           - Do not include pull request or issue numbers, links to trackers, commit hashes, contributor names, author attribution, or a Contributors section.
@@ -95,70 +117,59 @@ jobs:
           USERHEADER
 
           jq -n \
+            --arg model "$MODEL" \
             --rawfile system /tmp/system-prompt.txt \
             --rawfile user_header /tmp/user-header.txt \
             --rawfile diff_stat /tmp/diff-stat.txt \
             --rawfile src_diff /tmp/diff.txt \
             --rawfile commit_log /tmp/log.txt \
             '{
-              prompt: [
-                {role: "system", content: $system},
-                {role: "user", content: [{
-                  type: "text",
-                  text: (
-                    $user_header + "\n\n## Diff stat (file-level summary)\n" + $diff_stat
-                    + "\n\n## Source diff (src/ changes — the ground truth)\n" + $src_diff
-                    + "\n\n## Commit log (supplementary context only — do not trust these as authoritative)\n" + $commit_log
-                  )
-                }]}
-              ]
+              model: $model,
+              stream: false,
+              messages: [{
+                role: "user",
+                content: (
+                  $system + "\n\n" + $user_header
+                  + "\n\n## Diff stat (file-level summary)\n" + $diff_stat
+                  + "\n\n## Source diff (src/ changes — the ground truth)\n" + $src_diff
+                  + "\n\n## Commit log (supplementary context only — do not trust these as authoritative)\n" + $commit_log
+                )
+              }]
             }' > /tmp/request.json
 
           if ! jq -e '
-            (.prompt | type == "array") and
-            (.prompt[0].role == "system") and
-            (.prompt[0].content | type == "string") and
-            (.prompt[1].role == "user") and
-            (.prompt[1].content | type == "array") and
-            (.prompt[1].content | length == 1) and
-            (.prompt[1].content[0].type == "text") and
-            (.prompt[1].content[0].text | type == "string")
+            (.model | type == "string" and length > 0) and
+            (.stream == false) and
+            (.messages | type == "array" and length == 1) and
+            (.messages[0].role == "user") and
+            (.messages[0].content | type == "string" and length > 0)
           ' /tmp/request.json >/dev/null; then
-            echo "::error::Generated AI Gateway payload does not match the expected prompt schema"
+            echo "::error::Generated chat-completions payload is invalid"
             exit 1
           fi
 
           echo "Request payload: $(wc -c < /tmp/request.json) bytes"
 
-          HTTP_STATUS=$(curl -sS -N -X POST "https://ai-gateway.vercel.sh/v3/ai/language-model" \
-            -H "Authorization: Bearer ${AI_GATEWAY_API_KEY}" \
+          HTTP_STATUS=$(curl -sS -X POST "$API_URL" \
+            -H "Authorization: Bearer ${API_KEY}" \
             -H "Content-Type: application/json" \
-            -H "ai-gateway-protocol-version: 0.0.1" \
-            -H "ai-language-model-specification-version: 4" \
-            -H "ai-language-model-id: anthropic/claude-opus-4.7" \
-            -H "ai-language-model-streaming: true" \
-            -H "HTTP-Referer: https://github.com/vercel-labs/fx" \
-            -H "X-Title: fx" \
-            -d @/tmp/request.json -o /tmp/sse-response.txt -w '%{http_code}')
+            -d @/tmp/request.json -o /tmp/api-response.json -w '%{http_code}')
 
           if [ "$HTTP_STATUS" -ne 200 ]; then
-            echo "::error::AI Gateway returned HTTP ${HTTP_STATUS}"
-            head -c 2000 /tmp/sse-response.txt
+            echo "::error::Changelog endpoint returned HTTP ${HTTP_STATUS}"
+            head -c 2000 /tmp/api-response.json
             exit 1
           fi
 
-          grep '^data: ' /tmp/sse-response.txt \
-            | sed 's/^data: //' \
-            | grep -v '^\[DONE\]$' \
-            | jq -rj 'select(.type == "text-delta") | .delta' \
-            > /tmp/changelog-body.md
+          jq -er '.choices[0].message.content | select(type == "string" and length > 0)' \
+            /tmp/api-response.json > /tmp/changelog-body.md
 
           LINES=$(wc -l < /tmp/changelog-body.md | tr -d ' ')
           echo "Generated changelog: ${LINES} lines"
           if [ "$LINES" -lt 2 ]; then
             echo "::error::AI generated an empty or too-short changelog"
-            echo "Raw SSE response (first 2000 chars):"
-            head -c 2000 /tmp/sse-response.txt
+            echo "API response (first 2000 chars):"
+            head -c 2000 /tmp/api-response.json
             exit 1
           fi
           cat /tmp/changelog-body.md

@@ -101,10 +101,10 @@ function gatewayEnv(
 ) {
   return {
     HOME: home,
-    AI_GATEWAY_API_KEY: "fake-tui-resume-key",
+    Y2_API_KEY: "fake-tui-resume-key",
     VERCEL_OIDC_TOKEN: undefined,
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
-    FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+    FX_API_CHAT_URL: gateway.chatUrl,
     FX_MODEL: FAKE_GATEWAY_MODEL,
     FX_AUTO_UPGRADE: "0",
     NO_COLOR: "1",
@@ -2140,7 +2140,7 @@ test.skipIf(!tmuxAvailable())(
         cwd: realpathSync(workspace),
         env: {
           HOME: home,
-          AI_GATEWAY_API_KEY: undefined,
+          Y2_API_KEY: undefined,
           VERCEL_OIDC_TOKEN: undefined,
           FX_AUTO_UPGRADE: "0",
           FX_RECORD: tapePath,
@@ -5603,7 +5603,7 @@ test.skipIf(!tmuxAvailable())(
       const currentPicker = stripAnsi(await active.capturePane());
       expect(currentPicker).toContain("Sessions 1");
       expect(currentPicker).toContain("[Current workspace]");
-      expect(currentPicker).not.toContain("𝒇x");
+      expect(currentPicker).not.toContain("Y2 INFORMATION DOMINANCE");
       expect(currentPicker).toContain("Save the workspace A transcript.");
       expect(currentPicker).not.toContain("Save the workspace B transcript.");
 

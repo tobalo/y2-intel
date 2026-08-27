@@ -124,7 +124,10 @@
       const runtime = await createFxTerminal({
         wasm: globalThis.__fxWasmModule,
         terminal: xtermAdapter(terminal),
-        env: { AI_GATEWAY_API_KEY: localStorage.getItem("FX_API_KEY") || "" },
+        env: {
+          FX_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
+          OPENAI_API_KEY: "browser-session",
+        },
         configStore,
         promptHistoryStore,
       });

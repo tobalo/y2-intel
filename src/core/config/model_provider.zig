@@ -29,11 +29,11 @@ pub fn authorizesCredential(provider: ProviderId, source: ?types.CredentialSourc
 }
 
 test "explicit providers authorize only their own credential origins" {
-    try std.testing.expect(authorizesCredential(.gateway, .ai_gateway_api_key));
+    try std.testing.expect(authorizesCredential(.gateway, .api_key));
     try std.testing.expect(authorizesCredential(.gateway, .fx_login));
     try std.testing.expect(!authorizesCredential(.gateway, .chatgpt_subscription));
     try std.testing.expect(authorizesCredential(.codex, .chatgpt_subscription));
-    try std.testing.expect(!authorizesCredential(.codex, .ai_gateway_api_key));
+    try std.testing.expect(!authorizesCredential(.codex, .api_key));
     try std.testing.expect(!authorizesCredential(.codex, null));
     try std.testing.expect(authorizesCredential(.grok, .grok_subscription));
     try std.testing.expect(!authorizesCredential(.grok, .chatgpt_subscription));

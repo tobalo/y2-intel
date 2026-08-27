@@ -30,14 +30,14 @@ const server = createServer((request, response) => {
         events.push("first-connection-close");
         firstConnectionClosedResolve();
       });
-      response.write('data: {"type":"text-delta","delta":"native one"}\n\n');
-      response.write('data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n\n');
+      response.write('data: {"id":"chat_1","choices":[{"index":0,"delta":{"content":"native one"},"finish_reason":null}]}\n\n');
+      response.write('data: {"id":"chat_1","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n');
       events.push("first-finish-sent");
       return;
     }
     assert.equal(requestCount, 2, "only two Gateway requests are expected");
-    response.write('data: {"type":"text-delta","delta":"native two"}\n\n');
-    response.write('data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":2}}}\n\n');
+    response.write('data: {"id":"chat_2","choices":[{"index":0,"delta":{"content":"native two"},"finish_reason":null}]}\n\n');
+    response.write('data: {"id":"chat_2","choices":[{"index":0,"delta":{},"finish_reason":"stop"}],"usage":{"prompt_tokens":1,"completion_tokens":2}}\n\n');
     response.end("data: [DONE]\n\n");
   });
 });
@@ -71,8 +71,8 @@ try {
       return fetch(input, init);
     },
     env: {
-      AI_GATEWAY_API_KEY: "native-core-stream-key",
-      FX_GATEWAY_CHAT_URL: `http://127.0.0.1:${port}/chat`,
+      OPENAI_API_KEY: "native-core-stream-key",
+      FX_API_CHAT_URL: `http://127.0.0.1:${port}/chat`,
       FX_MODEL: "native/test-model",
     },
   });

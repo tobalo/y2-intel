@@ -16,7 +16,8 @@ const agent = await createFxAgent({
     throw error;
   },
   env: {
-    AI_GATEWAY_API_KEY: "native-core-fetch-failure-key",
+    OPENAI_BASE_URL: "https://models.example/v1",
+    OPENAI_API_KEY: "native-core-fetch-failure-key",
     FX_MODEL: "native/test-model",
   },
 });

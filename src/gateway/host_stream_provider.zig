@@ -1,8 +1,8 @@
 const std = @import("std");
 const stream_provider = @import("../core/agent/stream_provider.zig");
+const secret = @import("../core/auth/secret.zig");
 const io_mod = @import("../core/shared/io.zig");
-const gateway_client = @import("client.zig");
-const credential_authority = @import("../core/auth/credential_authority.zig");
+const openai_chat = @import("openai_chat.zig");
 
 const Allocator = std.mem.Allocator;
 const max_error_body_bytes = 1024 * 1024;
@@ -33,7 +33,6 @@ pub const Transport = struct {
 };
 
 pub const ProviderContext = struct {
-    build_fn: *const fn (Allocator, stream_provider.RequestData) anyerror![]u8,
     endpoint: Endpoint,
     transport: Transport,
 };
@@ -58,20 +57,24 @@ pub fn provider(context: *ProviderContext) stream_provider.Provider {
 }
 
 pub fn initContext(
-    build_fn: *const fn (Allocator, stream_provider.RequestData) anyerror![]u8,
     endpoint: Endpoint,
     transport: Transport,
 ) ProviderContext {
-    return .{ .build_fn = build_fn, .endpoint = endpoint, .transport = transport };
+    return .{ .endpoint = endpoint, .transport = transport };
 }
 
 fn stream(raw: ?*anyopaque, alloc: Allocator, request: stream_provider.ModelRequest) anyerror!stream_provider.Result {
     const context: *ProviderContext = @ptrCast(@alignCast(raw.?));
     const transport = context.transport;
-    const payload = try context.build_fn(alloc, request.data());
+    const endpoint = context.endpoint.url();
+    const payload = try openai_chat.buildRequest(
+        alloc,
+        request.data(),
+        openai_chat.modeForEndpoint(endpoint),
+    );
     defer alloc.free(payload);
     const auth = try std.fmt.allocPrint(alloc, "Bearer {s}", .{request.credential.secret});
-    defer alloc.free(auth);
+    defer secret.zeroAndFree(alloc, auth);
 
     const Header = struct { name: []const u8, value: []const u8 };
     var headers: std.ArrayList(Header) = .empty;
@@ -79,24 +82,13 @@ fn stream(raw: ?*anyopaque, alloc: Allocator, request: stream_provider.ModelRequ
     try headers.appendSlice(alloc, &.{
         .{ .name = "content-type", .value = "application/json" },
         .{ .name = "authorization", .value = auth },
-        .{ .name = "HTTP-Referer", .value = "https://github.com/vercel-labs/fx" },
-        .{ .name = "X-Title", .value = "fx" },
-        .{ .name = "ai-gateway-protocol-version", .value = "0.0.1" },
-        .{ .name = "ai-language-model-specification-version", .value = "4" },
-        .{ .name = "ai-language-model-id", .value = request.model },
-        .{ .name = "ai-language-model-streaming", .value = "true" },
-    });
-    if (request.credential.tenant) |team| if (team.len > 0) try headers.append(alloc, .{ .name = "x-vercel-ai-gateway-team", .value = team });
-    if (request.session_id) |session_id| if (session_id.len > 0) try headers.appendSlice(alloc, &.{
-        .{ .name = "x-session-id", .value = session_id },
-        .{ .name = "x-session-affinity", .value = session_id },
+        .{ .name = "accept", .value = "text/event-stream" },
     });
 
     var headers_json: std.Io.Writer.Allocating = .init(alloc);
     defer headers_json.deinit();
     try std.json.Stringify.value(headers.items, .{}, &headers_json.writer);
 
-    const endpoint = context.endpoint.url();
     try request.admission.admit();
     request.delivery.markPossiblySent();
     const handle = try transport.open("POST", endpoint, headers_json.writer.buffered(), payload);
@@ -123,13 +115,14 @@ fn stream(raw: ?*anyopaque, alloc: Allocator, request: stream_provider.ModelRequ
     var reader: HostStreamReader = undefined;
     reader.init(transport, handle, request.cancel_flag, request.cooperative_pulse);
     var events = request.events;
-    const completion = gateway_client.consumeGatewaySseStream(
+    const completion = openai_chat.consumeSse(
         alloc,
         &reader.interface,
         &events,
         EventBridge.content,
         EventBridge.toolStart,
         EventBridge.reasoning,
+        EventBridge.toolInput,
         request.cancel_flag,
         request.content_capture_limit,
     ) catch |err| switch (err) {
@@ -138,41 +131,9 @@ fn stream(raw: ?*anyopaque, alloc: Allocator, request: stream_provider.ModelRequ
     };
     return .{ .completed = .{
         .completion = completion,
-        .usage = gatewayUsageOutcome(request, completion),
+        .usage = .{ .immediate = null },
         .ownership = .owned,
     } };
-}
-
-fn gatewayUsageOutcome(
-    request: stream_provider.ModelRequest,
-    completion: @import("../core/shared/types.zig").ModelCompletion,
-) stream_provider.UsageOutcome {
-    const reference = gatewayUsageReference(request, completion) orelse
-        return .{ .unavailable = .possibly_billed };
-    return if (completion.billing != null)
-        .{ .immediate = reference }
-    else
-        .{ .deferred = reference };
-}
-
-fn gatewayUsageReference(
-    request: stream_provider.ModelRequest,
-    completion: @import("../core/shared/types.zig").ModelCompletion,
-) ?stream_provider.DeferredUsageReference {
-    const generation_id = completion.generation_id orelse return null;
-    const source = request.credential.source orelse return null;
-    return .{
-        .provider = .gateway,
-        .generation_id = generation_id,
-        .scope = gateway_client.generationBaseUrl(),
-        .tenant = request.credential.tenant,
-        .account_id = request.credential.account_id,
-        .credential_source = source,
-        .credential_identity = credential_authority.derive(
-            source,
-            request.credential.account_id,
-        ),
-    };
 }
 
 const EventBridge = struct {
@@ -186,6 +147,10 @@ const EventBridge = struct {
 
     fn reasoning(raw: *anyopaque, chunk: []const u8) void {
         sink(raw).emit(.{ .reasoning_delta = chunk });
+    }
+
+    fn toolInput(raw: *anyopaque, chunk: []const u8) void {
+        sink(raw).emit(.{ .tool_input_delta = chunk });
     }
 
     fn toolStart(raw: *anyopaque, id: []const u8, name: []const u8, label: ?[]const u8) void {

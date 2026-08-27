@@ -1764,7 +1764,7 @@ test "surface footer measurement reserves only the compact auth picker rows" {
     var ctx = surfaceTestContext(&input);
     ctx.auth_picker = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login }),
+        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login }),
         .selected_choice = .{ .source = .fx_login },
         .active_source = .fx_login,
         .include_skip = false,
@@ -1900,9 +1900,9 @@ test "surface footer keeps the selected auth source visible at minimum height" {
     var ctx = surfaceTestContext(&input);
     ctx.auth_picker = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initMany(&.{ .ai_gateway_api_key, .fx_login }),
+        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .fx_login }),
         .selected_choice = .{ .source = .fx_login },
-        .active_source = .ai_gateway_api_key,
+        .active_source = .api_key,
         .include_skip = false,
         .stage = .switch_credential,
     };

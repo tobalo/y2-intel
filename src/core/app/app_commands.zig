@@ -538,14 +538,14 @@ pub fn Handlers(comptime App: type) type {
                 try app.writeDomainNotice(.{
                     .topic = "",
                     .tone = .neutral,
-                    .body = "Opened https://fx.sh/feedback.",
+                    .body = "Opened https://github.com/tobalo/y2-intel/issues/new.",
                 }, true);
                 return;
             }
             try app.writeDomainNotice(.{
                 .topic = "",
                 .tone = .@"error",
-                .body = "Could not open https://fx.sh/feedback. Open it manually.",
+                .body = "Could not open https://github.com/tobalo/y2-intel/issues/new. Open it manually.",
             }, true);
         }
 
@@ -3834,7 +3834,7 @@ test "trace tool calls print errors first and mask obvious secrets" {
 
     var failed: diagnostics.ToolCallMetric = .{ .started_at_ms = 2000, .duration_ms = 9, .ok = false, .subagent_id = 3 };
     failed.setName("run_command");
-    failed.setArgs("{\"command\":\"AI_GATEWAY_API_KEY=abcdefghijklmnop zig build\"}");
+    failed.setArgs("{\"command\":\"Y2_API_KEY=abcdefghijklmnop zig build\"}");
     failed.setResult("failed with PASSWORD=abcdefghijklmnop");
     diagnostics.recordToolCall(failed);
 
@@ -3848,7 +3848,7 @@ test "trace tool calls print errors first and mask obvious secrets" {
     try std.testing.expect(error_pos < success_pos);
     try std.testing.expect(std.mem.find(u8, text, "source=subagent#3") != null);
     try std.testing.expect(std.mem.find(u8, text, "abcdefghijklmnop") == null);
-    try std.testing.expect(std.mem.find(u8, text, "AI_GATEWAY_API_KEY=[redacted]") != null);
+    try std.testing.expect(std.mem.find(u8, text, "Y2_API_KEY=[redacted]") != null);
     try std.testing.expect(std.mem.find(u8, text, "PASSWORD=[redacted]") != null);
 }
 

@@ -1627,7 +1627,7 @@ async function launchFx(
   options: FxLaunchOptions = {},
 ): Promise<void> {
   const environment = [
-    options.gatewayApiKey ? `AI_GATEWAY_API_KEY=${shQuote(options.gatewayApiKey)}` : null,
+    options.gatewayApiKey ? `Y2_API_KEY=${shQuote(options.gatewayApiKey)}` : null,
     options.gatewayChatUrl ? `FX_E2E_GATEWAY_CHAT_URL=${shQuote(options.gatewayChatUrl)}` : null,
     options.gatewayModelsUrl ? `FX_E2E_GATEWAY_MODELS_URL=${shQuote(options.gatewayModelsUrl)}` : null,
     options.permissionMode ? `FX_PERMISSION_MODE=${shQuote(options.permissionMode)}` : null,
@@ -2094,7 +2094,7 @@ class RenderLabTmux {
     const command = [
       "env",
       "-u",
-      "AI_GATEWAY_API_KEY",
+      "Y2_API_KEY",
       "-u",
       "VERCEL_OIDC_TOKEN",
       "FX_DISABLE_KEYCHAIN=1",
@@ -2298,7 +2298,7 @@ function preflightBinaryOnly(): void {
 
 function testEnv(fixture: Fixture, manifest: RenderLabManifest): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
-  delete env.AI_GATEWAY_API_KEY;
+  delete env.Y2_API_KEY;
   delete env.VERCEL_OIDC_TOKEN;
   env.FX_DISABLE_KEYCHAIN = "1";
   env.FX_SKIP_ONBOARDING = "1";

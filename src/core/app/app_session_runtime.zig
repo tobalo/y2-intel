@@ -9728,12 +9728,12 @@ test "resumed sessions install provider-scoped usage reconciliation authority" {
     try std.testing.expectEqual(types.CredentialSource.chatgpt_subscription, chatgpt.session.usage.replaced_source.?);
 
     var gateway = ReconciliationOriginApp{
-        .auth = .{ .source = .ai_gateway_api_key },
+        .auth = .{ .source = .api_key },
         .selected_provider = .gateway,
     };
     Runtime(ReconciliationOriginApp).startResumedSessionReconciliation(&gateway);
     try std.testing.expectEqual(model_provider.ProviderId.gateway, gateway.session.usage.replaced_provider.?);
-    try std.testing.expectEqual(types.CredentialSource.ai_gateway_api_key, gateway.session.usage.replaced_source.?);
+    try std.testing.expectEqual(types.CredentialSource.api_key, gateway.session.usage.replaced_source.?);
 }
 
 test "ensureCachedSessionTitle derives from the first prompt and then freezes" {

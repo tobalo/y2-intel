@@ -1473,7 +1473,7 @@ const FakeApp = struct {
         errdefer app.context_snapshot.deinit(alloc);
         var credential = credentials.Credential{
             .token = try alloc.dupe(u8, "api-key"),
-            .source = .ai_gateway_api_key,
+            .source = .api_key,
         };
         defer credential.deinit(alloc);
         _ = app.auth.adoptCredential(alloc, &credential);
@@ -1705,7 +1705,7 @@ const TestCatalogProvider = struct {
         self.saw_expected_input =
             std.mem.eql(u8, input.access.authorizationCredential() orelse "", "api-key") and
             input.access.teamContext() == null and
-            input.access.credentialSource() == .ai_gateway_api_key and
+            input.access.credentialSource() == .api_key and
             std.mem.eql(u8, input.endpoint, "/catalog") and
             input.cancel_flag == null and
             input.view == .full;

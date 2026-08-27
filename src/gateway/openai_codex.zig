@@ -640,7 +640,7 @@ test "OpenAI Codex rejects a wrong-origin credential before network I/O" {
     try std.testing.expectError(
         error.CodexSubscriptionCredentialRequired,
         agent_stream_provider.stream(std.testing.allocator, .{
-            .credential = .{ .secret = "gateway-key", .source = .ai_gateway_api_key },
+            .credential = .{ .secret = "gateway-key", .source = .api_key },
             .model = "gpt-5.6-sol",
             .retry_count = 1,
             .messages = &.{},

@@ -168,6 +168,14 @@ pub fn buildInputLineForRow(input: []const u8, cursor: usize, line_index: usize,
 const build_channel = update_target.Channel.parse(build_options.update_channel) orelse .stable;
 const welcome_build_label_bytes: usize = 96;
 const dev_revision_bytes: usize = 7;
+const welcome_logo =
+    \\██╗   ██╗██████╗
+    \\╚██╗ ██╔╝╚════██╗
+    \\ ╚████╔╝  █████╔╝
+    \\  ╚██╔╝  ██╔═══╝
+    \\   ██║   ███████╗
+    \\   ╚═╝   ╚══════╝
+;
 
 /// Dev builds ship on every merged PR, so the version alone cannot identify the
 /// binary: the header carries the commit and a brighter `[dev]` tag.
@@ -199,8 +207,8 @@ pub fn welcomeMessage(alloc: std.mem.Allocator) ![]u8 {
     );
     return std.fmt.allocPrint(
         alloc,
-        "{s}𝒇x{s}{s} {s} · Run /help for commands" ++ reset_style ++ "\n\n",
-        .{ subtitle_style, reset_style, dim_style, build_label },
+        "{s}{s}" ++ reset_style ++ "\n{s}Y2 INFORMATION DOMINANCE · {s} · Run /help for commands" ++ reset_style ++ "\n\n",
+        .{ subtitle_style, welcome_logo, dim_style, build_label },
     );
 }
 
@@ -414,7 +422,7 @@ pub fn buildHintLine(
 
     var end: usize = 0;
     if (!awaiting_permission and !has_api_key) {
-        appendStatusSegment(out, &end, "run /login");
+        appendStatusSegment(out, &end, "run /setup");
     }
     if (!awaiting_permission and queued_count > 0) {
         var queued_buf: [32]u8 = undefined;
@@ -685,7 +693,7 @@ fn titleOutput(raw: ?*anyopaque) std.Io.File {
 }
 
 const terminal_title_osc_prefix = "\x1b]2;";
-const terminal_title_display_prefix = "fx · ";
+const terminal_title_display_prefix = "Y2 · ";
 const terminal_title_max_content_bytes: usize = 128;
 const terminal_title_max_label_bytes = terminal_title_max_content_bytes - terminal_title_display_prefix.len;
 
@@ -751,7 +759,7 @@ test "terminal title writes the label to the caller's output file" {
     defer written_file.close(io_mod.getIo());
     const written = try io_mod.readFileToEnd(alloc, &written_file, 128);
     defer alloc.free(written);
-    try std.testing.expectEqualStrings("\x1b]2;fx · release notes\x07", written);
+    try std.testing.expectEqualStrings("\x1b]2;Y2 · release notes\x07", written);
 }
 
 test "terminal title sanitizes and bounds untrusted labels" {
@@ -768,7 +776,7 @@ test "terminal title sanitizes and bounds untrusted labels" {
     const written = try io_mod.readFileToEnd(alloc, &written_file, 512);
     defer alloc.free(written);
     try std.testing.expect(written.len <= terminal_title_osc_prefix.len + terminal_title_max_content_bytes + 1);
-    try std.testing.expect(std.mem.startsWith(u8, written, "\x1b]2;fx · safe]2;owned"));
+    try std.testing.expect(std.mem.startsWith(u8, written, "\x1b]2;Y2 · safe]2;owned"));
     try std.testing.expect(std.mem.endsWith(u8, written, "...\x07"));
     try std.testing.expectEqual(@as(usize, 1), std.mem.count(u8, written, "\x07"));
     try std.testing.expect(std.mem.find(u8, written[terminal_title_osc_prefix.len..], "\x1b") == null);
@@ -879,12 +887,13 @@ test "welcomeMessage shows version and help hint" {
     const message = try welcomeMessage(std.testing.allocator);
     defer std.testing.allocator.free(message);
 
-    try std.testing.expect(std.mem.find(u8, message, "𝒇x") != null);
+    try std.testing.expect(std.mem.find(u8, message, "██╗   ██╗██████╗") != null);
+    try std.testing.expect(std.mem.find(u8, message, "Y2 INFORMATION DOMINANCE") != null);
     try std.testing.expect(std.mem.find(u8, message, main.version) != null);
     try std.testing.expect(std.mem.find(u8, message, "/help") != null);
 }
 
-test "welcomeMessage keeps only the app name bright" {
+test "welcomeMessage keeps the Y2 logo bright" {
     initTheme(false, null);
     const message = try welcomeMessage(std.testing.allocator);
     defer std.testing.allocator.free(message);
@@ -898,8 +907,8 @@ test "welcomeMessage keeps only the app name bright" {
     );
     const expected = try std.fmt.allocPrint(
         std.testing.allocator,
-        "{s}𝒇x{s}{s} {s} · Run /help for commands" ++ reset_style ++ "\n\n",
-        .{ subtitle_style, reset_style, dim_style, build_label },
+        "{s}{s}" ++ reset_style ++ "\n{s}Y2 INFORMATION DOMINANCE · {s} · Run /help for commands" ++ reset_style ++ "\n\n",
+        .{ subtitle_style, welcome_logo, dim_style, build_label },
     );
     defer std.testing.allocator.free(expected);
 
@@ -1080,7 +1089,7 @@ test "buildHintLine keeps system labels and dot separators" {
     }, 256, &buf);
     const expected = try std.fmt.allocPrint(
         std.testing.allocator,
-        "run /login · queued 2 · {s}auto{s} · opus 4.8 · low · ⚡︎ · Context: 43k/1000k 4%",
+        "run /setup · queued 2 · {s}auto{s} · opus 4.8 · low · ⚡︎ · Context: 43k/1000k 4%",
         .{ permission_auto_style, statusline_style },
     );
     defer std.testing.allocator.free(expected);

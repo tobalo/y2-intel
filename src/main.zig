@@ -1687,14 +1687,8 @@ const App = struct {
                     .vision_fallback = host_profile.tools,
                 },
                 .presentation = provider_catalog.find(.gateway),
-                .auth_strategy = .vercel,
-                .fallback_model_capabilities_fn = vercel_model_policy.capabilitiesForModel,
+                .auth_strategy = .api_key,
                 .agent_stream = js_host_stream_provider.provider(),
-                .model_catalog = js_host_model_catalog.provider,
-                .permission_reviewer = if (comptime host_profile.tools)
-                    builtin_gateway.permission_reviewer.provider
-                else
-                    null,
             });
         }
         var providers = builtin_providers.native;
@@ -3917,6 +3911,7 @@ test {
     _ = @import("gateway/openai_codex_models.zig");
     _ = @import("gateway/openai_codex.zig");
     _ = @import("gateway/openai_codex_permission_reviewer.zig");
+    _ = @import("gateway/openai_chat_permission_reviewer.zig");
     _ = @import("core/auth/grok_session.zig");
     _ = @import("core/auth/grok_oauth.zig");
     _ = @import("gateway/xai_grok_models.zig");
@@ -3926,7 +3921,6 @@ test {
     _ = @import("core/auth/oauth.zig");
     _ = @import("core/auth/oauth_session.zig");
     _ = @import("core/workspace/file_index.zig");
-    _ = @import("gateway/vercel_protocol.zig");
     _ = @import("core/gateway/provider_set.zig");
     _ = @import("core/github/git_context.zig");
     _ = @import("core/github/github_publish.zig");
@@ -4057,4 +4051,6 @@ test {
     _ = @import("core/agent/worker_runtime.zig");
     _ = @import("gateway/client.zig");
     _ = @import("gateway/host_stream_provider.zig");
+    _ = @import("gateway/js_host_model_catalog.zig");
+    _ = @import("gateway/openai_chat.zig");
 }

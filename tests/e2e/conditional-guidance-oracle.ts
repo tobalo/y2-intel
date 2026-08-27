@@ -113,7 +113,26 @@ export type CapabilityReferenceFinding = {
 };
 
 export function parseGatewayRequest(body: string): GatewayRequest {
-  return JSON.parse(body) as GatewayRequest;
+  const parsed = JSON.parse(body) as GatewayRequest & {
+    messages?: GatewayPromptMessage[];
+  };
+  if (parsed.prompt) return parsed;
+
+  return {
+    ...parsed,
+    prompt: parsed.messages ?? [],
+    tools: (parsed.tools ?? []).map((tool) => {
+      const fn = tool.function;
+      if (!fn || typeof fn !== "object") return tool;
+      const functionTool = fn as Record<string, unknown>;
+      return {
+        ...tool,
+        name: functionTool.name,
+        description: functionTool.description,
+        inputSchema: functionTool.parameters,
+      };
+    }),
+  };
 }
 
 export function contentText(content: unknown): string {

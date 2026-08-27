@@ -153,7 +153,7 @@ try {
       env: {
         ...process.env,
         HOME: home,
-        AI_GATEWAY_API_KEY: "mcp-conformance-placeholder",
+        Y2_API_KEY: "mcp-conformance-placeholder",
         VERCEL_OIDC_TOKEN: "",
         FX_AUTO_UPGRADE: "0",
         FX_DISABLE_KEYCHAIN: "1",
@@ -165,7 +165,7 @@ try {
             }
           : {}),
         FX_GATEWAY_BASE_URL: gateway.baseUrl,
-        FX_GATEWAY_CHAT_URL: gateway.chatUrl,
+        FX_API_CHAT_URL: gateway.chatUrl,
         FX_MODEL: FAKE_GATEWAY_MODEL,
         FX_SKIP_ONBOARDING: "1",
         FX_SOUND: "0",

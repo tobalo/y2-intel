@@ -43,7 +43,7 @@ function gatewayEnvironment(home: string) {
   if (!gateway) throw new Error("fake gateway not started");
   return {
     HOME: home,
-    AI_GATEWAY_API_KEY: "test-key",
+    Y2_API_KEY: "test-key",
     FX_GATEWAY_BASE_URL: gateway.baseUrl,
     FX_E2E_GATEWAY_CHAT_URL: gateway.chatUrl,
     FX_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,

@@ -1674,7 +1674,7 @@ pub const PromptFixture = struct {
             .images = self.images[0..],
             .model = @constCast("anthropic/claude-opus-4.6"),
             .api_key = @constCast("key"),
-            .credential_source = .ai_gateway_api_key,
+            .credential_source = .api_key,
             .permission_mode = .ask,
             .history = self.history[0..],
             .grants = self.grants[0..],
@@ -1981,7 +1981,7 @@ pub fn expectGatewayPromptFinalUserText(gateway: *const FakeGateway, index: usiz
     var parsed = try std.json.parseFromSlice(std.json.Value, alloc, gateway.request_bodies.items[index], .{});
     defer parsed.deinit();
 
-    const prompt = parsed.value.object.get("prompt").?.array.items;
+    const prompt = parsed.value.object.get("messages").?.array.items;
     try std.testing.expect(prompt.len > 0);
     var i = prompt.len;
     while (i > 0) {

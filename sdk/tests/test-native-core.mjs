@@ -11,7 +11,7 @@ const events = [];
 const agent = await createFxAgent({
   nativeAddon: addon,
   backend: "native",
-  env: { AI_GATEWAY_API_KEY: "native-core-test-key" },
+  env: { Y2_API_KEY: "native-core-test-key" },
   onEvent(event) { events.push(event); },
 });
 const session = await agent.createSession();
