@@ -21,7 +21,10 @@ const max_sse_aggregate_bytes: usize = 64 * 1024 * 1024;
 const max_sse_events: usize = 100_000;
 const max_tool_calls: usize = 128;
 const max_tool_identity_bytes: usize = 1024;
-const max_tool_arguments_bytes: usize = 4 * 1024 * 1024;
+// Tool JSON includes field names and escaping around payloads whose own product
+// limit can reach 4 MiB. Keep the transport envelope bounded without rejecting
+// an otherwise valid maximum-size tool argument before tool validation runs.
+const max_tool_arguments_bytes: usize = 8 * 1024 * 1024;
 const transfer_buffer_bytes: usize = 256 * 1024;
 const connect_timeout_ms: i64 = 30_000;
 const user_agent = "y2-intel-harness/" ++ build_options.app_version;

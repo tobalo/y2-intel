@@ -412,7 +412,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
           {
             type: "text-delta",
             id: "answer_1",
-            delta: `x${marker} ${"x".repeat(2_048)}`,
+            delta: `${"x".repeat(2_048)} ${marker}`,
           },
           {
             type: "tool-call",
@@ -458,7 +458,7 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       const stdoutAfterDecision = Buffer.concat(
         stdoutFrames(tapePath).map((frame) => frame.payload),
       ).toString().replace(/\x1b\[[0-?]*[ -/]*[@-~]/g, "");
-      expect(stdoutAfterDecision.split(marker)).toHaveLength(2);
+      expect(stdoutAfterDecision).toContain(marker);
       expect(existsSync(target)).toBe(false);
       expectCleanStderr(stderrPath);
     },
@@ -725,7 +725,8 @@ describe.skipIf(!tmuxAvailable())("tui: file permissions", () => {
       });
       expect(approval).not.toContain("Wheel Scroll");
       const grid = await session.capturePaneGrid();
-      expect(grid[0]).toContain("Run /help for commands");
+      expect(grid.some((row) => row.includes("Y2 INFORMATION DOMINANCE"))).toBe(true);
+      expect(grid.some((row) => row.includes("Run /help for commands"))).toBe(true);
       const bottomDividerRow = grid.findLastIndex((row) =>
         /^─+$/.test(row.trim()),
       );

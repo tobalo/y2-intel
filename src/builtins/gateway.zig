@@ -17,6 +17,7 @@ const web_search_policy = @import("../core/tooling/web_search_policy.zig");
 const web_search_provider = @import("../core/tooling/web_search_provider.zig");
 const http_runtime = @import("../gateway/http_runtime.zig");
 const openai_chat = @import("../gateway/openai_chat.zig");
+const openai_model_catalog = @import("../gateway/openai_model_catalog.zig");
 
 const Allocator = std.mem.Allocator;
 const oauth_request_timeout_ms: i64 = 15_000;
@@ -37,11 +38,11 @@ pub fn agentChatUrl() []const u8 {
 }
 
 pub const cli_model_catalog_provider = gateway_provider.CliModelCatalogProvider{
-    .fetch_fn = fetchStaticCliModelCatalog,
+    .fetch_fn = fetchCliModelCatalog,
 };
 
 pub const model_catalog_provider = model_catalog.Provider{
-    .fetch_fn = fetchStaticModelCatalog,
+    .fetch_fn = fetchModelCatalog,
 };
 
 pub const api_key_validator = api_key_validator_contract.Provider{
@@ -119,6 +120,28 @@ fn validateApiKey(
     const trimmed = std.mem.trim(u8, api_key, " \t\r\n");
     if (trimmed.len == 0 or trimmed.len != api_key.len or trimmed.len > 4096) return .refused;
     return .accepted;
+}
+
+fn fetchCliModelCatalog(
+    _: ?*anyopaque,
+    alloc: Allocator,
+    input: gateway_provider.CliModelCatalogInput,
+) gateway_provider.CliModelCatalogResult {
+    if (usesDirectOpenAiEndpoint()) {
+        return openai_model_catalog.cli_provider.fetch(alloc, input);
+    }
+    return fetchStaticCliModelCatalog(null, alloc, input);
+}
+
+fn fetchModelCatalog(
+    _: ?*anyopaque,
+    alloc: Allocator,
+    input: model_catalog.FetchInput,
+) Allocator.Error!model_catalog.ProviderResult {
+    if (usesDirectOpenAiEndpoint()) {
+        return openai_model_catalog.provider.fetch(alloc, input);
+    }
+    return fetchStaticModelCatalog(null, alloc, input);
 }
 
 fn fetchStaticCliModelCatalog(

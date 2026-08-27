@@ -369,9 +369,8 @@ function fakeGatewayEnv(
   return {
     HOME: root.home,
     OPENAI_API_KEY: "fake-vision-route-key",
-    OPENAI_BASE_URL: gateway.baseUrl,
+    OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
     Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
     Y2_MODEL: model,
   };
 }

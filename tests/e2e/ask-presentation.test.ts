@@ -14,6 +14,7 @@ import { join } from "node:path";
 import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   FAKE_GATEWAY_MODEL,
+  findOpenAiToolCall,
   fakeGatewayFinalText,
   fakeGatewayPermissionDecision,
   fakeGatewaySse,
@@ -87,9 +88,8 @@ function gatewayEnv(
     Y2_SKIP_ONBOARDING: "1",
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_PERMISSION_MODE: "auto",
-    OPENAI_BASE_URL: gateway.baseUrl,
+    OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
     Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
   };
 }
 
@@ -111,20 +111,21 @@ function fakeGatewayStreamingText(lines: string[], delayMs: number) {
         for (const line of lines) {
           controller.enqueue(encoder.encode(
             `data: ${JSON.stringify({
-              type: "text-delta",
               id: "answer_1",
-              delta: `${line}\n`,
+              object: "chat.completion.chunk",
+              choices: [{ index: 0, delta: { content: `${line}\n` }, finish_reason: null }],
             })}\n\n`,
           ));
           if (delayMs > 0) await Bun.sleep(delayMs);
         }
         controller.enqueue(encoder.encode(
           `data: ${JSON.stringify({
-            type: "finish",
-            finishReason: { unified: "stop", raw: "stop" },
+            id: "answer_1",
+            object: "chat.completion.chunk",
+            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
             usage: {
-              inputTokens: { total: 3 },
-              outputTokens: { total: lines.length },
+              prompt_tokens: 3,
+              completion_tokens: lines.length,
             },
           })}\n\ndata: [DONE]\n\n`,
         ));
@@ -279,23 +280,27 @@ describe("y2 ask presentation", () => {
 
     const firstRequest = JSON.parse(gateway.requests[0]!.body) as {
       tools: Array<{
-        name?: string;
-        description?: string;
-        inputSchema?: {
-          properties?: Record<string, {
-            enum?: string[];
-            description?: string;
-          }>;
-          required?: string[];
-          additionalProperties?: boolean;
+        type?: string;
+        function?: {
+          name?: string;
+          description?: string;
+          parameters?: {
+            properties?: Record<string, {
+              enum?: string[];
+              description?: string;
+            }>;
+            required?: string[];
+            additionalProperties?: boolean;
+          };
         };
       }>;
     };
-    const terminalTool = firstRequest.tools.find(({ name }) => name === "terminal");
-    expect(terminalTool?.description).toBe(
+    const terminalTool = firstRequest.tools.find(({ function: definition }) => definition?.name === "terminal");
+    expect(terminalTool?.type).toBe("function");
+    expect(terminalTool?.function?.description).toBe(
       "Run one captured command with a required finite timeout_ms and return its result.",
     );
-    const terminalSchema = terminalTool?.inputSchema;
+    const terminalSchema = terminalTool?.function?.parameters;
     expect(terminalSchema?.properties?.action?.enum).toEqual(["exec"]);
     expect(Object.keys(terminalSchema?.properties ?? {})).toEqual([
       "action",
@@ -348,7 +353,11 @@ describe("y2 ask presentation", () => {
       "terminal arguments must match the advertised action schema",
     );
     expect(gateway.requests[5]!.body).not.toContain("tool_permission_denied");
-    expect(gateway.requests[5]!.body).toContain('"request"');
+    const nestedExecCall = findOpenAiToolCall(
+      gateway.requests[5]!.body,
+      "terminal-nested-exec",
+    );
+    expect(JSON.parse(nestedExecCall?.function?.arguments ?? "{}")).toHaveProperty("request");
     expect(existsSync(nestedExecMarker)).toBe(false);
     expect(gateway.requests[6]!.body).toContain("neighbor-exec");
     expect(
@@ -695,20 +704,21 @@ describe("y2 ask presentation", () => {
               for (const line of answerLines) {
                 controller.enqueue(encoder.encode(
                   `data: ${JSON.stringify({
-                    type: "text-delta",
                     id: "answer_1",
-                    delta: `${line}\n`,
+                    object: "chat.completion.chunk",
+                    choices: [{ index: 0, delta: { content: `${line}\n` }, finish_reason: null }],
                   })}\n\n`,
                 ));
               }
               await responseGate;
               controller.enqueue(encoder.encode(
                 `data: ${JSON.stringify({
-                  type: "finish",
-                  finishReason: { unified: "stop", raw: "stop" },
+                  id: "answer_1",
+                  object: "chat.completion.chunk",
+                  choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
                   usage: {
-                    inputTokens: { total: 3 },
-                    outputTokens: { total: answerLines.length },
+                    prompt_tokens: 3,
+                    completion_tokens: answerLines.length,
                   },
                 })}\n\ndata: [DONE]\n\n`,
               ));

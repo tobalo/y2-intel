@@ -25,7 +25,6 @@ const AUTH_ENV_KEYS = [
 const DEFAULT_UNSET_ENV_KEYS = [
   ...AUTH_ENV_KEYS,
   "Y2_API_CHAT_URL",
-  "Y2_E2E_GATEWAY_MODELS_URL",
   "Y2_E2E_UPGRADE_BASE_URL",
   "Y2_PERMISSION_MODE",
 ] as const;
@@ -465,6 +464,8 @@ export type FakeGatewayResponse =
 
 export type FakeGatewayModel = {
   id: string;
+  object?: string;
+  created?: number;
   type?: string;
   owned_by?: string;
   released?: number;
@@ -520,8 +521,9 @@ function serveFakeGateway(
         return Response.json({
           data: models ?? [{
             id: FAKE_GATEWAY_MODEL,
-            type: "language",
-            tags: ["tool-use"],
+            object: "model",
+            created: 1,
+            owned_by: "test",
           }],
         });
       }

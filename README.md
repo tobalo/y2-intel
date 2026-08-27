@@ -65,6 +65,8 @@ y2
 
 `OPENAI_BASE_URL` may include `/chat/completions`; otherwise y2 appends it. `Y2_API_CHAT_URL` overrides the full request URL and also enables direct OpenAI-compatible mode. Direct mode sends standard chat messages and function-tool definitions without routing through an intermediary gateway.
 
+In direct mode, `y2 models` and `/model` query the endpoint's standard sibling `/models` route. If a provider does not expose that route, y2 can still run the configured `Y2_MODEL`, but catalog browsing is unavailable.
+
 Or use an eligible ChatGPT subscription through OpenAI Codex OAuth:
 
 ```bash

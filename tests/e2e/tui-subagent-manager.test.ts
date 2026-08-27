@@ -167,20 +167,10 @@ function controlledTextResponse(initialText: string) {
 }
 
 function providerErrorResponse(detail: string): Response {
-  return fakeGatewaySse([
-    {
-      type: "error",
-      error: { code: "provider_error", message: detail },
-    },
-    {
-      type: "finish",
-      finishReason: { unified: "error", raw: "provider_error" },
-      usage: {
-        inputTokens: { total: 1 },
-        outputTokens: { total: 1 },
-      },
-    },
-  ]);
+  return new Response(
+    JSON.stringify({ error: { code: "provider_error", message: detail } }),
+    { status: 503, headers: { "content-type": "application/json" } },
+  );
 }
 
 function normalizeThinkingFrame(grid: string[]) {
@@ -4334,9 +4324,8 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
           env: {
             HOME: fixture.home,
             OPENAI_API_KEY: "child-local-models",
-            OPENAI_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
             Y2_API_CHAT_URL: gateway.chatUrl,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_AUTO_UPGRADE: "0",
             Y2_DISABLE_KEYCHAIN: "1",
@@ -6406,7 +6395,7 @@ describe.skipIf(!tmuxAvailable())("tui: Agents & processes", () => {
       const tapePath = join(root!, "selected-child-route-recovery.y2tape");
       const childPrompt = "SELECTED_CHILD_ROUTE_RECOVERY";
       const finalText = "SELECTED_CHILD_RECOVERED";
-      const retryText = "⚠ Provider unavailable · provider_error: selected child route failed once";
+      const retryText = "⚠ Provider unavailable · HTTP 503 · provider_error: selected child route failed once";
       let childRequests = 0;
       let releaseProviderError!: (response: Response) => void;
       const providerError = new Promise<Response>((resolve) => {

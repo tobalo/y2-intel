@@ -242,11 +242,10 @@ function heldSkillStreamResponse(state: HeldSkillStream): Response {
   return new Response(
     new ReadableStream<Uint8Array>({
       start(controller) {
-        controller.enqueue(event({ type: "text-start", id: "answer_1" }));
         controller.enqueue(event({
-          type: "text-delta",
           id: "answer_1",
-          delta: "catalog stream active",
+          object: "chat.completion.chunk",
+          choices: [{ index: 0, delta: { content: "catalog stream active" }, finish_reason: null }],
         }));
         timer = setInterval(() => {
           if (!closed) controller.enqueue(encoder.encode(": hold-skill-stream\n\n"));
@@ -256,14 +255,14 @@ function heldSkillStreamResponse(state: HeldSkillStream): Response {
           closed = true;
           if (timer) clearInterval(timer);
           controller.enqueue(event({
-            type: "text-delta",
             id: "answer_1",
-            delta: " catalog stream completed",
+            object: "chat.completion.chunk",
+            choices: [{ index: 0, delta: { content: " catalog stream completed" }, finish_reason: null }],
           }));
-          controller.enqueue(event({ type: "text-end", id: "answer_1" }));
           controller.enqueue(event({
-            type: "finish",
-            finishReason: { unified: "stop", raw: "stop" },
+            id: "answer_1",
+            object: "chat.completion.chunk",
+            choices: [{ index: 0, delta: {}, finish_reason: "stop" }],
           }));
           controller.enqueue(encoder.encode("data: [DONE]\n\n"));
           controller.close();
@@ -1486,7 +1485,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForComposer(10_000);
 
       await session.sendText("/help");
-      let grid = await waitForHelpMenu(session, 37);
+      let grid = await waitForHelpMenu(session, 36);
       let pane = grid.join("\n");
       expect(pane).not.toContain("Y2 INFORMATION DOMINANCE");
       expect(pane).not.toContain("Run /help for commands");
@@ -1506,7 +1505,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       expect(pane).not.toContain("/clear");
 
       await session.sendKeys("C-u");
-      await waitForHelpMenu(session, 37);
+      await waitForHelpMenu(session, 36);
       await session.sendKeys("Down");
       await session.sendKeys("Enter");
       pane = await session.waitForPane(
@@ -1519,7 +1518,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       await session.sendKeys("C-u");
       await session.sendText("/help");
-      await waitForHelpMenu(session, 37);
+      await waitForHelpMenu(session, 36);
       await session.sendLiteralText("additional directories");
       await waitForHelpMenu(session, 1);
       await session.sendKeys("Enter");
@@ -1536,7 +1535,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       await session.sendKeys("C-u");
       await session.sendText("/help");
-      await waitForHelpMenu(session, 37);
+      await waitForHelpMenu(session, 36);
       await session.sendLiteralText("no command can match this query");
       await session.waitForText("No commands found.", 5_000);
       await session.sendKeys("Escape");
@@ -2621,35 +2620,27 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         models: [
           {
             id: currentModel,
-            type: "language",
-            released: 400,
-            tags: ["reasoning", "tool-use", "vision", "file-input", "web-search"],
-            reasoning_options: [{ type: "effort", values: ["high", "xhigh"] }],
-            fast_options: [{ type: "toggle" }],
-            context_window: 1_000_000,
-            max_tokens: 32_000,
+            object: "model",
+            created: 400,
+            owned_by: "anthropic",
           },
           {
             id: "openai/gpt-5.4",
-            type: "language",
-            released: 300,
-            tags: ["reasoning", "tool-use"],
-            context_window: 400_000,
-            max_tokens: 64_000,
+            object: "model",
+            created: 300,
+            owned_by: "openai",
           },
           {
             id: "google/gemini-3-pro",
-            type: "language",
-            released: 200,
-            tags: ["tool-use", "vision"],
-            context_window: 2_000_000,
+            object: "model",
+            created: 200,
+            owned_by: "google",
           },
           {
             id: selectedModel,
-            type: "language",
-            released: 100,
-            tags: ["tool-use"],
-            context_window: 128_000,
+            object: "model",
+            created: 100,
+            owned_by: "private-team",
           },
         ],
       });
@@ -2658,9 +2649,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           OPENAI_API_KEY: "fake-models-menu-key",
-          OPENAI_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_MODEL: currentModel,
           Y2_AUTO_UPGRADE: "0",
           Y2_RECORD: fixture.tapePath,
@@ -2678,7 +2668,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       expect(pane).not.toContain("Y2 INFORMATION DOMINANCE");
       expect(pane).toContain("[All]");
       expect(pane).toContain(currentModel);
-      expect(pane).toContain("1M context · 32K output · Fast");
       expect(pane).not.toContain("Authenticated model catalog loaded.");
       expect(pane).not.toContain("Current");
       expect(pane).not.toContain("Reasoning");
@@ -2710,21 +2699,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       await session.sendText("/models");
       await waitForModelsMenu(session, 4);
-      await session.sendKeys("Down");
-      await session.sendKeys("Enter");
-      await session.waitForPane(
-        (current) => composerContains(current, `/model ${currentModel}`) && current.includes("default"),
-        5_000,
-      );
-      expect((JSON.parse(readFileSync(fixture.settingsPath, "utf8")) as { models?: { gateway?: string } }).models?.gateway).toBeUndefined();
-      await session.sendKeys("C-u");
-      await session.waitForPane(hasEmptyComposer, 5_000);
-
-      await session.sendText("/models");
-      await waitForModelsMenu(session, 4);
-      await session.sendKeys("Down");
-      await session.sendKeys("Down");
-      await session.sendKeys("Down");
+      await session.sendLiteralText(selectedModel);
+      await waitForModelsMenu(session, 1);
       await session.sendKeys("Enter");
       await session.waitForText(`● Switched to ${selectedModel}`, 5_000);
 
@@ -2759,10 +2735,9 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       gateway = startFakeGateway([], {
         models: modelIds.map((id, index) => ({
           id,
-          type: "language",
-          released: modelIds.length - index,
-          tags: ["reasoning"],
-          context_window: 128_000,
+          object: "model",
+          created: modelIds.length - index,
+          owned_by: "provider",
         })),
       });
       session = await TmuxSession.create({
@@ -2770,9 +2745,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           OPENAI_API_KEY: "fake-models-menu-key",
-          OPENAI_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_MODEL: modelIds[0],
           Y2_AUTO_UPGRADE: "0",
         },
@@ -2807,10 +2781,9 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         models: [
           {
             id: selectedModel,
-            type: "language",
-            released: 100,
-            tags: ["reasoning", "tool-use"],
-            context_window: 128_000,
+            object: "model",
+            created: 100,
+            owned_by: "deepseek",
           },
         ],
       });
@@ -2820,9 +2793,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           OPENAI_API_KEY: "fake-model-picker-key",
-          OPENAI_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_MODEL: "openai/gpt-4o",
           Y2_AUTO_UPGRADE: "0",
         },

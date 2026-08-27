@@ -4042,4 +4042,5 @@ test {
     _ = @import("gateway/host_stream_provider.zig");
     _ = @import("gateway/js_host_model_catalog.zig");
     _ = @import("gateway/openai_chat.zig");
+    _ = @import("gateway/openai_model_catalog.zig");
 }

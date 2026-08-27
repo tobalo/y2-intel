@@ -192,9 +192,8 @@ function gatewayEnv(
   return {
     HOME: home,
     OPENAI_API_KEY: "fake-file-paths-key",
-    OPENAI_BASE_URL: gateway.baseUrl,
+    OPENAI_BASE_URL: `${gateway.baseUrl}/v1`,
     Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
     Y2_MODEL: MODEL,
     Y2_AUTO_UPGRADE: "0",
     ...extra,

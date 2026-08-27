@@ -977,16 +977,22 @@ printf '${trailingMarker}   '
       await active.waitForText(ansiMarker, TIMEOUT);
       const fullHead = await active.capturePane();
       expect(fullHead).toContain(ansiMarker);
-      expect(fullHead).toContain(crMarker);
-      expect(fullHead).toContain("NUL:\\x00:END");
-      expect(fullHead).toContain("INVALID:\\xff:END");
-      expect(fullHead).not.toContain("CR_STAGE_01");
       expect(fullHead).not.toContain("\\x1b[31m");
       await active.sendHexBytes(["1b", "5b", "3c", "36", "35", "3b", "31", "3b", "31", "4d"]);
-      const boundaryViewport = await active.waitForPane(
-        (pane) => pane !== fullHead && pane.includes("BOUNDARY_LEADING"),
+      const controlViewport = await active.waitForPane(
+        (pane) => pane !== fullHead && pane.includes("NUL:\\x00:END"),
         TIMEOUT,
       );
+      const controlViewports = `${fullHead}\n${controlViewport}`;
+      expect(controlViewports).toContain(crMarker);
+      expect(controlViewports).toContain("NUL:\\x00:END");
+      expect(controlViewports).not.toContain("CR_STAGE_01");
+      await active.sendHexBytes(["1b", "5b", "3c", "36", "35", "3b", "31", "3b", "31", "4d"]);
+      const boundaryViewport = await active.waitForPane(
+        (pane) => pane !== controlViewport && pane.includes("BOUNDARY_LEADING"),
+        TIMEOUT,
+      );
+      expect(`${controlViewports}\n${boundaryViewport}`).toContain("INVALID:\\xff:END");
       expect(boundaryViewport).toContain("BOUNDARY_LEADING");
       await active.sendHexBytes(["1b", "5b", "3c", "36", "35", "3b", "31", "3b", "31", "4d"]);
       const literalViewport = await active.waitForPane(

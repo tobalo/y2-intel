@@ -16,7 +16,6 @@ else
     struct {};
 
 const Allocator = std.mem.Allocator;
-const e2e_gateway_models_url_env = "Y2_E2E_GATEWAY_MODELS_URL";
 
 const ModelCacheState = enum {
     idle,
@@ -776,45 +775,6 @@ fn findCatalogModel(catalog: []const model_catalog.ModelCatalogEntry, model: []c
     }
     return null;
 }
-
-var stable_test_environ: ?*std.process.Environ.Map = null;
-
-fn stableEmptyTestEnviron() !*const std.process.Environ.Map {
-    if (stable_test_environ) |map| return map;
-
-    const alloc = std.heap.page_allocator;
-    const map = try alloc.create(std.process.Environ.Map);
-    map.* = std.process.Environ.Map.init(alloc);
-    stable_test_environ = map;
-    return map;
-}
-
-const TestEnv = struct {
-    alloc: Allocator,
-    map: std.process.Environ.Map,
-
-    fn install(alloc: Allocator, models_url: []const u8) !*TestEnv {
-        _ = try stableEmptyTestEnviron();
-
-        const self = try alloc.create(TestEnv);
-        errdefer alloc.destroy(self);
-        self.* = .{
-            .alloc = alloc,
-            .map = std.process.Environ.Map.init(alloc),
-        };
-        errdefer self.map.deinit();
-        try self.map.put(e2e_gateway_models_url_env, models_url);
-        io_mod.setEnvironMap(&self.map);
-        return self;
-    }
-
-    fn deinit(self: *TestEnv) void {
-        if (stable_test_environ) |map| io_mod.setEnvironMap(map);
-        self.map.deinit();
-        const alloc = self.alloc;
-        alloc.destroy(self);
-    }
-};
 
 fn waitForWarmup(runtime: *Runtime) !void {
     var remaining_ms: u64 = 5000;

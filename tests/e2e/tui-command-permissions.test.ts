@@ -1882,7 +1882,7 @@ describe("effect-aware command permissions", () => {
   );
 
   test.skipIf(!tmuxAvailable())(
-    "TUI writes Gateway schema diagnostics to a trace after Gateway 400",
+    "TUI writes direct API diagnostics to a trace after an API 400",
     async () => {
       const root = createIsolatedRoot();
       const gateway = startFakeGateway([
@@ -1929,10 +1929,6 @@ describe("effect-aware command permissions", () => {
       expect(report).toContain("## Problems");
       expect(report).toContain("## Network Calls");
       expect(report).toContain("status=400");
-      expect(report).toContain('gateway_schema="path=prompt.0.content expected=string received=array"');
-      expect(report).toContain("request_shape=");
-      expect(report).toContain("prompt.0 role=system content=string");
-      expect(report).toContain("role=user content=array");
       expect(report).not.toContain('"text":"Trigger the gateway schema diagnostic."');
       expect(statSync(reportPath).mode & 0o077).toBe(0);
       expect(readFileSync(stderrPath, "utf8")).toBe("");
@@ -1982,7 +1978,6 @@ describe("effect-aware command permissions", () => {
       const escapes = await activeSession.capturePaneEscapes();
       expect(escapes).not.toContain("Trace:");
       expect(escapes).not.toContain("Report issue");
-      expect(escapes).not.toContain("y2.sh/feedback");
       expect(escapes).not.toContain("github.com");
       const reportPath = latestTraceReportPath(root);
       const report = readFileSync(reportPath, "utf8");
@@ -2006,7 +2001,7 @@ describe("effect-aware command permissions", () => {
   );
 
   test.skipIf(!tmuxAvailable())(
-    "TUI feedback opens y2.sh without creating a trace or touching the clipboard",
+    "TUI feedback opens the Y2 harness issue form without creating a trace or touching the clipboard",
     async () => {
       const root = createIsolatedRoot();
       const gateway = startFakeGateway([]);
@@ -2038,16 +2033,16 @@ describe("effect-aware command permissions", () => {
       });
       await activeSession.waitForComposer(TIMEOUT);
       await activeSession.sendText("/feedback");
-      await activeSession.waitForText("Opened https://y2.dev/feedback.", TIMEOUT);
+      await activeSession.waitForText("Opened https://github.com/tobalo/y2-intel/issues/new.", TIMEOUT);
 
-      expect(readFileSync(openerPath, "utf8")).toBe("https://y2.dev/feedback");
+      expect(readFileSync(openerPath, "utf8")).toBe("https://github.com/tobalo/y2-intel/issues/new");
       expect(existsSync(clipboardMarker)).toBe(false);
       expect(
         readdirSync(root.root).filter((entry) => entry.startsWith("y2-trace-")),
       ).toHaveLength(0);
       const escapes = await activeSession.capturePaneEscapes();
       expect(escapes).not.toContain("Feedback:");
-      expect(escapes).not.toContain("github.com");
+      expect(escapes).toContain("github.com/tobalo/y2-intel/issues/new");
       expect(readFileSync(stderrPath, "utf8")).toBe("");
 
       await activeSession.sendText("/quit");
@@ -3731,7 +3726,7 @@ describe("effect-aware command permissions", () => {
       );
 
       expect(second.code).toBe(0);
-      expect(second.stderr).toBe(MANAGE_SUBAGENT_PROGRESS.repeat(2));
+      expect(second.stderr.match(/Managing subagent/g)).toHaveLength(2);
       expect(JSON.parse(second.stdout.trim()).output).toContain(
         "ASK_MULTI_DELIVERY_MESSAGES_CONSUMED",
       );

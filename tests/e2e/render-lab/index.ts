@@ -14,6 +14,7 @@ import {
 } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { Y2_BIN, REPO_ROOT } from "../../evals/eval-helpers";
+import { createFakeGatewaySseEncoder } from "../tmux-helpers";
 import {
   ACTIVE_TOOL_MARKER,
   analyzeRun,
@@ -91,8 +92,9 @@ type LocalGatewayFixture = {
 };
 
 function gatewaySse(events: object[]): Response {
+  const encoder = createFakeGatewaySseEncoder();
   return new Response(
-    `${events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")}data: [DONE]\n\n`,
+    `${events.map(encoder.event).join("")}${encoder.done()}`,
     { headers: { "content-type": "text/event-stream" } },
   );
 }
@@ -1627,9 +1629,11 @@ async function launchY2(
   options: Y2LaunchOptions = {},
 ): Promise<void> {
   const environment = [
-    options.gatewayApiKey ? `Y2_API_KEY=${shQuote(options.gatewayApiKey)}` : null,
-    options.gatewayChatUrl ? `Y2_E2E_GATEWAY_CHAT_URL=${shQuote(options.gatewayChatUrl)}` : null,
-    options.gatewayModelsUrl ? `Y2_E2E_GATEWAY_MODELS_URL=${shQuote(options.gatewayModelsUrl)}` : null,
+    options.gatewayApiKey ? `OPENAI_API_KEY=${shQuote(options.gatewayApiKey)}` : null,
+    options.gatewayChatUrl ? `Y2_API_CHAT_URL=${shQuote(options.gatewayChatUrl)}` : null,
+    options.gatewayModelsUrl
+      ? `OPENAI_BASE_URL=${shQuote(options.gatewayModelsUrl.replace(/\/models$/, ""))}`
+      : null,
     options.permissionMode ? `Y2_PERMISSION_MODE=${shQuote(options.permissionMode)}` : null,
   ].filter((entry): entry is string => entry !== null).join(" ");
   const environmentPrefix = environment.length > 0 ? `${environment} ` : "";
@@ -1676,26 +1680,17 @@ function startLocalGatewayFixture(expectedPromptTail: string): LocalGatewayFixtu
           return new Response("prompt tail missing", { status: 422 });
         }
         await responseGate;
-        const sse = [
-          `data: ${JSON.stringify({ type: "text-delta", id: "render-lab", delta: LOCAL_GATEWAY_COMPLETION })}`,
-          "",
-          `data: ${JSON.stringify({
+        return gatewaySse([
+          { type: "text-delta", id: "render-lab", delta: LOCAL_GATEWAY_COMPLETION },
+          {
             type: "finish",
             finishReason: { unified: "stop", raw: "stop" },
             usage: {
               inputTokens: { total: 1 },
               outputTokens: { total: 1 },
             },
-          })}`,
-          "",
-          "data: [DONE]",
-          "",
-        ].join("\n");
-        return new Response(sse, {
-          headers: {
-            "content-type": "text/event-stream",
           },
-        });
+        ]);
       }
 
       return new Response("not found", { status: 404 });
@@ -1742,26 +1737,16 @@ function startActiveToolGatewayFixture(): LocalGatewayFixture {
         requests.push(`${request.method} ${url.pathname}`);
         chatRequestCount += 1;
         if (chatRequestCount === 2) await responseGate;
-        const sse = chatRequestCount === 1
-          ? [
-              `data: ${JSON.stringify({ type: "tool-input-start", id: "active_tool_1", toolName: "terminal" })}`,
-              "",
-              `data: ${JSON.stringify({ type: "tool-call", toolCallId: "active_tool_1", toolName: "terminal", input: { action: "exec", command: "sleep 1; i=1; while [ \"$i\" -le 32 ]; do printf 'ACTIVE_TOOL_LINE_%02d\\n' \"$i\"; i=$((i+1)); sleep 0.03; done; while [ ! -f .active-tool-release ]; do sleep 0.05; done", timeout_ms: 600_000 } })}`,
-              "",
-              `data: ${JSON.stringify({ type: "finish", finishReason: { unified: "tool-calls", raw: "tool-calls" }, usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } } })}`,
-              "",
-              "data: [DONE]",
-              "",
-            ].join("\n")
-          : [
-              `data: ${JSON.stringify({ type: "text-delta", id: "render-lab", delta: LOCAL_GATEWAY_COMPLETION })}`,
-              "",
-              `data: ${JSON.stringify({ type: "finish", finishReason: { unified: "stop", raw: "stop" }, usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } } })}`,
-              "",
-              "data: [DONE]",
-              "",
-            ].join("\n");
-        return new Response(sse, { headers: { "content-type": "text/event-stream" } });
+        return chatRequestCount === 1
+          ? gatewaySse([
+              { type: "tool-input-start", id: "active_tool_1", toolName: "terminal" },
+              { type: "tool-call", toolCallId: "active_tool_1", toolName: "terminal", input: { action: "exec", command: "sleep 1; i=1; while [ \"$i\" -le 32 ]; do printf 'ACTIVE_TOOL_LINE_%02d\\n' \"$i\"; i=$((i+1)); sleep 0.03; done; while [ ! -f .active-tool-release ]; do sleep 0.05; done", timeout_ms: 600_000 } },
+              { type: "finish", finishReason: { unified: "tool-calls", raw: "tool-calls" }, usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } } },
+            ])
+          : gatewaySse([
+              { type: "text-delta", id: "render-lab", delta: LOCAL_GATEWAY_COMPLETION },
+              { type: "finish", finishReason: { unified: "stop", raw: "stop" }, usage: { inputTokens: { total: 1 }, outputTokens: { total: 1 } } },
+            ]);
       }
       return new Response("not found", { status: 404 });
     },
@@ -2095,7 +2080,6 @@ class RenderLabTmux {
       "env",
       "-u",
       "Y2_API_KEY",
-      "-u",
       "Y2_DISABLE_KEYCHAIN=1",
       "Y2_SKIP_ONBOARDING=1",
       `HOME=${shQuote(opts.fixture.home)}`,
@@ -2194,12 +2178,15 @@ class RenderLabTmux {
 
   async waitForPane(predicate: (pane: string) => boolean, timeoutMs: number): Promise<string> {
     const start = Date.now();
+    let latest = "";
     while (Date.now() - start < timeoutMs) {
-      const pane = this.capturePane();
-      if (predicate(pane)) return pane;
+      latest = this.capturePane();
+      if (predicate(latest)) return latest;
       await sleep(250);
     }
-    throw new Error(`timed out waiting for pane predicate\n${this.capturePane()}`);
+    throw new Error(
+      `timed out waiting for pane predicate (session_alive=${this.isAlive()})\n${latest}`,
+    );
   }
 
   async waitForEnd(timeoutMs: number): Promise<void> {

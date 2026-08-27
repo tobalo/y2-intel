@@ -25,7 +25,6 @@ const ISOLATED_KEYS = [
   "Y2_API_KEY",
   "OPENAI_API_KEY",
   "Y2_API_CHAT_URL",
-  "Y2_E2E_GATEWAY_MODELS_URL",
 ] as const;
 
 test("pane exit matching requires the expected observed status", () => {
@@ -172,7 +171,6 @@ tmuxTest("tmux launch scrubs stale overrides without storing explicit credential
     expect(observed.Y2_API_KEY).toBe(explicitCredential);
     expect(observed.OPENAI_API_KEY).toBeNull();
     expect(observed.Y2_API_CHAT_URL).toBeNull();
-    expect(observed.Y2_E2E_GATEWAY_MODELS_URL).toBeNull();
 
     const startCommand = execFileSync(
       "tmux",

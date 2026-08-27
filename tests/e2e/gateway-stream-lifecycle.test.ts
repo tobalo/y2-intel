@@ -978,7 +978,6 @@ describe("gateway stream lifecycle", () => {
           env: {
             ...fixtureEnv(root, gateway, tracePath),
             Y2_MODEL: undefined,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           timeoutMs: 30_000,
         },
