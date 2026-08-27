@@ -153,7 +153,7 @@ try {
       env: {
         ...process.env,
         HOME: home,
-        Y2_API_KEY: "mcp-conformance-placeholder",
+        OPENAI_API_KEY: "mcp-conformance-placeholder",
         Y2_AUTO_UPGRADE: "0",
         Y2_DISABLE_KEYCHAIN: "1",
         Y2_E2E_MCP_AUTH_AUTOMATE: "1",
