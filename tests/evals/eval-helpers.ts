@@ -1,4 +1,5 @@
-// Model-backed eval helpers. Requires a built binary and Y2_API_KEY.
+// Model-backed eval helpers. Requires a built binary and Agent Y2 or direct
+// OpenAI-compatible endpoint credentials.
 import { expect } from "bun:test";
 import { execFileSync, execSync, spawn as nodeSpawn } from "node:child_process";
 import {

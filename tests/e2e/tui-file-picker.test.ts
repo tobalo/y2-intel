@@ -18,6 +18,8 @@ import {
   FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
   isComposerLine,
+  openAiChatMessages,
+  openAiMessageText,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -1651,16 +1653,11 @@ describe("@ file picker", () => {
       await active.waitForText("FILESYSTEM_PATH_PROMPT_OK", TIMEOUT);
 
       expect(gateway?.requests).toHaveLength(1);
-      const request = JSON.parse(gateway!.requests[0]!.body) as {
-        prompt: Array<{ role: string; content: unknown }>;
-      };
-      expect(request.prompt.at(-1)).toEqual({
-        role: "user",
-        content: [{
-          type: "text",
-          text: '@"~/space dir/item.txt" Reply with FILESYSTEM_PATH_PROMPT_OK.',
-        }],
-      });
+      const user = openAiChatMessages(gateway!.requests[0]!.body).at(-1);
+      expect(user?.role).toBe("user");
+      expect(openAiMessageText(user)).toBe(
+        '@"~/space dir/item.txt" Reply with FILESYSTEM_PATH_PROMPT_OK.',
+      );
       expect(gateway?.requests[0]?.body).not.toContain(
         "FILE_CONTENT_MUST_NOT_BE_ATTACHED_7C91",
       );

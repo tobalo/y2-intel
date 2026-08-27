@@ -123,6 +123,7 @@ export function hasEmptyComposer(pane: string): boolean {
 
 export function createFakeGatewaySseEncoder() {
   const toolIndexes = new Map<string, number>();
+  const toolArgumentsStarted = new Set<string>();
   let nextToolIndex = 0;
   const encodeEvent = (rawEvent: object): string => {
     const event = rawEvent as Record<string, any>;
@@ -151,6 +152,7 @@ export function createFakeGatewaySseEncoder() {
       }];
     } else if (event.type === "tool-input-delta") {
       const index = toolIndexes.get(event.id) ?? 0;
+      if ((event.delta ?? "").length > 0) toolArgumentsStarted.add(event.id);
       openAiEvents = [{
         id: "chat_fixture",
         choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: event.delta ?? "" } }] }, finish_reason: null }],
@@ -159,7 +161,16 @@ export function createFakeGatewaySseEncoder() {
       openAiEvents = [];
     } else if (event.type === "tool-call") {
       if (toolIndexes.has(event.toolCallId)) {
-        openAiEvents = [];
+        if (toolArgumentsStarted.has(event.toolCallId)) {
+          openAiEvents = [];
+        } else {
+          const index = toolIndexes.get(event.toolCallId)!;
+          const input = typeof event.input === "string" ? event.input : JSON.stringify(event.input ?? {});
+          openAiEvents = [{
+            id: "chat_fixture",
+            choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: input } }] }, finish_reason: null }],
+          }];
+        }
       } else {
         const index = nextToolIndex++;
         toolIndexes.set(event.toolCallId, index);
@@ -299,6 +310,36 @@ export function openAiChatMessages(body: string): OpenAiChatMessage[] {
     throw new Error("OpenAI chat request is missing messages");
   }
   return parsed.messages as OpenAiChatMessage[];
+}
+
+export function openAiUserMessages(body: string): OpenAiChatMessage[] {
+  return openAiChatMessages(body).filter((message) => message.role === "user");
+}
+
+export function openAiMessageText(message: OpenAiChatMessage | undefined): string {
+  if (!message) return "";
+  if (typeof message.content === "string") return message.content;
+  if (!Array.isArray(message.content)) return "";
+  return message.content.flatMap((part) => {
+    if (!part || typeof part !== "object") return [];
+    const record = part as Record<string, unknown>;
+    return record.type === "text" && typeof record.text === "string"
+      ? [record.text]
+      : [];
+  }).join("");
+}
+
+export function openAiImageDataUrls(message: OpenAiChatMessage | undefined): string[] {
+  if (!message || !Array.isArray(message.content)) return [];
+  return message.content.flatMap((part) => {
+    if (!part || typeof part !== "object") return [];
+    const record = part as Record<string, unknown>;
+    if (record.type !== "image_url" || !record.image_url || typeof record.image_url !== "object") {
+      return [];
+    }
+    const url = (record.image_url as Record<string, unknown>).url;
+    return typeof url === "string" ? [url] : [];
+  });
 }
 
 export function findOpenAiToolResult(

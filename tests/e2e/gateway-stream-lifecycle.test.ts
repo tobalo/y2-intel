@@ -838,9 +838,9 @@ describe("gateway stream lifecycle", () => {
       const oracleRequest = parseGatewayRequest(gateway.requests[0]!.body);
       expect(promptText(gateway.requests[0]!.body)).toContain(submitted);
       expect(serializedToolNames(oracleRequest)).toEqual(
-        FULL_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES,
+        [...FULL_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES, "vision"],
       );
-      expect(request.tools).toHaveLength(23);
+      expect(request.tools).toHaveLength(24);
       expect(findUnavailableCapabilityReferences(oracleRequest)).toEqual([]);
       expect(request.prompt[0]?.role).toBe("system");
       expect(toolByName(oracleRequest, "terminal")?.description).toBe(
@@ -990,7 +990,6 @@ describe("gateway stream lifecycle", () => {
       );
       expect(result.stderr).toBe("");
       expect(gateway.requests).toHaveLength(1);
-      expect(gateway.requests[0]!.headers.get("ai-language-model-id")).toBeNull();
       const request = JSON.parse(gateway.requests[0]!.body);
       expect(request.model).toBe("y2-agent");
       expect(request).not.toHaveProperty("providerOptions");

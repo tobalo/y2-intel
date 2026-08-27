@@ -451,7 +451,7 @@ fn mapReducerError(err: anyerror) anyerror {
     };
 }
 
-test "OpenAI Codex request uses Responses input and converts AI SDK tool schemas" {
+test "OpenAI Codex request uses Responses input and converts internal tool schemas" {
     const read_file_schema = model_tool_schema.FunctionSchema{
         .name = "read_file",
         .description = "Read",

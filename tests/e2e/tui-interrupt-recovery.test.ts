@@ -15,8 +15,10 @@ import { join } from "node:path";
 import { readTrace } from "./tui-render-assertions";
 import {
   FAKE_GATEWAY_MODEL,
+  createFakeGatewaySseEncoder,
   fakeGatewayFinalText,
   fakeGatewayToolCall,
+  openAiChatMessages,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -123,10 +125,9 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
       expect(held.cancelCount).toBe(0);
       expect(gateway.requests).toHaveLength(2);
       const queuedRequest = JSON.parse(gateway.requests[1]!.body) as {
-        prompt: unknown;
         tools: unknown[];
       };
-      const queuedPrompt = JSON.stringify(queuedRequest.prompt);
+      const queuedPrompt = JSON.stringify(openAiChatMessages(gateway.requests[1]!.body));
       expect(queuedPrompt).toContain(queuedText);
       expect(queuedRequest.tools.length).toBeGreaterThan(0);
       expect(gateway.requests[1]!.body).not.toContain(
@@ -235,19 +236,17 @@ describe.skipIf(SKIP)("tui: interrupt recovery", () => {
       expect(gateway.requests).toHaveLength(2);
       expect(held.cancelCount).toBe(1);
       expect(countOccurrences(readTrace(tracePath), "event=interrupt_persisted")).toBe(1);
+      const firstRequest = JSON.parse(gateway.requests[0]!.body) as { model?: unknown };
       const followUpRequest = JSON.parse(gateway.requests[1]!.body) as {
-        prompt: Array<{ role: string }>;
+        model?: unknown;
         tools: unknown[];
       };
-      const followUpPrompt = JSON.stringify(followUpRequest.prompt);
-      expect(gateway.requests[0]!.headers.get("ai-language-model-id")).toBe(
-        FAKE_GATEWAY_MODEL,
-      );
-      expect(gateway.requests[1]!.headers.get("ai-language-model-id")).toBe(
-        FOLLOW_UP_MODEL,
-      );
+      const followUpMessages = openAiChatMessages(gateway.requests[1]!.body);
+      const followUpPrompt = JSON.stringify(followUpMessages);
+      expect(firstRequest.model).toBe(FAKE_GATEWAY_MODEL);
+      expect(followUpRequest.model).toBe(FOLLOW_UP_MODEL);
       expect(
-        followUpRequest.prompt
+        followUpMessages
           .filter((entry) => entry.role !== "system")
           .map((entry) => entry.role),
       ).toEqual([
@@ -427,6 +426,7 @@ while :; do sleep 1; done
 
 function heldPartialResponse(state: HoldState): Response {
   const encoder = new TextEncoder();
+  const sse = createFakeGatewaySseEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   let closed = false;
   return new Response(
@@ -435,7 +435,7 @@ function heldPartialResponse(state: HoldState): Response {
         state.started = true;
         for (const delta of PARTIAL_CHUNKS) {
           controller.enqueue(encoder.encode(
-            `data: ${JSON.stringify({ type: "text-delta", id: "partial", delta })}\n\n`,
+            sse.event({ type: "text-delta", id: "partial", delta }),
           ));
         }
         timer = setInterval(() => {
@@ -456,9 +456,8 @@ function heldPartialResponse(state: HoldState): Response {
 function providerPortableResponse(text: string): Response {
   const request = gateway?.requests.at(-1);
   if (!request) return new Response("missing captured request", { status: 500 });
-  const payload = JSON.parse(request.body) as { prompt: Array<{ role: string }> };
   let sawNonSystem = false;
-  for (const entry of payload.prompt) {
+  for (const entry of openAiChatMessages(request.body)) {
     if (entry.role === "system") {
       if (sawNonSystem) {
         return new Response("system role must remain in the leading prefix", {
@@ -474,6 +473,7 @@ function providerPortableResponse(text: string): Response {
 
 function heldUntilReleasedResponse(state: HoldState): Response {
   const encoder = new TextEncoder();
+  const sse = createFakeGatewaySseEncoder();
   let timer: ReturnType<typeof setInterval> | undefined;
   let closed = false;
   return new Response(
@@ -481,7 +481,11 @@ function heldUntilReleasedResponse(state: HoldState): Response {
       start(controller) {
         state.started = true;
         controller.enqueue(encoder.encode(
-          'data: {"type":"text-delta","id":"held","delta":"ACTIVE_RESPONSE_HELD\\n"}\n\n',
+          sse.event({
+            type: "text-delta",
+            id: "held",
+            delta: "ACTIVE_RESPONSE_HELD\n",
+          }),
         ));
         timer = setInterval(() => {
           if (!closed) controller.enqueue(encoder.encode(": held-response\n\n"));
@@ -492,8 +496,10 @@ function heldUntilReleasedResponse(state: HoldState): Response {
           state.released = true;
           if (timer) clearInterval(timer);
           controller.enqueue(encoder.encode(
-            'data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"}}\n\n' +
-              "data: [DONE]\n\n",
+            sse.event({
+              type: "finish",
+              finishReason: { unified: "stop", raw: "stop" },
+            }) + sse.done(),
           ));
           controller.close();
         };

@@ -13,8 +13,9 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Y2_BIN } from "../evals/eval-helpers";
 import {
-  FAKE_GATEWAY_MODEL,
   fakeGatewayFinalText,
+  openAiChatMessages,
+  openAiMessageText,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -23,6 +24,7 @@ import {
 const HAS_TMUX = tmuxAvailable();
 const tmuxTest = test.skipIf(!HAS_TMUX);
 const TIMEOUT = 90_000;
+const NATIVE_IMAGE_MODEL = "google/gemini-2.5-flash";
 const COMPOSER_LIMIT_PASTE_TIMEOUT = TIMEOUT * 3;
 const COMPOSER_BYTE_LIMIT = 8 * 1024 * 1024;
 const PASTE_START = ["1b", "5b", "32", "30", "30", "7e"] as const;
@@ -95,7 +97,7 @@ async function startY2(
       ),
       {
         models: [{
-          id: FAKE_GATEWAY_MODEL,
+          id: NATIVE_IMAGE_MODEL,
           type: "language",
           tags: ["vision", "file-input", "tool-use"],
           context_window: 256_000,
@@ -113,10 +115,7 @@ async function startY2(
       OPENAI_API_KEY: withGateway ? "fake-edit-contract-key" : undefined,
       OPENAI_BASE_URL: gateway?.baseUrl,
       Y2_API_CHAT_URL: gateway?.chatUrl,
-      Y2_E2E_GATEWAY_MODELS_URL: gateway
-        ? `${gateway.baseUrl}/v1/models`
-        : undefined,
-      Y2_MODEL: withGateway ? FAKE_GATEWAY_MODEL : undefined,
+      Y2_MODEL: withGateway ? NATIVE_IMAGE_MODEL : undefined,
       Y2_AUTO_UPGRADE: "0",
       Y2_TRACE_LOG: tracePath,
       Y2_TRACE_SCOPES: traceScopes,
@@ -161,15 +160,6 @@ async function waitForGatewayRequestWithin(
   throw new Error("Timed out waiting for fake Gateway request");
 }
 
-async function waitForModelRequest(count = 1): Promise<void> {
-  const started = Date.now();
-  while (Date.now() - started < TIMEOUT) {
-    if ((gateway?.modelRequests.length ?? 0) >= count) return;
-    await Bun.sleep(25);
-  }
-  throw new Error("Timed out waiting for fake Gateway model request");
-}
-
 async function waitForTraceOrExit(
   active: TmuxSession,
   expected: string,
@@ -189,14 +179,16 @@ function userParts(requestIndex = 0): Array<{
   type: string;
   text?: string;
 }> {
-  const body = JSON.parse(gateway!.requests[requestIndex]!.body) as {
-    prompt: Array<{
-      role: string;
-      content: Array<{ type: string; text?: string }>;
-    }>;
-  };
-  const message = body.prompt.findLast((entry) => entry.role === "user");
-  return message?.content ?? [];
+  const message = openAiChatMessages(gateway!.requests[requestIndex]!.body)
+    .findLast((entry) => entry.role === "user");
+  if (typeof message?.content === "string") {
+    return [{ type: "text", text: message.content }];
+  }
+  if (!Array.isArray(message?.content)) return [];
+  return message.content.filter(
+    (part): part is { type: string; text?: string } =>
+      !!part && typeof part === "object" && typeof (part as { type?: unknown }).type === "string",
+  );
 }
 
 function finalUserText(requestIndex = 0): string {
@@ -204,25 +196,10 @@ function finalUserText(requestIndex = 0): string {
     "";
 }
 
-function nestedText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) return content.map(nestedText).join("");
-  if (content && typeof content === "object") {
-    const value = content as Record<string, unknown>;
-    return [
-      nestedText(value.text),
-      nestedText(value.value),
-      nestedText(value.content),
-    ].join("");
-  }
-  return "";
-}
-
 function gatewayPromptText(requestIndex = 0): string {
-  const body = JSON.parse(gateway!.requests[requestIndex]!.body) as {
-    prompt: Array<{ content: unknown }>;
-  };
-  return body.prompt.map((message) => nestedText(message.content)).join("\n");
+  return openAiChatMessages(gateway!.requests[requestIndex]!.body)
+    .map(openAiMessageText)
+    .join("\n");
 }
 
 function expectCleanRuntime(active: TmuxSession): void {
@@ -420,16 +397,11 @@ tmuxTest(
     const active = await startY2(true);
     const prompt = `BEGIN-${"x".repeat(8192)}-END`;
 
-    await waitForModelRequest();
     await active.sendLiteralText(prompt);
     await active.sendKeys("Enter");
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe(prompt);
-    expect(gateway!.modelRequests).toHaveLength(1);
-    expect(JSON.parse(gateway!.requests[0]!.body)).toMatchObject({
-      maxOutputTokens: 64_000,
-    });
     expect(await active.captureFullScrollback()).not.toContain(
       "local prompt safety limit",
     );
@@ -444,7 +416,6 @@ tmuxTest(
     const active = await startY2(true, 1, false, "input");
     const prompt = `PASTE-BEGIN-${"x".repeat(4 * 1024 * 1024 + 1)}-PASTE-END`;
 
-    await waitForModelRequest();
     await active.pasteText(prompt);
     await waitForTraceOrExit(active, "paste end owner=composer");
     await active.sendKeys("Home");
@@ -457,10 +428,6 @@ tmuxTest(
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe(`HEAD-EDIT-${prompt}-TAIL-EDIT`);
-    expect(gateway!.modelRequests).toHaveLength(1);
-    expect(JSON.parse(gateway!.requests[0]!.body)).toMatchObject({
-      maxOutputTokens: 64_000,
-    });
     expectCleanRuntime(active);
   },
   TIMEOUT,
@@ -479,7 +446,6 @@ tmuxTest(
     const prompt = firstPaste + secondPaste;
     expect(Buffer.byteLength(prompt)).toBe(COMPOSER_BYTE_LIMIT);
 
-    await waitForModelRequest();
     await active.pasteText(firstPaste);
     await waitForTraceOrExit(
       active,
@@ -511,7 +477,6 @@ tmuxTest(
   async () => {
     const active = await startY2(true);
 
-    await waitForModelRequest();
     await active.pasteText("x".repeat(COMPOSER_BYTE_LIMIT + 1));
     await active.waitForText("local prompt safety limit", TIMEOUT);
     expect(gateway!.requestCount()).toBe(0);
@@ -653,7 +618,7 @@ tmuxTest(
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe("[Image #2][Image #3]");
-    expect(userParts().filter((part) => part.type === "file")).toHaveLength(2);
+    expect(userParts().filter((part) => part.type === "image_url")).toHaveLength(2);
     expectCleanRuntime(active);
   },
   TIMEOUT,
@@ -672,7 +637,7 @@ tmuxTest(
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe("[Image #2]");
-    expect(userParts().filter((part) => part.type === "file")).toHaveLength(1);
+    expect(userParts().filter((part) => part.type === "image_url")).toHaveLength(1);
     expectCleanRuntime(active);
   },
   TIMEOUT,
@@ -754,8 +719,8 @@ tmuxTest(
 
     expect(finalUserText(0)).toBe("[Image #1] describe history image");
     expect(finalUserText(1)).toBe("[Image #2] describe history image");
-    expect(userParts(0).filter((part) => part.type === "file")).toHaveLength(1);
-    expect(userParts(1).filter((part) => part.type === "file")).toHaveLength(1);
+    expect(userParts(0).filter((part) => part.type === "image_url")).toHaveLength(1);
+    expect(userParts(1).filter((part) => part.type === "image_url")).toHaveLength(1);
     expectCleanRuntime(active);
   },
   TIMEOUT,
@@ -894,7 +859,7 @@ tmuxTest(
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe("inspect [Image #1],");
-    expect(userParts().filter((part) => part.type === "file")).toHaveLength(1);
+    expect(userParts().filter((part) => part.type === "image_url")).toHaveLength(1);
     expectCleanRuntime(active);
   },
   TIMEOUT,
@@ -912,7 +877,7 @@ tmuxTest(
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe("[Image #2] duplicate [Image #1]");
-    expect(userParts().filter((part) => part.type === "file")).toHaveLength(1);
+    expect(userParts().filter((part) => part.type === "image_url")).toHaveLength(1);
     expectCleanRuntime(active);
   },
   TIMEOUT,
@@ -931,7 +896,7 @@ tmuxTest(
     await waitForGatewayRequest();
 
     expect(finalUserText()).toBe("[Image #1] TAIL");
-    expect(userParts().filter((part) => part.type === "file")).toHaveLength(1);
+    expect(userParts().filter((part) => part.type === "image_url")).toHaveLength(1);
     expectCleanRuntime(active);
   },
   TIMEOUT,

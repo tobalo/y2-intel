@@ -47,6 +47,7 @@ import { expectPermissionModeContext } from "./permission-mode-context";
 import { readTapeFrames, stdoutFrames } from "./render-lab/tape";
 
 const MODEL = "openai/gpt-5.5";
+const NATIVE_IMAGE_MODEL = "google/gemini-2.5-flash";
 const GLM_MODEL = "zai/glm-5.2";
 const TURN_SUMMARY_WITH_TOKENS =
   /^ {2}(?:\d+s|\d+m \d+s|\d+h \d{2}m) \(↑\d+(?:\.\d)?k? ↓\d+(?:\.\d)?k?\)$/m;
@@ -2176,17 +2177,13 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session!.waitForText("recovery paused after 10/10 attempts", TIMEOUT);
 
       expect(queuedGateway.requests).toHaveLength(10);
-      expect(queuedGateway.requests[0]!.headers.get("ai-language-model-id")).toBe(
-        GLM_MODEL,
-      );
+      expect(JSON.parse(queuedGateway.requests[0]!.body).model).toBe(GLM_MODEL);
       for (const request of queuedGateway.requests.slice(1)) {
-        expect(request.headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+        expect(JSON.parse(request.body).model).toBe(GLM_MODEL);
       }
       const firstRequest = JSON.parse(queuedGateway.requests[0]!.body);
       expect(firstRequest).not.toHaveProperty("fast");
-      expect(firstRequest).toMatchObject({
-        providerOptions: { gateway: { speed: "fast" } },
-      });
+      expect(firstRequest).not.toHaveProperty("providerOptions");
       for (const request of queuedGateway.requests.slice(1)) {
         const retryRequest = JSON.parse(request.body);
         expect(retryRequest).not.toHaveProperty("fast");
@@ -2221,9 +2218,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         TIMEOUT,
       );
       expect(queuedGateway.requests).toHaveLength(1);
-      expect(queuedGateway.requests[0]!.headers.get("ai-language-model-id")).toBe(
-        directFastModel,
-      );
+      expect(JSON.parse(queuedGateway.requests[0]!.body).model).toBe(directFastModel);
 
       await session!.kill();
       session = null;
@@ -2251,9 +2246,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.waitForText(finalText, TIMEOUT);
 
       expect(queuedGateway.requests).toHaveLength(2);
-      expect(queuedGateway.requests[1]!.headers.get("ai-language-model-id")).toBe(
-        directFastModel,
-      );
+      expect(JSON.parse(queuedGateway.requests[1]!.body).model).toBe(directFastModel);
       expect(readFileSync(stderrPath, "utf8")).toBe("");
       expect(readFileSync(resumedStderrPath, "utf8")).toBe("");
     },
@@ -2364,13 +2357,11 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
 
       expect(queuedGateway.requests.length).toBe(4);
       for (const request of queuedGateway.requests) {
-        expect(request.headers.get("ai-language-model-id")).toBe(GLM_MODEL);
+        expect(JSON.parse(request.body).model).toBe(GLM_MODEL);
       }
       const firstRequest = JSON.parse(queuedGateway.requests[0]!.body);
       expect(firstRequest).not.toHaveProperty("fast");
-      expect(firstRequest).toMatchObject({
-        providerOptions: { gateway: { speed: "fast" } },
-      });
+      expect(firstRequest).not.toHaveProperty("providerOptions");
       const secondRequest = JSON.parse(queuedGateway.requests[1]!.body);
       expect(secondRequest).not.toHaveProperty("fast");
       expect(secondRequest.providerOptions?.gateway).toBeUndefined();
@@ -3768,9 +3759,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
       await session.waitForText(`Next turn will use ${nextModel}`, TIMEOUT);
 
       expect(queuedGateway.requests).toHaveLength(1);
-      expect(
-        queuedGateway.requests[0]!.headers.get("ai-language-model-id"),
-      ).toBe(GLM_MODEL);
+      expect(JSON.parse(queuedGateway.requests[0]!.body).model).toBe(GLM_MODEL);
       expect(hold.cancelled).toBe(false);
       expect(hasEmptyComposer(await session.capturePane())).toBe(true);
 
@@ -3783,9 +3772,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         "next-turn selected-model request",
       );
 
-      expect(
-        queuedGateway.requests[1]!.headers.get("ai-language-model-id"),
-      ).toBe(nextModel);
+      expect(JSON.parse(queuedGateway.requests[1]!.body).model).toBe(nextModel);
       expect(JSON.parse(readFileSync(join(home, ".y2", "settings.json"), "utf8")))
         .toMatchObject({ models: { gateway: nextModel }, effort: "auto" });
       expect(readFileSync(stderrPath, "utf8")).toBe("");
@@ -4189,7 +4176,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
         ],
         {
           models: [{
-            id: MODEL,
+            id: NATIVE_IMAGE_MODEL,
             type: "language",
             tags: ["vision", "file-input", "tool-use"],
           }],
@@ -4209,7 +4196,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
           OPENAI_BASE_URL: queuedGateway.baseUrl,
           Y2_API_CHAT_URL: queuedGateway.chatUrl,
           Y2_E2E_GATEWAY_MODELS_URL: `${queuedGateway.baseUrl}/v1/models`,
-          Y2_MODEL: MODEL,
+          Y2_MODEL: NATIVE_IMAGE_MODEL,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "agent,gateway,stream,worker,input,prompt,interrupt",
         },
@@ -4280,7 +4267,7 @@ describe.skipIf(!tmuxAvailable())("TUI gateway stream lifecycle", () => {
 
       const yankedBody = queuedGateway.requests[1]!.body;
       const trace = readFileSync(tracePath, "utf8");
-      expect(yankedBody.match(/"type":"file"/g) ?? []).toHaveLength(1);
+      expect(yankedBody.match(/"type":"image_url"/g) ?? []).toHaveLength(1);
       expect(yankedBody).toContain(expectedImageData);
       expect(yankedBody).toContain("[Image #2]" + queuedPrompt);
       expect(yankedBody).not.toContain(image);

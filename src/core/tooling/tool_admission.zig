@@ -3975,7 +3975,6 @@ test "incomplete review authority maps to unavailable without reviewer transport
             _: *anyopaque,
             alloc: Allocator,
             _: []const u8,
-            _: []const u8,
             _: []const types.ChatMessage,
             _: []const u8,
             _: std.Io.Clock.Timestamp,

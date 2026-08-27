@@ -16,11 +16,12 @@ import {
   fakeGatewayFinalText,
   hasEmptyComposer,
   isComposerLine,
-  openAiChatMessages,
+  openAiImageDataUrls,
+  openAiMessageText,
+  openAiUserMessages,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
-  type OpenAiChatMessage,
 } from "./tmux-helpers";
 import {
   assertPaneContains,
@@ -221,36 +222,6 @@ function rowContaining(grid: string[], needle: string): { index: number; line: s
   const index = grid.findIndex((line) => line.includes(needle));
   if (index < 0) throw new Error(`No pane row contains ${JSON.stringify(needle)}\n${grid.join("\n")}`);
   return { index, line: grid[index]! };
-}
-
-function openAiUserMessages(body: string): OpenAiChatMessage[] {
-  return openAiChatMessages(body).filter((message) => message.role === "user");
-}
-
-function openAiMessageText(message: OpenAiChatMessage | undefined): string {
-  if (!message) return "";
-  if (typeof message.content === "string") return message.content;
-  if (!Array.isArray(message.content)) return "";
-  return message.content.flatMap((part) => {
-    if (!part || typeof part !== "object") return [];
-    const record = part as Record<string, unknown>;
-    return record.type === "text" && typeof record.text === "string"
-      ? [record.text]
-      : [];
-  }).join("");
-}
-
-function openAiImageDataUrls(message: OpenAiChatMessage | undefined): string[] {
-  if (!message || !Array.isArray(message.content)) return [];
-  return message.content.flatMap((part) => {
-    if (!part || typeof part !== "object") return [];
-    const record = part as Record<string, unknown>;
-    if (record.type !== "image_url" || !record.image_url || typeof record.image_url !== "object") {
-      return [];
-    }
-    const url = (record.image_url as Record<string, unknown>).url;
-    return typeof url === "string" ? [url] : [];
-  });
 }
 
 async function expectOptionColumn(

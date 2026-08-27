@@ -22,6 +22,8 @@ import {
   fakeGatewayToolCall,
   hasEmptyComposer,
   isComposerLine,
+  openAiChatMessages,
+  openAiMessageText,
   startFakeGateway,
   TmuxSession,
   tmuxAvailable,
@@ -295,19 +297,8 @@ function leadingBlankLineCount(text: string): number {
   return count;
 }
 
-function nestedText(content: unknown): string {
-  if (typeof content === "string") return content;
-  if (Array.isArray(content)) return content.map(nestedText).join("");
-  if (content && typeof content === "object") {
-    const value = content as Record<string, unknown>;
-    return [nestedText(value.text), nestedText(value.value), nestedText(value.content)].join("");
-  }
-  return "";
-}
-
 function gatewayPromptText(body: string): string {
-  const request = JSON.parse(body) as { prompt: Array<{ content: unknown }> };
-  return request.prompt.map((message) => nestedText(message.content)).join("\n");
+  return openAiChatMessages(body).map(openAiMessageText).join("\n");
 }
 
 function countOccurrences(text: string, needle: string): number {

@@ -23,6 +23,8 @@ import {
   fakeGatewaySse,
   fakeGatewayToolCall,
   hasEmptyComposer,
+  openAiChatMessages,
+  openAiMessageText,
   paneExitMatches,
   startFakeGateway,
   TmuxSession,
@@ -845,16 +847,10 @@ async function waitForSubmittedUserText(
     );
   }
 
-  const request = JSON.parse(gatewayRequest.body) as {
-    prompt: Array<{
-      role: string;
-      content?: Array<{ type: string; text?: string }>;
-    }>;
-  };
-  return [...request.prompt]
+  const user = [...openAiChatMessages(gatewayRequest.body)]
     .reverse()
-    .find((message) => message.role === "user")
-    ?.content?.find((part) => part.type === "text")?.text;
+    .find((message) => message.role === "user");
+  return user ? openAiMessageText(user) : undefined;
 }
 
 async function waitForGatewayRequestCount(

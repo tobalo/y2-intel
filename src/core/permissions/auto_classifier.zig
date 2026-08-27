@@ -11,7 +11,6 @@ const types = @import("../shared/types.zig");
 pub const tool_name = "permission_decision";
 const max_rationale_bytes: usize = 240;
 const max_review_packet_bytes: usize = 16 * 1024;
-pub const gateway_reviewer_model = "moonshotai/kimi-k3";
 
 pub const Risk = enum {
     low,
@@ -288,7 +287,6 @@ pub const Transport = struct {
         *anyopaque,
         std.mem.Allocator,
         []const u8,
-        []const u8,
         []const types.ChatMessage,
         []const u8,
         std.Io.Clock.Timestamp,
@@ -347,7 +345,7 @@ pub const Reviewer = struct {
     override_fn: ?OverrideFn = null,
     cancel_flag: ?*std.atomic.Value(bool) = null,
     timeout_ms: u32 = default_timeout_ms,
-    model: []const u8 = gateway_reviewer_model,
+    model: ?[]const u8 = null,
 
     pub const default_timeout_ms: u32 = 15_000;
 
@@ -410,6 +408,7 @@ pub const Reviewer = struct {
         checkBudget(deadline, cancel_flag) catch |err| return constructionFailure(err);
 
         const review_turn = request.review_turn;
+        const reviewer_model = self.model orelse review_turn.model;
         const started_ms = io_mod.milliTimestamp();
         debug_trace.logf(
             "permission",
@@ -417,7 +416,7 @@ pub const Reviewer = struct {
             .{
                 @tagName(review_turn.origin),
                 review_turn.model,
-                self.model,
+                reviewer_model,
                 review_turn.pending_assistant.tool_calls.len,
                 review_turn.current_root_request.len,
                 review_turn.target_call_id,
@@ -437,9 +436,6 @@ pub const Reviewer = struct {
         };
         defer evidence.deinit(alloc);
         if (!evidence.action_complete) return .invalid;
-        checkBudget(deadline, cancel_flag) catch |err| return constructionFailure(err);
-        const tools_json = toolsJsonAlloc(alloc) catch |err| return constructionFailure(err);
-        defer alloc.free(tools_json);
         checkBudget(deadline, cancel_flag) catch |err| return constructionFailure(err);
         const instruction = buildReviewInstruction(
             alloc,
@@ -473,8 +469,7 @@ pub const Reviewer = struct {
         const payload = transport.build_fn(
             transport.context,
             alloc,
-            self.model,
-            tools_json,
+            reviewer_model,
             messages,
             review_turn.target_call_id,
             deadline,
@@ -495,7 +490,7 @@ pub const Reviewer = struct {
         );
         var transport_outcome = transport.send(
             alloc,
-            self.model,
+            reviewer_model,
             payload,
             deadline,
             cancel_flag,
@@ -1094,7 +1089,6 @@ fn buildTestReviewPayload(
     _: *anyopaque,
     alloc: std.mem.Allocator,
     model: []const u8,
-    tools_json: []const u8,
     messages: []const types.ChatMessage,
     target_call_id: []const u8,
     _: std.Io.Clock.Timestamp,
@@ -1105,9 +1099,7 @@ fn buildTestReviewPayload(
     errdefer out.deinit();
     try out.writer.writeAll("{\"model\":");
     try std.json.Stringify.value(model, .{}, &out.writer);
-    try out.writer.writeAll(",\"maxOutputTokens\":2048,\"toolChoice\":{\"type\":\"required\"},\"tools\":");
-    try out.writer.writeAll(tools_json);
-    try out.writer.writeAll(",\"messages\":[");
+    try out.writer.writeAll(",\"stream\":true,\"messages\":[");
     var first = true;
     for (messages) |message| {
         if (!first) try out.writer.writeByte(',');
@@ -1119,8 +1111,18 @@ fn buildTestReviewPayload(
             try std.json.Stringify.value(content, .{}, &out.writer);
         }
         if (message.tool_calls.len > 0) {
-            try out.writer.writeAll(",\"tool_calls\":");
-            try std.json.Stringify.value(message.tool_calls, .{}, &out.writer);
+            try out.writer.writeAll(",\"tool_calls\":[");
+            for (message.tool_calls, 0..) |call, index| {
+                if (index > 0) try out.writer.writeByte(',');
+                try out.writer.writeAll("{\"id\":");
+                try std.json.Stringify.value(call.id, .{}, &out.writer);
+                try out.writer.writeAll(",\"type\":\"function\",\"function\":{\"name\":");
+                try std.json.Stringify.value(call.name, .{}, &out.writer);
+                try out.writer.writeAll(",\"arguments\":");
+                try std.json.Stringify.value(call.arguments_json, .{}, &out.writer);
+                try out.writer.writeAll("}}");
+            }
+            try out.writer.writeByte(']');
         }
         try out.writer.writeByte('}');
         if (message.role == .assistant) {
@@ -1129,7 +1131,13 @@ fn buildTestReviewPayload(
             try out.writer.writeAll(",\"content\":\"pending review\"}");
         }
     }
-    try out.writer.writeAll("]}");
+    try out.writer.writeAll("],\"tools\":[{\"type\":\"function\",\"function\":{\"name\":");
+    try std.json.Stringify.value(function_schema.name, .{}, &out.writer);
+    try out.writer.writeAll(",\"description\":");
+    try std.json.Stringify.value(function_schema.description, .{}, &out.writer);
+    try out.writer.writeAll(",\"parameters\":");
+    try model_tool_schema.writeObjectSchema(alloc, &out.writer, function_schema.input_schema);
+    try out.writer.writeAll("}}],\"tool_choice\":\"required\",\"max_tokens\":2048}");
     return out.toOwnedSlice();
 }
 
@@ -1771,10 +1779,10 @@ test "automatic review serializes the pending call structurally" {
             self.saw_pending_results =
                 std.mem.count(u8, payload, "\"role\":\"tool\"") == 1 and
                 std.mem.count(u8, payload, "pending review") == 1;
-            self.saw_reviewer_model = std.mem.eql(u8, model, gateway_reviewer_model);
+            self.saw_reviewer_model = std.mem.eql(u8, model, "openai/gpt-5");
             self.saw_review_settings =
-                std.mem.find(u8, payload, "\"maxOutputTokens\":2048") != null and
-                std.mem.find(u8, payload, "\"toolChoice\":{\"type\":\"required\"}") != null and
+                std.mem.find(u8, payload, "\"max_tokens\":2048") != null and
+                std.mem.find(u8, payload, "\"tool_choice\":\"required\"") != null and
                 std.mem.find(u8, payload, "\"providerOptions\"") == null and
                 std.mem.find(u8, payload, "\"name\":\"permission_decision\"") != null;
             self.excluded_full_context =
