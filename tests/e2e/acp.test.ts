@@ -1462,13 +1462,17 @@ describe("acp: model-independent", () => {
           env: fakeGatewayEnv(root, gateway),
         });
         await startCodeSession(client);
-        expect(gateway.modelRequests).toHaveLength(0);
+        expect(gateway.modelRequests).toHaveLength(1);
+        expect(new URL(gateway.modelRequests[0]!.url).pathname).toBe("/v1/models");
+        expect(gateway.modelRequests[0]!.headers.get("authorization")).toBe(
+          "Bearer fake-acp-file-key",
+        );
 
         const result = await runPrompt(client, submitted, 60_000);
 
         expect(result.promptResult.result.stopReason).toBe("end_turn");
         expect(gateway.requests).toHaveLength(1);
-        expect(gateway.modelRequests).toHaveLength(0);
+        expect(gateway.modelRequests).toHaveLength(1);
         const request = acpGatewayRequest(gateway.requests[0]!.body);
         const user = request.prompt.findLast((message) => message.role === "user");
         expect(acpContentText(user?.content)).toBe(submitted);
