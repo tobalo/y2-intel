@@ -23,7 +23,6 @@ import {
 const tmuxTest = test.skipIf(!tmuxAvailable());
 const ISOLATED_KEYS = [
   "Y2_API_KEY",
-  "REMOVED_LEGACY_OIDC_TOKEN",
   "Y2_API_CHAT_URL",
   "Y2_E2E_GATEWAY_MODELS_URL",
   "Y2_E2E_GATEWAY_CREDITS_URL",
@@ -171,7 +170,6 @@ tmuxTest("tmux launch scrubs stale overrides without storing explicit credential
     expect(existsSync(resultPath)).toBe(true);
     const observed = JSON.parse(readFileSync(resultPath, "utf8"));
     expect(observed.Y2_API_KEY).toBe(explicitCredential);
-    expect(observed.REMOVED_LEGACY_OIDC_TOKEN).toBeNull();
     expect(observed.Y2_API_CHAT_URL).toBeNull();
     expect(observed.Y2_E2E_GATEWAY_MODELS_URL).toBeNull();
     expect(observed.Y2_E2E_GATEWAY_CREDITS_URL).toBeNull();

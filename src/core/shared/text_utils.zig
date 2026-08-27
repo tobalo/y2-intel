@@ -656,7 +656,6 @@ const secret_prefixes = [_][]const u8{
     "OPENAI_API_KEY=",
     "ANTHROPIC_API_KEY=",
     "Y2_API_KEY=",
-    "REMOVED_LEGACY_OIDC_TOKEN=",
     "GITHUB_TOKEN=",
     "AWS_SECRET_ACCESS_KEY=",
     "DATABASE_URL=",

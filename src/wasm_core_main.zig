@@ -63,6 +63,7 @@ const js_host_provider_set = provider_set.gateway_only(.{
     .presentation = provider_catalog.find(.gateway),
     .auth_strategy = .api_key,
     .agent_stream = js_host_stream_provider.provider(),
+    .model_catalog = js_host_model_catalog.provider,
 });
 
 fn resolveChatUrl(_: ?*anyopaque, fallback: []const u8) []const u8 {

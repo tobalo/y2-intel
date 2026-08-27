@@ -74,10 +74,8 @@ function permissionEnv(
 ) {
   return {
     HOME: home,
-    Y2_API_KEY: "permission-error-fake-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-    Y2_API_CHAT_URL: gateway.chatUrl,
+    OPENAI_API_KEY: "permission-error-fake-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_AUTO_UPGRADE: "0",
@@ -197,10 +195,8 @@ describe("generic permission typed errors", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            Y2_API_KEY: "permission-error-fake-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-            Y2_API_CHAT_URL: gateway.chatUrl,
+            OPENAI_API_KEY: "permission-error-fake-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_AUTO_UPGRADE: "0",

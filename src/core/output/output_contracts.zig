@@ -759,8 +759,6 @@ pub const ModelListSnapshot = struct {
         const reason = self.public_only_reason orelse return "Using the public model catalog.";
         return switch (reason) {
             .no_credential => "Using the public model catalog; add an API key to load authenticated models.",
-            .retired_login_team_required => "The saved legacy account cannot load private models; add an API key.",
-            .retired_login_refresh_required => "The saved legacy account must refresh before private models can load.",
             .credential_refresh_failed => "The saved credential could not refresh; using the public model catalog.",
             .authenticated_credential_rejected => "Your API credential was rejected; using the public model catalog.",
             .chatgpt_subscription => "Codex models require an authenticated Codex catalog.",
@@ -1985,7 +1983,7 @@ test "core status snapshot text and json stay stable" {
 test "core status snapshot includes selected team when present" {
     const snapshot = StatusSnapshot{
         .model = "alpha",
-        .auth = .{ .active_source = .retired_login, .team = "example-team" },
+        .auth = .{ .active_source = .api_key, .team = "example-team" },
         .permission_mode = .ask,
         .workspace_root = "/tmp/y2",
         .history_turns = 0,
@@ -1996,14 +1994,14 @@ test "core status snapshot includes selected team when present" {
     const text = try snapshot.renderText(std.testing.allocator);
     defer std.testing.allocator.free(text);
     try std.testing.expectEqualStrings(
-        "[status] model=alpha\n[status] update_channel=stable\n[status] build_channel=stable\n[status] auth=y2 login\n[status] auth_refreshable=true\n[status] team=example-team\n[status] permission_mode=ask\n[status] workspace=/tmp/y2\n[status] history_turns=0\n[status] session_permission_grants=0\n[status] agent_step_limit=24\n",
+        "[status] model=alpha\n[status] update_channel=stable\n[status] build_channel=stable\n[status] auth=API key\n[status] auth_refreshable=false\n[status] team=example-team\n[status] permission_mode=ask\n[status] workspace=/tmp/y2\n[status] history_turns=0\n[status] session_permission_grants=0\n[status] agent_step_limit=24\n",
         text,
     );
 
     const json = try snapshot.renderJson(std.testing.allocator);
     defer std.testing.allocator.free(json);
     try std.testing.expectEqualStrings(
-        "{\"kind\":\"status\",\"model\":\"alpha\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"y2 login\",\"auth_refreshable\":true,\"team\":\"example-team\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/y2\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":24}",
+        "{\"kind\":\"status\",\"model\":\"alpha\",\"update_channel\":\"stable\",\"build_channel\":\"stable\",\"build_revision\":\"\",\"auth\":\"API key\",\"auth_refreshable\":false,\"team\":\"example-team\",\"permission_mode\":\"ask\",\"workspace\":\"/tmp/y2\",\"history_turns\":0,\"session_permission_grants\":0,\"agent_step_limit\":24}",
         json,
     );
 }

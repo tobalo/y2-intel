@@ -69,7 +69,6 @@ pub const Command = union(enum) {
     provider: []const [:0]const u8,
     doctor: []const [:0]const u8,
     background: []const [:0]const u8,
-    teams: []const [:0]const u8,
     session: []const [:0]const u8,
     sessions: []const [:0]const u8,
     resume_session: ResumeInvocation,
@@ -488,9 +487,6 @@ pub fn parse(command_catalog: CommandCatalog, args: []const [:0]const u8) Comman
                 }
                 return .{ .session = args[1..] };
             }
-        },
-        't' => {
-            if (command_specs.matchesTopLevel(command_catalog, command, .teams)) return .{ .teams = args[1..] };
         },
         'u' => {
             if (command_specs.matchesTopLevel(command_catalog, command, .usage)) return .{ .usage = args[1..] };
@@ -1027,14 +1023,6 @@ fn runNonInteractiveWithDeps(
                 };
             }
             try writeStderr(deps, "y2 logout: Y2 and OpenAI-compatible endpoints use API keys; manage them with y2 setup\n");
-            return .handled_failure;
-        },
-        .teams => |rest| {
-            if (rest.len != 0) {
-                try writeStderr(deps, "usage: y2 teams\n");
-                return .handled_failure;
-            }
-            try writeStderr(deps, "y2 teams: team selection is not used by Y2 API keys\n");
             return .handled_failure;
         },
         .provider => |rest| {
@@ -4194,7 +4182,7 @@ test "setup is a paste-only stored-key adapter" {
     try std.testing.expectEqual(@as(usize, 1), capture.setup_read_calls);
     try std.testing.expect(capture.setup_value_matched);
     try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Paste Y2 or OpenAI-compatible API key") != null);
-    try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "Retired credential CLI") == null);
+    try std.testing.expect(std.mem.find(u8, capture.stderr.written(), "deprecated provider CLI") == null);
     try std.testing.expect(std.mem.find(u8, capture.stdout.written(), cfg.secret_store.backend_label) != null);
 }
 

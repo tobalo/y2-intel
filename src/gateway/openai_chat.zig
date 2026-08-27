@@ -230,7 +230,11 @@ fn writeAssistantToolCalls(writer: *std.Io.Writer, calls: []const types.ToolCall
         try writer.writeAll(",\"type\":\"function\",\"function\":{\"name\":");
         try std.json.Stringify.value(call.name, .{}, writer);
         try writer.writeAll(",\"arguments\":");
-        try std.json.Stringify.value(call.arguments_json, .{}, writer);
+        try std.json.Stringify.value(
+            if (call.argument_integrity == .valid) call.arguments_json else "{}",
+            .{},
+            writer,
+        );
         try writer.writeAll("}}");
     }
     try writer.writeByte(']');
@@ -731,6 +735,7 @@ pub fn streamPrepared(
 
     var response = try http_request.receiveHead(&.{});
     if (response.head.status != .ok) {
+        const retry_after_seconds = retryAfterSeconds(response.head);
         var transfer: [16 * 1024]u8 = undefined;
         const reader = response.reader(&transfer);
         const body = reader.allocRemaining(alloc, .limited(max_error_body_bytes)) catch |err| switch (err) {
@@ -740,6 +745,7 @@ pub fn streamPrepared(
         return .{ .failed = .{
             .kind = failureKind(response.head.status),
             .detail = body,
+            .retry_after_seconds = retry_after_seconds,
             .ownership = .owned,
         } };
     }
@@ -763,6 +769,15 @@ pub fn streamPrepared(
         .usage = .{ .immediate = null },
         .ownership = .owned,
     } };
+}
+
+fn retryAfterSeconds(head: std.http.Client.Response.Head) ?u64 {
+    var headers = head.iterateHeaders();
+    while (headers.next()) |header| {
+        if (!std.ascii.eqlIgnoreCase(header.name, "retry-after")) continue;
+        return std.fmt.parseInt(u64, header.value, 10) catch null;
+    }
+    return null;
 }
 
 const EventBridge = struct {
@@ -800,6 +815,15 @@ fn failureKind(status: std.http.Status) stream_provider.FailureKind {
         .gateway_timeout => .gateway_timeout,
         else => .provider_error,
     };
+}
+
+test "OpenAI-compatible failures preserve numeric Retry-After pacing" {
+    const head = try std.http.Client.Response.Head.parse(
+        "HTTP/1.1 503 Service Unavailable\r\n" ++
+            "Retry-After: 7\r\n" ++
+            "Content-Length: 0\r\n\r\n",
+    );
+    try std.testing.expectEqual(@as(?u64, 7), retryAfterSeconds(head));
 }
 
 test "Y2 request contains only the documented Agent Y2 compatibility fields" {
@@ -858,6 +882,29 @@ test "OpenAI-compatible request preserves local function tool history" {
     try std.testing.expect(std.mem.find(u8, body, "\"tool_call_id\":\"call_1\"") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"max_tokens\":2048") != null);
     try std.testing.expect(std.mem.find(u8, body, "\"reasoning_effort\":\"high\"") != null);
+}
+
+test "OpenAI-compatible request replaces malformed historical tool arguments" {
+    const calls = [_]types.ToolCall{.{
+        .id = "call_bad",
+        .name = "read_file",
+        .arguments_json = "{\"depth\":1,\"depth\":2}",
+        .argument_integrity = .malformed_json,
+    }};
+    const messages = [_]types.ChatMessage{.{
+        .role = .assistant,
+        .tool_calls = &calls,
+    }};
+    const body = try buildRequest(std.testing.allocator, .{
+        .model = "gpt-compatible",
+        .messages = &messages,
+        .tool_choice = .auto,
+        .provider_options = .{},
+    }, .openai_compatible);
+    defer std.testing.allocator.free(body);
+
+    try std.testing.expect(std.mem.find(u8, body, "\"arguments\":\"{}\"") != null);
+    try std.testing.expect(std.mem.find(u8, body, "\"depth\":1") == null);
 }
 
 test "OpenAI-compatible SSE reduces Y2 text and standard tool deltas" {

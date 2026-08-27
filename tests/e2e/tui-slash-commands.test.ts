@@ -72,7 +72,6 @@ async function launchNoKeyAndWait(): Promise<{
       Y2_DISABLE_KEYCHAIN: "1",
       Y2_PERMISSION_MODE: undefined,
       Y2_SKIP_ONBOARDING: "1",
-      REMOVED_LEGACY_OIDC_TOKEN: undefined,
     },
   });
   await terminal.waitForComposer(10_000);
@@ -128,11 +127,10 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "undo-e2e-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           Y2_DISABLE_KEYCHAIN: "1",
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_PERMISSION_MODE: "yolo",
@@ -217,7 +215,6 @@ describe.skipIf(TMUX_SKIP)("tui: no-key slash commands", () => {
           Y2_PERMISSION_MODE: "auto",
           Y2_RECORD: tapePath,
           Y2_RECORD_INPUT: "1",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           NO_COLOR: "1",
         },
       });

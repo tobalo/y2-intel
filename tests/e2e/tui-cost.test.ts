@@ -43,10 +43,10 @@ function gatewayEnvironment(home: string) {
   if (!gateway) throw new Error("fake gateway not started");
   return {
     HOME: home,
-    Y2_API_KEY: "test-key",
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "test-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
   };
 }
 

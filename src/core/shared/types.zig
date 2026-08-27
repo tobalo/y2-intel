@@ -88,9 +88,7 @@ test "context notice body drops legacy markers from every line" {
 }
 
 pub const CredentialSource = enum {
-    retired_oidc_token,
     api_key,
-    retired_login,
     stored_key,
     chatgpt_subscription,
     grok_subscription,

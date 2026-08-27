@@ -136,7 +136,7 @@ describe.skipIf(SKIP)("tui: logical-line deletion", () => {
         writeFileSync(stderrPath, "");
 
         session = await TmuxSession.create({
-          cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN} 2>${stderrPath}`,
+          cmd: `env -u Y2_API_KEY Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN} 2>${stderrPath}`,
           cwd: workDir,
           width: 120,
           height: 40,

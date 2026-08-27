@@ -218,9 +218,8 @@ function mockY2Environment(
 ): Record<string, string | undefined> {
   return {
     HOME: current.home,
-    Y2_API_KEY: "fake-file-picker-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: activeGateway.baseUrl,
+    OPENAI_API_KEY: "fake-file-picker-key",
+    OPENAI_BASE_URL: activeGateway.baseUrl,
     Y2_API_CHAT_URL: activeGateway.chatUrl,
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_AUTO_UPGRADE: "0",
@@ -1854,7 +1853,6 @@ describe("@ file picker", () => {
         env: {
           HOME: current.home,
           Y2_API_KEY: process.env.Y2_API_KEY,
-          REMOVED_LEGACY_OIDC_TOKEN: process.env.REMOVED_LEGACY_OIDC_TOKEN,
           Y2_AUTO_UPGRADE: "0",
           Y2_MODEL: process.env.Y2_FILE_PICKER_LIVE_MODEL ?? "anthropic/claude-sonnet-4.6",
           Y2_TRACE_LOG: current.tracePath,

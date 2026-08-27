@@ -1764,9 +1764,9 @@ test "surface footer measurement reserves only the compact auth picker rows" {
     var ctx = surfaceTestContext(&input);
     ctx.auth_picker = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login }),
-        .selected_choice = .{ .source = .retired_login },
-        .active_source = .retired_login,
+        .available_sources = auth_runtime.SourceSet.initOne(.api_key),
+        .selected_choice = .{ .source = .api_key },
+        .active_source = .api_key,
         .include_skip = false,
     };
 
@@ -1790,8 +1790,8 @@ test "surface footer keeps the selected auth source visible at minimum height" {
     var ctx = surfaceTestContext(&input);
     ctx.auth_picker = auth_runtime.PickerView{
         .active = true,
-        .available_sources = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login }),
-        .selected_choice = .{ .source = .retired_login },
+        .available_sources = auth_runtime.SourceSet.initOne(.api_key),
+        .selected_choice = .{ .source = .api_key },
         .active_source = .api_key,
         .include_skip = false,
         .stage = .switch_credential,
@@ -1828,7 +1828,7 @@ test "surface footer keeps the selected auth source visible at minimum height" {
     defer frame.deinit(alloc);
 
     for (frame.composed.rows.items) |row| {
-        if (std.mem.find(u8, row.text.items, "y2 login") != null) return;
+        if (std.mem.find(u8, row.text.items, "API key") != null) return;
     }
     return error.SelectedAuthSourceNotVisible;
 }

@@ -3162,7 +3162,7 @@ test "runtime context ordering and background snapshot" {
 
     for (messages.items) |message| {
         const content = message.content orelse continue;
-        try std.testing.expect(std.mem.find(u8, content, "Retired credential") == null);
+        try std.testing.expect(std.mem.find(u8, content, "deprecated provider") == null);
         try std.testing.expect(std.mem.find(u8, content, "just-bash") == null);
         try std.testing.expect(std.mem.find(u8, content, "macOS") == null);
     }

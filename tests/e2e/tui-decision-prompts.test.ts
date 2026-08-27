@@ -344,7 +344,7 @@ function startFakeGateway(
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/coding-agent/v1/models") {
+      if (url.pathname === "/v1/models") {
         return Response.json({
           data: [{ id: OUTER_MODEL, type: "language", tags: ["tool-use"] }],
         });
@@ -363,7 +363,7 @@ function startFakeGateway(
   });
 
   return {
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     baseUrl: `http://127.0.0.1:${server.port}`,
     requests,
     classifierRequests,
@@ -403,8 +403,8 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-e2e-key",
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-e2e-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: OUTER_MODEL,
     Y2_AUTO_UPGRADE: "0",
@@ -429,7 +429,7 @@ async function launchScenario(
   writeFileSync(stderrPath, "");
 
   session = await TmuxSession.create({
-    cmd: `env -u REMOVED_LEGACY_OIDC_TOKEN ${Y2_BIN} 2>${stderrPath}`,
+    cmd: `env ${Y2_BIN} 2>${stderrPath}`,
     cwd: root.workspace,
     env: definedStringEnv(fakeGatewayEnv(root, gateway, {
       Y2_TRACE_LOG: tracePath,

@@ -17,8 +17,8 @@ import { runY2 } from "../evals/eval-helpers";
 const TIMEOUT = 60_000;
 const OUTER_MODEL = "anthropic/claude-sonnet-4.6";
 const LIVE_URL = "https://example.com/";
-const LIVE_ROBOTS_URL = "https://identity.example/robots.txt";
-const LIVE_MODELS_URL = "https://retired-gateway.invalid/coding-agent/v1/models";
+const LIVE_ROBOTS_URL = "https://www.example.com/robots.txt";
+const LIVE_MODELS_URL = "https://example.invalid/v1/models";
 const LIVE_BINARY_URL =
   "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf";
 
@@ -91,7 +91,7 @@ async function startFakeGateway(responses: Response[]) {
     port,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/coding-agent/v1/models") {
+      if (url.pathname === "/v1/models") {
         return Response.json({
           data: [{ id: OUTER_MODEL, type: "language", tags: ["tool-use"] }],
         });
@@ -103,7 +103,7 @@ async function startFakeGateway(responses: Response[]) {
   });
 
   return {
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     baseUrl: `http://127.0.0.1:${server.port}`,
     requests,
     stop() {
@@ -136,10 +136,9 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-live-web-fetch-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    OPENAI_API_KEY: "fake-live-web-fetch-key",
     Y2_AUTO_UPGRADE: "0",
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: OUTER_MODEL,
   };
@@ -149,8 +148,8 @@ describe.skipIf(process.env.Y2_WEB_FETCH_LIVE !== "1")("live web_fetch public UR
   // These mutable endpoints are operational probes, not deterministic HTTP
   // framing proof. The transport/framing contract is covered by Zig fixtures.
   for (const probe of [
-    { url: LIVE_ROBOTS_URL, domain: "identity.example", label: "robots" },
-    { url: LIVE_MODELS_URL, domain: "retired-gateway.invalid", label: "models" },
+    { url: LIVE_ROBOTS_URL, domain: "www.example.com", label: "robots" },
+    { url: LIVE_MODELS_URL, domain: "example.invalid", label: "models" },
   ] as const) {
     test(
       `${probe.label} endpoint returns non-empty content through the fresh binary`,

@@ -240,7 +240,6 @@ pub fn Runtime(comptime App: type) type {
                 .source => |source| try applySourceChoice(app, source),
                 .action => |action| switch (action) {
                     .connections => unreachable,
-                    .login => try beginSignIn(app, true),
                     .chatgpt_login => try beginChatGptSignIn(app),
                     .grok_login => try beginGrokSignIn(app),
                     .setup => {
@@ -255,12 +254,10 @@ pub fn Runtime(comptime App: type) type {
                         prepareApiKeyInputBoundary(app);
                         app.auth.openApiKeyPickerFromRoot(app.alloc);
                     },
-                    .change_team => try beginTeamPicker(app),
                     .switch_credential => app.auth.openSwitchCredentialPicker(app.alloc),
                     .switch_provider => app.auth.openProviderPicker(app.alloc, provider_runtime.provider(app)),
                     .automatic => try applyAutomaticCredential(app),
                 },
-                .team => |index| try applyTeamChoice(app, index),
             }
         }
 
@@ -282,16 +279,6 @@ pub fn Runtime(comptime App: type) type {
                 }
                 app.shell.render_requests.request(.footer);
                 return true;
-            }
-            if (app.auth.teamPickerActive()) {
-                const consumed = switch (byte) {
-                    8, 127 => app.auth.deleteTeamQueryByte(),
-                    else => try app.auth.appendTeamQueryByte(app.alloc, byte),
-                };
-                if (consumed) {
-                    app.shell.render_requests.request(.footer);
-                    return true;
-                }
             }
             if (!app.auth.apiKeyEntryActive()) return false;
             switch (byte) {
@@ -318,7 +305,7 @@ pub fn Runtime(comptime App: type) type {
             const sign_in_source: credentials.Source = if (comptime @hasDecl(@TypeOf(app.auth), "pickerView"))
                 app.auth.pickerView().sign_in_source
             else
-                .retired_login;
+                .chatgpt_subscription;
             app.auth.pulseSignIn(app.alloc);
             switch (app.auth.pollSignInTransition(app.alloc)) {
                 .none => {},
@@ -332,29 +319,6 @@ pub fn Runtime(comptime App: type) type {
                     var owned = completed;
                     defer owned.deinit(app.alloc);
                     switch (owned) {
-                        .retired_credential => |*selection| {
-                            if (!try selectCredentialSource(app, .retired_login)) {
-                                _ = app.auth.popPickerStage(app.alloc);
-                                try writeAuthNotice(app, .{
-                                    .topic = "auth",
-                                    .tone = .@"error",
-                                    .body = "Signed in, but the y2 login credential could not be loaded.",
-                                });
-                                return;
-                            }
-                            rememberCredentialSource(app, .retired_login);
-
-                            if (selection.teams.items.len > 0) {
-                                app.auth.openTeamPicker(app.alloc, selection);
-                            } else {
-                                app.auth.closePicker(app.alloc);
-                            }
-                            try writeAuthNotice(app, .{
-                                .topic = "auth",
-                                .tone = .neutral,
-                                .body = "Signed in to Retired credential.",
-                            });
-                        },
                         .chatgpt => {
                             try finishSubscriptionSignIn(app, .codex);
                             return;
@@ -377,7 +341,7 @@ pub fn Runtime(comptime App: type) type {
                 provider,
                 comptime provider_runtime.supported(App),
             )) {
-                .retired_credential => unreachable,
+                .unsupported => unreachable,
                 .switch_provider => |target| {
                     app.auth.closePicker(app.alloc);
                     try switchProvider(app, target, false, .post_oauth);
@@ -930,94 +894,6 @@ pub fn Runtime(comptime App: type) type {
             app.shell.render_requests.request(.footer);
         }
 
-        fn beginTeamPicker(app: *App) !void {
-            if (!app.auth.pickerView().retired_login_session_available) return;
-            try app.flushBeforeBlockingExternalWork();
-
-            var selection = login_flow.loadTeamSelection(app.alloc, app.auth.oauthTransport()) catch |err| {
-                debug_trace.logf("auth", "team picker load failed err={s}", .{@errorName(err)});
-                try app.writeDomainNotice(.{
-                    .topic = "auth",
-                    .tone = .@"error",
-                    .body = switch (err) {
-                        error.NoSession => "The y2 login session is no longer available. Sign in to change teams.",
-                        error.NoTeams => "No Retired credential teams are available for this account.",
-                        else => "Could not load Retired credential teams. The current team is unchanged.",
-                    },
-                }, true);
-                return;
-            };
-            defer selection.deinit(app.alloc);
-            app.auth.openTeamPicker(app.alloc, &selection);
-            app.shell.render_requests.request(.footer);
-        }
-
-        fn applyTeamChoice(app: *App, index: usize) !void {
-            const selection = app.auth.teamSelection() orelse return;
-            if (index >= selection.teams.items.len) return;
-            const team = selection.teams.items[index];
-            const body = try std.fmt.allocPrint(
-                app.alloc,
-                "Changed Retired credential team to {s} ({s}).",
-                .{ team.name, team.slug },
-            );
-            defer app.alloc.free(body);
-
-            var selected_team = selection.select(app.alloc, index) catch |err| {
-                debug_trace.logf("auth", "team change failed err={s}", .{@errorName(err)});
-                app.auth.closePicker(app.alloc);
-                try app.writeDomainNotice(.{
-                    .topic = "auth",
-                    .tone = .@"error",
-                    .body = switch (err) {
-                        error.SessionChanged, error.NoSession => "The y2 login session changed before the team could be saved.",
-                        else => "Could not change the Retired credential team. The current team is unchanged.",
-                    },
-                }, true);
-                return;
-            };
-            defer selected_team.deinit(app.alloc);
-
-            if (app.auth.credentialSource() == .retired_login) {
-                applyCredentialChange(app, app.auth.adoptSelectedTeam(app.alloc, &selected_team));
-            } else if (!try selectCredentialSource(app, .retired_login)) {
-                app.auth.closePicker(app.alloc);
-                try app.writeDomainNotice(.{
-                    .topic = "auth",
-                    .tone = .@"error",
-                    .body = "Changed the Retired credential team, but the y2 login credential could not be loaded.",
-                }, true);
-                return;
-            }
-            rememberCredentialSource(app, .retired_login);
-            app.auth.closePicker(app.alloc);
-            try app.writeDomainNotice(.{
-                .topic = "auth",
-                .tone = .neutral,
-                .body = body,
-            }, true);
-        }
-
-        fn beginSignIn(app: *App, from_root: bool) !void {
-            try app.flushBeforeBlockingExternalWork();
-
-            const started = if (from_root)
-                app.auth.openSignInPickerFromRoot(app.alloc)
-            else
-                app.auth.openSignInPicker(app.alloc);
-            if (started catch |err| {
-                debug_trace.logf("auth", "login failed err={s}", .{@errorName(err)});
-                try writeLoginError(app, .retired_login, err);
-                return;
-            }) {
-                app.shell.render_requests.request(.footer);
-                // Open the browser as soon as the device code is ready instead of
-                // waiting for Enter; Enter stays as a manual re-open, and
-                // Y2_NO_OPEN_BROWSER opts out for headless/SSH sessions.
-                if (io_mod.getenv("Y2_NO_OPEN_BROWSER") == null) try openSignInBrowser(app);
-            }
-        }
-
         fn openSignInBrowser(app: *App) !void {
             const url = (try app.auth.signInBrowserUrlAlloc(app.alloc)) orelse return;
             defer app.alloc.free(url);
@@ -1032,8 +908,8 @@ pub fn Runtime(comptime App: type) type {
             return true;
         }
 
-        fn refreshRetiredLoginCredentialIfNeeded(app: *App) !void {
-            if (!try app.auth.refreshRetiredLoginIfNeeded(app.alloc)) return;
+        fn refreshCredentialIfNeeded(app: *App) !void {
+            if (!try app.auth.refreshCredentialIfNeeded(app.alloc)) return;
             reconcileGatewayCredential(app);
             if (app.auth.modelCatalogAccess().authorizationCredential() == null) return;
             app.model_cache.reset();
@@ -1058,7 +934,7 @@ pub fn Runtime(comptime App: type) type {
 
         fn preparePromptCredential(app: *App) !bool {
             for (0..2) |_| {
-                refreshRetiredLoginCredentialIfNeeded(app) catch |err| switch (err) {
+                refreshCredentialIfNeeded(app) catch |err| switch (err) {
                     error.OutOfMemory => return err,
                     else => return recoverPromptCredentialRefreshFailure(app, err),
                 };
@@ -1070,9 +946,9 @@ pub fn Runtime(comptime App: type) type {
         fn recoverPromptCredentialRefreshFailure(app: *App, err: anyerror) !bool {
             const active_source = app.auth.credentialSource();
             const source = if (active_source) |active|
-                if (credentials.sourceRefreshable(active)) active else .retired_login
+                active
             else
-                .retired_login;
+                .api_key;
             return recoverCredentialFailure(app, source, err);
         }
 
@@ -1161,12 +1037,8 @@ pub fn Runtime(comptime App: type) type {
                     error.GrokLoginTimedOut, error.LoginTimedOut => .{ .topic = "auth", .tone = .warning, .body = "Grok sign-in expired. The current credential is unchanged; run /login to try again." },
                     else => .{ .topic = "auth", .tone = .@"error", .body = "Grok sign-in failed. The current credential is unchanged." },
                 }
-            else switch (err) {
-                error.ClientIdMissing => .{ .topic = "auth", .tone = .@"error", .body = "y2 login is not configured yet. The current credential is unchanged." },
-                error.AccessDenied => .{ .topic = "auth", .tone = .@"error", .body = "Retired credential sign-in was denied. The current credential is unchanged." },
-                error.ExpiredToken, error.LoginTimedOut => .{ .topic = "auth", .tone = .warning, .body = "The Retired credential sign-in code expired. The current credential is unchanged; run /login to try again." },
-                else => .{ .topic = "auth", .tone = .@"error", .body = "Retired credential sign-in failed. The current credential is unchanged." },
-            };
+            else
+                .{ .topic = "auth", .tone = .@"error", .body = "This credential source does not support browser sign-in." };
             try writeAuthNotice(app, notice);
         }
 
@@ -1362,37 +1234,6 @@ test "interactive subscription sign-in rejects active and queued work before OAu
     }
 }
 
-const TestTeam = struct {
-    name: []const u8,
-    slug: []const u8,
-};
-
-const test_teams = [_]TestTeam{.{
-    .name = "Retired credential Labs",
-    .slug = "example-org",
-}};
-
-const TestSelectedTeam = struct {
-    fn deinit(_: *TestSelectedTeam, _: std.mem.Allocator) void {}
-};
-
-const TestTeamSelection = struct {
-    teams: struct {
-        items: []const TestTeam = &test_teams,
-    } = .{},
-    select_count: usize = 0,
-
-    fn select(
-        self: *TestTeamSelection,
-        _: std.mem.Allocator,
-        index: usize,
-    ) error{ InvalidTeamSelection, SessionChanged, NoSession }!TestSelectedTeam {
-        if (index >= self.teams.items.len) return error.InvalidTeamSelection;
-        self.select_count += 1;
-        return .{};
-    }
-};
-
 const TestAuth = struct {
     select_result: ?bool = false,
     sign_in_transition: login_flow.SignInTransition = .none,
@@ -1411,8 +1252,6 @@ const TestAuth = struct {
     gateway_ready: bool = true,
     catalog_ready: bool = true,
     gateway_ready_after_refresh_count: ?usize = null,
-    team_selection: TestTeamSelection = .{},
-    selected_team_adopted: bool = false,
     sign_in_url: ?[]const u8 = null,
     picker_pop_count: usize = 0,
 
@@ -1439,9 +1278,7 @@ const TestAuth = struct {
         return true;
     }
 
-    fn openTeamPicker(_: *TestAuth, _: std.mem.Allocator, _: *login_flow.TeamSelection) void {}
-
-    fn refreshRetiredLoginIfNeeded(self: *TestAuth, _: std.mem.Allocator) !bool {
+    fn refreshCredentialIfNeeded(self: *TestAuth, _: std.mem.Allocator) !bool {
         self.refresh_count += 1;
         if (self.refresh_error) |err| return err;
         if (self.gateway_ready_after_refresh_count == self.refresh_count) self.gateway_ready = true;
@@ -1454,14 +1291,9 @@ const TestAuth = struct {
 
     fn modelCatalogAccess(self: *const TestAuth) credentials.CatalogAccess {
         return if (self.catalog_ready)
-            credentials.catalogAccessForCredential(.retired_login, "refreshed-key", "team_123")
+            credentials.catalogAccessForCredential(.api_key, "refreshed-key", null)
         else
-            .{ .public_only = .retired_login_team_required };
-    }
-
-    fn reconcileAfterRetiredLoginLogout(self: *TestAuth, _: std.mem.Allocator) !bool {
-        self.logout_reconcile_count += 1;
-        return self.logout_changed;
+            .{ .public_only = .no_credential };
     }
 
     fn refreshSourceInventory(self: *TestAuth, _: std.mem.Allocator) !void {
@@ -1479,15 +1311,6 @@ const TestAuth = struct {
     ) void {
         self.picker_opened = true;
         self.picker_provider = provider;
-    }
-
-    fn teamSelection(self: *TestAuth) ?*TestTeamSelection {
-        return &self.team_selection;
-    }
-
-    fn adoptSelectedTeam(self: *TestAuth, _: std.mem.Allocator, _: *TestSelectedTeam) bool {
-        self.selected_team_adopted = true;
-        return true;
     }
 
     fn closePicker(self: *TestAuth, _: std.mem.Allocator) void {
@@ -1646,35 +1469,35 @@ test "OAuth app gating accepts native auth or JS-host auth and rejects neither" 
 
 test "interactive sign-in opens the owned browser URL through the host" {
     var app: TestApp = .{};
-    app.auth.sign_in_url = "https://identity.example/verify?code=TEST-CODE";
+    app.auth.sign_in_url = "https://auth.example.com/verify?code=TEST-CODE";
 
     try Runtime(TestApp).openSignInBrowser(&app);
 
     try std.testing.expectEqual(@as(usize, 1), app.test_url_opener.calls);
     try std.testing.expectEqualStrings(
-        "https://identity.example/verify?code=TEST-CODE",
+        "https://auth.example.com/verify?code=TEST-CODE",
         app.test_url_opener.openedUrl(),
     );
 }
 
 test "interactive sign-in preserves manual fallback when the host launcher fails" {
     var app: TestApp = .{};
-    app.auth.sign_in_url = "https://identity.example/verify";
+    app.auth.sign_in_url = "https://auth.example.com/verify";
     app.test_url_opener.succeeds = false;
 
     try Runtime(TestApp).openSignInBrowser(&app);
 
     try std.testing.expectEqual(@as(usize, 1), app.test_url_opener.calls);
     try std.testing.expectEqualStrings(
-        "https://identity.example/verify",
+        "https://auth.example.com/verify",
         app.test_url_opener.openedUrl(),
     );
-    try std.testing.expectEqualStrings("https://identity.example/verify", app.auth.sign_in_url.?);
+    try std.testing.expectEqualStrings("https://auth.example.com/verify", app.auth.sign_in_url.?);
 }
 
 test "interactive sign-in frees its browser URL when the host opener errors" {
     var app: TestApp = .{};
-    app.auth.sign_in_url = "https://identity.example/verify";
+    app.auth.sign_in_url = "https://auth.example.com/verify";
     app.test_url_opener.error_on_open = true;
 
     try std.testing.expectError(
@@ -1689,8 +1512,8 @@ test "auth source changes invalidate the catalog and failed selection preserves 
     const runtime = Runtime(TestApp);
 
     app.auth.select_result = true;
-    try std.testing.expect(try runtime.selectCredentialSource(&app, .retired_login));
-    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.selected_source.?);
+    try std.testing.expect(try runtime.selectCredentialSource(&app, .api_key));
+    try std.testing.expectEqual(credentials.Source.api_key, app.auth.selected_source.?);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
 
@@ -1746,83 +1569,6 @@ test "completed credential switch emits exactly one transcript line" {
     try std.testing.expectEqualStrings(expected, app.transcript.items);
 }
 
-test "team change from an environment source activates and remembers y2 login" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.select_result = true;
-
-    try Runtime(TestApp).applyTeamChoice(&app, 0);
-
-    try std.testing.expectEqual(@as(usize, 1), app.auth.team_selection.select_count);
-    try std.testing.expect(!app.auth.selected_team_adopted);
-    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.active_source.?);
-    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.selected_source.?);
-    try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.retired_login, app.last_preference_source.?);
-    try std.testing.expect(app.auth.picker_closed);
-    try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
-    try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
-    try std.testing.expectEqual(@as(usize, 1), app.notice_write_count);
-    try std.testing.expectEqualStrings(
-        "Changed Retired credential team to Retired credential Labs (example-org).\n",
-        app.transcript.items,
-    );
-}
-
-test "team change on an active y2 login updates and remembers the selected team" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.active_source = .retired_login;
-
-    try Runtime(TestApp).applyTeamChoice(&app, 0);
-
-    try std.testing.expect(app.auth.selected_team_adopted);
-    try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.retired_login, app.last_preference_source.?);
-}
-
-test "successful direct login remembers y2 login after activation" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.select_result = true;
-    app.auth.sign_in_transition = .{ .succeeded = .{ .retired_credential = .{} } };
-
-    try Runtime(TestApp).collectSignInFacts(&app);
-
-    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.active_source.?);
-    try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(credentials.Source.retired_login, app.last_preference_source.?);
-    try std.testing.expectEqual(@as(usize, 1), app.notice_write_count);
-}
-
-test "direct login source load failure leaves the environment preference unchanged" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.select_result = null;
-    app.auth.sign_in_transition = .{ .succeeded = .{ .retired_credential = .{} } };
-
-    try Runtime(TestApp).collectSignInFacts(&app);
-
-    try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
-    try std.testing.expectEqual(@as(usize, 0), app.preference_write_count);
-    try std.testing.expectEqual(@as(usize, 1), app.auth.picker_pop_count);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "could not be loaded") != null);
-}
-
-test "failed preference persistence keeps a successful direct login active" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.select_result = true;
-    app.auth.sign_in_transition = .{ .succeeded = .{ .retired_credential = .{} } };
-    app.preference_write_succeeds = false;
-
-    try Runtime(TestApp).collectSignInFacts(&app);
-
-    try std.testing.expectEqual(credentials.Source.retired_login, app.auth.active_source.?);
-    try std.testing.expectEqual(@as(usize, 1), app.preference_write_count);
-    try std.testing.expectEqual(@as(?credentials.Source, null), app.last_preference_source);
-}
-
 test "successful API key save persists even when the live credential is unchanged" {
     var app: TestApp = .{};
     defer app.deinit();
@@ -1861,30 +1607,17 @@ test "cancelled login and rejected API key do not persist a source" {
     try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
 }
 
-test "team source load failure preserves the environment source and preference" {
-    var app: TestApp = .{};
-    defer app.deinit();
-    app.auth.select_result = null;
-
-    try Runtime(TestApp).applyTeamChoice(&app, 0);
-
-    try std.testing.expectEqual(credentials.Source.api_key, app.auth.active_source.?);
-    try std.testing.expectEqual(@as(usize, 0), app.preference_write_count);
-    try std.testing.expect(app.auth.picker_closed);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "could not be loaded") != null);
-}
-
 test "prompt credential refresh reloads the catalog after the credential changes" {
     var app: TestApp = .{};
     defer app.deinit();
     const runtime = Runtime(TestApp);
 
-    try runtime.refreshRetiredLoginCredentialIfNeeded(&app);
+    try runtime.refreshCredentialIfNeeded(&app);
     try std.testing.expectEqual(@as(usize, 1), app.auth.refresh_count);
     try std.testing.expectEqual(@as(usize, 0), app.model_cache.reset_count);
 
     app.auth.refresh_changed = true;
-    try runtime.refreshRetiredLoginCredentialIfNeeded(&app);
+    try runtime.refreshCredentialIfNeeded(&app);
     try std.testing.expectEqual(@as(usize, 2), app.auth.refresh_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache.reset_count);
     try std.testing.expectEqual(@as(usize, 1), app.model_cache_warmup_count);
@@ -1907,12 +1640,12 @@ test "prompt credential refresh failure is recoverable and detail-free" {
     app.auth.refresh_error = error.OAuthRequestFailed;
 
     try std.testing.expect(!try Runtime(TestApp).preparePromptCredential(&app));
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "y2 login credential refresh failed.") != null);
+    try std.testing.expect(std.mem.find(u8, app.transcript.items, "API key credential refresh failed.") != null);
     try std.testing.expect(std.mem.find(u8, app.transcript.items, "Choose another source below.") != null);
     try std.testing.expect(std.mem.find(u8, app.transcript.items, "OAuthRequestFailed") == null);
     try std.testing.expect(app.shell.render_requests.footer_requested);
     try std.testing.expectEqual(@as(usize, 1), app.auth.source_inventory_refresh_count);
-    try std.testing.expect(app.auth.refresh_failure_source == null);
+    try std.testing.expectEqual(credentials.Source.api_key, app.auth.refresh_failure_source.?);
     try std.testing.expect(app.auth.picker_opened);
     try std.testing.expectEqual(@as(usize, 0), app.model_cache.reset_count);
 }
@@ -1936,7 +1669,7 @@ test "prompt credential admission rejects a credential that remains unavailable"
 
     try std.testing.expect(!try Runtime(TestApp).preparePromptCredential(&app));
     try std.testing.expectEqual(@as(usize, 2), app.auth.refresh_count);
-    try std.testing.expect(std.mem.find(u8, app.transcript.items, "y2 login credential refresh failed.") != null);
+    try std.testing.expect(std.mem.find(u8, app.transcript.items, "API key credential refresh failed.") != null);
     try std.testing.expect(app.auth.picker_opened);
 }
 

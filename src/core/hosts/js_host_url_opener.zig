@@ -23,5 +23,5 @@ test "JS host URL opener keeps the manual fallback without a handler" {
             return 0;
         }
     };
-    try std.testing.expect(!openWith(NoHandler.call, "https://identity.example/login"));
+    try std.testing.expect(!openWith(NoHandler.call, "https://auth.example.com/login"));
 }

@@ -1423,7 +1423,7 @@ describe("cli: missing durable home", () => {
             env: {
               ...baseEnv,
               OPENAI_API_KEY: "missing-home-key",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
               Y2_MODEL: FAKE_GATEWAY_MODEL,
             },
@@ -2596,7 +2596,7 @@ describe("cli: ask success", () => {
             env: {
               HOME: realpathSync(home),
               OPENAI_API_KEY: "fake-explicit-skill-key",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
               Y2_MODEL: FAKE_GATEWAY_MODEL,
               Y2_AUTO_UPGRADE: "0",
@@ -2651,7 +2651,7 @@ describe("cli: ask success", () => {
               env: {
                 HOME: home,
                 OPENAI_API_KEY: "fake-large-stdin-key",
-                Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+                OPENAI_BASE_URL: gateway.baseUrl,
                 Y2_API_CHAT_URL: gateway.chatUrl,
                 Y2_MODEL: FAKE_GATEWAY_MODEL,
                 Y2_AUTO_UPGRADE: "0",
@@ -2735,7 +2735,7 @@ describe("cli: ask success", () => {
             env: {
               HOME: realpathSync(savedHome),
               OPENAI_API_KEY: "fake-ask-persistence-key",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
               Y2_MODEL: FAKE_GATEWAY_MODEL,
               Y2_AUTO_UPGRADE: "0",
@@ -2770,7 +2770,7 @@ describe("cli: ask success", () => {
             env: {
               HOME: realpathSync(savedHome),
               OPENAI_API_KEY: "fake-ask-persistence-key",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
               Y2_MODEL: FAKE_GATEWAY_MODEL,
               Y2_AUTO_UPGRADE: "0",
@@ -2803,7 +2803,7 @@ describe("cli: ask success", () => {
             env: {
               HOME: realpathSync(noSaveHome),
               OPENAI_API_KEY: "fake-ask-persistence-key",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
               Y2_MODEL: FAKE_GATEWAY_MODEL,
               Y2_AUTO_UPGRADE: "0",
@@ -2849,7 +2849,7 @@ describe("cli: ask success", () => {
         const env = {
           HOME: realpathSync(home),
           OPENAI_API_KEY: "fake-session-cache-contention-key",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3033,7 +3033,7 @@ describe("cli: error handling", () => {
         const env = {
           HOME: realpathSync(home),
           OPENAI_API_KEY: "ask-options-key",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3109,7 +3109,7 @@ describe("cli: error handling", () => {
         const env = {
           HOME: realpathSync(home),
           OPENAI_API_KEY: "ask-conflict-key",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",

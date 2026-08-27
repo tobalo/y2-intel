@@ -1053,12 +1053,12 @@ test "model cache refetches effective access across auth and team changes" {
     const public_access: credentials.CatalogAccess = .{ .public_only = .no_credential };
     const team_a_access = authenticatedCatalogAccess("team-key", "team_a");
     const team_b_access = authenticatedCatalogAccess("team-key", "team_b");
-    const retired_login_access = credentials.catalogAccessForCredential(.retired_login, "login-token", "ignored-team");
+    const api_key_access = credentials.catalogAccessForCredential(.api_key, "login-token", "ignored-team");
     const cases = [_]struct { access: credentials.CatalogAccess, model_id: []const u8 }{
         .{ .access = public_access, .model_id = "public/original" },
         .{ .access = team_a_access, .model_id = "private/team-a" },
         .{ .access = team_b_access, .model_id = "private/team-b" },
-        .{ .access = retired_login_access, .model_id = "public/login" },
+        .{ .access = api_key_access, .model_id = "public/login" },
     };
 
     var provider = AuthChangeCatalog{};
@@ -1083,17 +1083,17 @@ test "model cache refetches effective access across auth and team changes" {
     try std.testing.expectEqual(@as(usize, cases.len), provider.calls);
 }
 
-test "model cache reloads a ready authenticated catalog after Y2 login access downgrades" {
+test "model cache reloads a ready authenticated catalog after access downgrades" {
     const cases = [_]struct {
         access: credentials.CatalogAccess,
         reason: credentials.CatalogPublicOnlyReason,
     }{
         .{
-            .access = .{ .public_only = .retired_login_refresh_required },
-            .reason = .retired_login_refresh_required,
+            .access = .{ .public_only = .no_credential },
+            .reason = .no_credential,
         },
         .{
-            .access = credentials.catalogAccessAfterRefreshFailure(.retired_login),
+            .access = credentials.catalogAccessAfterRefreshFailure(.api_key),
             .reason = .credential_refresh_failed,
         },
     };
@@ -1104,7 +1104,7 @@ test "model cache reloads a ready authenticated catalog after Y2 login access do
         var private_provider = AuthChangeCatalog{ .model_id = "private/team-model" };
         runtime.startWarmup(
             private_provider.provider(),
-            credentials.catalogAccessForCredential(.retired_login, "login-token", "team_123"),
+            credentials.catalogAccessForCredential(.api_key, "login-token", "team_123"),
         );
         try waitForWarmup(&runtime);
 
@@ -1125,13 +1125,13 @@ test "model cache reuses a ready public catalog when only its public reason chan
     var runtime = Runtime.init(std.testing.allocator, "/v1/models");
     defer runtime.deinit();
     var initial_provider = AuthChangeCatalog{ .model_id = "public/base-model" };
-    runtime.startWarmup(initial_provider.provider(), .{ .public_only = .retired_login_refresh_required });
+    runtime.startWarmup(initial_provider.provider(), .{ .public_only = .no_credential });
     try waitForWarmup(&runtime);
 
     var unused_provider = AuthChangeCatalog{ .model_id = "public/redundant-model" };
     runtime.startWarmup(
         unused_provider.provider(),
-        credentials.catalogAccessAfterRefreshFailure(.retired_login),
+        credentials.catalogAccessAfterRefreshFailure(.api_key),
     );
 
     try std.testing.expectEqual(@as(usize, 0), unused_provider.calls);

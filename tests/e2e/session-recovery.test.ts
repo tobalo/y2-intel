@@ -80,7 +80,6 @@ function startAcp(cwd: string, home: string, extraEnv: Record<string, string> = 
       ...process.env,
       HOME: home,
       Y2_API_KEY: "e2e-placeholder",
-      REMOVED_LEGACY_OIDC_TOKEN: "",
       NO_COLOR: "1",
       ...extraEnv,
     },
@@ -353,9 +352,8 @@ describe("session recovery", () => {
             cwd: workspaceRoot,
             env: {
               HOME: home,
-              Y2_API_KEY: "e2e-placeholder",
-              REMOVED_LEGACY_OIDC_TOKEN: "",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_API_KEY: "e2e-placeholder",
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
             },
           },
@@ -431,9 +429,8 @@ describe("session recovery", () => {
       ]);
       const resumeEnv = {
         HOME: home,
-        Y2_API_KEY: "e2e-placeholder",
-        REMOVED_LEGACY_OIDC_TOKEN: "",
-        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        OPENAI_API_KEY: "e2e-placeholder",
+        OPENAI_BASE_URL: gateway.baseUrl,
         Y2_API_CHAT_URL: gateway.chatUrl,
       };
       try {

@@ -28,7 +28,6 @@ import {
 const TIMEOUT = 20_000;
 const NO_AUTH = {
   Y2_API_KEY: "",
-  REMOVED_LEGACY_OIDC_TOKEN: "",
   Y2_MODEL: undefined,
   NO_COLOR: "1",
 };
@@ -195,7 +194,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         const catalogEnv = {
           ...NO_AUTH,
           HOME: home,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
         };
 
         session = await TmuxSession.create({
@@ -494,7 +493,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         });
         await session.waitForText("Run /help", TIMEOUT);
         await session.sendText("/output quiet");
-        await session.waitForText("Y2 needs access to Retired credential retired gateway", TIMEOUT);
+        await session.waitForText("Y2 Information Dominance needs an API key", TIMEOUT);
         expect(composerContains(await session.capturePane(), "/output quiet")).toBe(
           true,
         );
@@ -561,7 +560,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -649,7 +648,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             ...NO_AUTH,
             HOME: home,
             Y2_AUTO_UPGRADE: "0",
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -700,9 +699,9 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           cwd: realpathSync(workspace),
           env: {
             ...NO_AUTH,
-            Y2_API_KEY: "fake-standard-key",
+            OPENAI_API_KEY: "fake-standard-key",
             HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -759,7 +758,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -839,38 +838,22 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           model: "anthropic/claude-opus-4.8",
           effort: "high",
           fast_mode: false,
-          credential_source: "retired_login",
+          credential_source: "api_key",
         }) + "\n";
         writeFileSync(
           settingsPath,
           initialSettings,
           { mode: 0o600 },
         );
-        writeFileSync(
-          join(home, ".y2", "auth.json"),
-          JSON.stringify({
-            version: 1,
-            issuer: "https://identity.example",
-            client_id: "test-client",
-            access_token: "fake-y2-login-token",
-            refresh_token: "fake-y2-login-refresh-token",
-            expires_at_ms: Date.now() + 60 * 60 * 1000,
-            scope: "openid",
-            token_type: "Bearer",
-            team_id: "team_fast_test",
-            team_slug: "fast-test-team",
-          }) + "\n",
-          { mode: 0o600 },
-        );
         const gatewayEnv = {
           ...NO_AUTH,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          OPENAI_API_KEY: "fake-openai-key",
           Y2_DISABLE_KEYCHAIN: "1",
           HOME: home,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
         };
 
         session = await TmuxSession.create({
@@ -1000,11 +983,11 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
         );
         const gatewayEnv = {
           ...NO_AUTH,
-          Y2_API_KEY: "fake-capability-key",
+          OPENAI_API_KEY: "fake-capability-key",
           HOME: home,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
         };
 
         const staleResult = await runY2(
@@ -1116,7 +1099,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -1178,7 +1161,7 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           env: {
             ...NO_AUTH,
             HOME: home,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -1256,12 +1239,11 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
           cwd: workspaceRoot,
           env: {
             ...NO_AUTH,
-            Y2_API_KEY: "fake-capability-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            OPENAI_API_KEY: "fake-capability-key",
             HOME: home,
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           stderrPath,
         });
@@ -2427,11 +2409,9 @@ describe.skipIf(!tmuxAvailable())("config persistence", () => {
             cwd: workspaceRoot,
             env: {
               HOME: home,
-              Y2_API_KEY: "fake-restored-root-key",
-              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              OPENAI_API_KEY: "fake-restored-root-key",
               Y2_AUTO_UPGRADE: "0",
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-              Y2_API_CHAT_URL: gateway.chatUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
               Y2_MODEL: FAKE_GATEWAY_MODEL,
             },

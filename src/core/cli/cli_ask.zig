@@ -7160,7 +7160,7 @@ test "current ask state releases partial snapshots on allocation failure" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     const writable = &ctx.writable.?;
@@ -7456,7 +7456,7 @@ test "saved ask settles profile publication before persistence teardown" {
         1,
         .observed_generation,
         generation_id,
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     try ctx.session.usage.applyGeneration(alloc, .{

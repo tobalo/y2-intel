@@ -11,6 +11,8 @@ import {
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Y2_BIN, runY2 } from "../evals/eval-helpers";
+import { parseGatewayRequest } from "./conditional-guidance-oracle";
+import { fakeGatewaySse } from "./tmux-helpers";
 
 const TIMEOUT = 20_000;
 const FETCH_URL = "https://example.com/docs";
@@ -29,16 +31,8 @@ type GatewayRequest = {
 
 type PermissionAction = "allow" | "deny" | null;
 
-function sse(events: object[], done = true) {
-  return new Response(
-    events.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("") +
-      (done ? "data: [DONE]\n\n" : ""),
-    { headers: { "content-type": "text/event-stream" } },
-  );
-}
-
 function outerToolCalls(calls: Array<{ id: string; name: string; input: object }>) {
-  return sse([
+  return fakeGatewaySse([
     ...calls.map((call) => ({
       type: "tool-call",
       toolCallId: call.id,
@@ -57,7 +51,7 @@ function outerWebFetchCall(input: object = { url: FETCH_URL }) {
 }
 
 function outerText(text: string) {
-  return sse([
+  return fakeGatewaySse([
     { type: "text-delta", id: "answer_1", delta: text },
     {
       type: "finish",
@@ -79,7 +73,7 @@ function startFakeGateway(
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/coding-agent/v1/models") {
+      if (url.pathname === "/v1/models") {
         return Response.json({
           data: PROVIDER_MODELS.map((id) => ({
             id,
@@ -95,7 +89,7 @@ function startFakeGateway(
   });
 
   return {
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     baseUrl: `http://127.0.0.1:${server.port}`,
     model,
     requests,
@@ -129,9 +123,8 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-web-fetch-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-web-fetch-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: gateway.model,
     ...extra,
@@ -159,7 +152,7 @@ function parseY2Json(result: Awaited<ReturnType<typeof runY2>>) {
 }
 
 function requestJson(request: GatewayRequest) {
-  return JSON.parse(request.body) as {
+  return parseGatewayRequest(request.body) as {
     tools: Array<{
       type: string;
       name: string;
@@ -307,9 +300,9 @@ describe("web_fetch Gateway fixture", () => {
 
           parseY2Json(result);
           expect(gateway.requests).toHaveLength(1);
-          expect(gateway.requests[0].headers.get("ai-language-model-id")).toBe(model);
+          expect(JSON.parse(gateway.requests[0].body).model).toBe(model);
           expectWebFetchSchema(gateway.requests[0]);
-          expect(gateway.requests[0].body).toContain("gateway.perplexity_search");
+          expect(gateway.requests[0].body).not.toContain("perplexity_search");
         } finally {
           gateway.stop();
           rmSync(root.root, { recursive: true, force: true });

@@ -721,7 +721,7 @@ function startFakeGateway(
   });
   const gateway = {
     baseUrl: `http://127.0.0.1:${server.port}`,
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     requests,
     classifierRequests,
     stop() {
@@ -967,9 +967,8 @@ function gatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-command-permission-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-command-permission-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: MODEL,
     Y2_AUTO_UPGRADE: "0",

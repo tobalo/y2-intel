@@ -1681,6 +1681,7 @@ const App = struct {
                 .presentation = provider_catalog.find(.gateway),
                 .auth_strategy = .api_key,
                 .agent_stream = js_host_stream_provider.provider(),
+                .model_catalog = js_host_model_catalog.provider,
             });
         }
         var providers = builtin_providers.native;
@@ -3216,7 +3217,6 @@ fn needsEarlyThreadedIo(args: []const [:0]const u8) bool {
     const command = cli_surface.commandAfterGlobalLaunchArgs(args) orelse return false;
     return std.mem.eql(u8, command, "login") or
         std.mem.eql(u8, command, "logout") or
-        std.mem.eql(u8, command, "teams") or
         std.mem.eql(u8, command, "provider") or
         std.mem.eql(u8, command, "setup") or
         std.mem.eql(u8, command, "upgrade") or
@@ -3232,7 +3232,6 @@ test "auth and upgrade commands use early threaded io without full entry config"
     try std.testing.expect(needsEarlyThreadedIo(args));
     try std.testing.expect(needsEarlyThreadedIo(&.{@as([:0]const u8, "login")}));
     try std.testing.expect(needsEarlyThreadedIo(&.{@as([:0]const u8, "logout")}));
-    try std.testing.expect(needsEarlyThreadedIo(&.{@as([:0]const u8, "teams")}));
     try std.testing.expect(needsEarlyThreadedIo(&.{@as([:0]const u8, "provider")}));
     try std.testing.expect(needsEarlyThreadedIo(&.{@as([:0]const u8, "setup")}));
 }
@@ -3910,7 +3909,6 @@ test {
     _ = @import("gateway/xai_grok_permission_reviewer.zig");
     _ = credentials;
     _ = @import("core/auth/oauth.zig");
-    _ = @import("core/auth/oauth_session.zig");
     _ = @import("core/workspace/file_index.zig");
     _ = @import("core/gateway/provider_set.zig");
     _ = @import("core/github/git_context.zig");

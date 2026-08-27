@@ -147,7 +147,7 @@ function startFakeGateway(
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/coding-agent/v1/models") {
+      if (url.pathname === "/v1/models") {
         return Response.json({
           data: [{ id: MODEL, type: "language", tags: ["tool-use"] }],
         });
@@ -169,7 +169,7 @@ function startFakeGateway(
 
   return {
     baseUrl: `http://127.0.0.1:${server.port}`,
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     requests,
     classifierRequests,
     remainingResponseCount() {
@@ -206,12 +206,10 @@ function gatewayEnv(
 ) {
   return {
     HOME: home,
-    Y2_API_KEY: "fake-file-paths-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-file-paths-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
     Y2_MODEL: MODEL,
     Y2_AUTO_UPGRADE: "0",
     ...extra,
@@ -684,7 +682,7 @@ describe("filesystem path handling", () => {
             env: {
               HOME: root.home,
               Y2_AUTO_UPGRADE: "0",
-              Y2_GATEWAY_BASE_URL: undefined,
+              OPENAI_BASE_URL: undefined,
               Y2_API_CHAT_URL: undefined,
               Y2_MODEL: process.env.Y2_WORKSPACE_ACCESS_LIVE_MODEL ?? EVAL_MODEL,
             },

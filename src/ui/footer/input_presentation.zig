@@ -315,17 +315,10 @@ fn authPickerInteractionHint(view: auth_runtime.PickerView, width: u16) ?[]const
         "Enter Use  Esc Back",
         "Enter Esc",
     };
-    const team_variants = [_][]const u8{
-        "Type to search     ↑↓ Navigate     Enter Use     Esc Back",
-        "Type  ↑↓ Move  Enter  Esc",
-        "↑↓ Move  Enter  Esc",
-        "Enter Esc",
-    };
     const variants = switch (view.stage) {
         .root => root_variants,
         .connections => connections_variants,
         .provider, .switch_credential => selection_variants,
-        .change_team => team_variants,
         .sign_in, .api_key => return null,
     };
     for (variants) |candidate| {
@@ -1452,7 +1445,7 @@ test "compose hint row replaces model status with setup navigation" {
     try std.testing.expect(std.mem.find(u8, root.items, "gpt-5.1") == null);
 
     ctx.auth_picker.stage = .connections;
-    ctx.auth_picker.selected_choice = .{ .action = .login };
+    ctx.auth_picker.selected_choice = .{ .action = .chatgpt_login };
     var child = try composeHintRow(std.testing.allocator, false, null, ctx, 96);
     defer child.deinit(std.testing.allocator);
     try std.testing.expect(std.mem.find(u8, child.items, "Esc Back") != null);

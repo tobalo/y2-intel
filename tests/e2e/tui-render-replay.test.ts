@@ -58,7 +58,7 @@ async function launch(options: {
   );
 
   const s = await TmuxSession.create({
-    cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
+    cmd: `env -u Y2_API_KEY Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
     cwd: workDir,
     width: 88,
     height: 30,
@@ -103,7 +103,7 @@ async function launchAutomaticRecording(): Promise<{
   const goldenPath = join(workDir, "grid.txt");
   const tracePath = join(workDir, "trace.log");
   const s = await TmuxSession.create({
-    cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN} --record`,
+    cmd: `env -u Y2_API_KEY Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN} --record`,
     cwd: workDir,
     width: 180,
     height: 36,
@@ -308,7 +308,7 @@ describe("tui: render record/replay", () => {
         { length: 33 },
         (_, index) => `captured input line ${index + 1}: ${"x".repeat(32)}`,
       ).join("\n");
-      const authNotice = "● Auth: Y2 needs access to Retired credential retired gateway. Run /login to sign in, /setup to use an API key, or set Y2_API_KEY.";
+      const authNotice = "● Auth: Y2 Information Dominance needs an API key. Run /setup or set Y2_API_KEY. For another OpenAI-compatible endpoint, set OPENAI_API_KEY and OPENAI_BASE_URL.";
       const launched = await launch({ recordInput: true });
       session = launched.session;
 
@@ -350,7 +350,7 @@ describe("tui: render record/replay", () => {
       session = launched.session;
 
       await session.sendText(marker);
-      await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
+      await session.waitForText("Y2 Information Dominance needs an API key", 5_000);
       await session.sendKeys("C-u");
       await session.sendText("/status");
       await session.waitForText("permission_mode", 5_000);
@@ -403,7 +403,7 @@ describe("tui: render record/replay", () => {
 
       expect(launched.tapePath.startsWith(join(launched.home, ".y2", "recordings"))).toBe(true);
       await session.sendText(marker);
-      await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
+      await session.waitForText("Y2 Information Dominance needs an API key", 5_000);
       await session.sendKeys(`-l '${inputTail}'`);
       await session.waitForText(inputTail, 5_000);
       await session.resizeWindow(120, 28);
@@ -437,7 +437,7 @@ describe("tui: render record/replay", () => {
       const forbiddenPrompt = "trace_secret_prompt_token_6179";
       const forbiddenTokens = [
         forbiddenPrompt,
-        "Y2 needs access to Retired credential retired gateway",
+        "Y2 Information Dominance needs an API key",
         "footer row preview secret",
         "shimmer label secret",
         "command output secret",
@@ -448,7 +448,7 @@ describe("tui: render record/replay", () => {
       session = launched.session;
 
       await session.sendText(forbiddenPrompt);
-      await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
+      await session.waitForText("Y2 Information Dominance needs an API key", 5_000);
       await session.resizeWindow(72, 24);
       await session.sendKeys("C-u");
       await session.sendText("/status");

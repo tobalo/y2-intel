@@ -6,8 +6,6 @@ const secret = @import("secret.zig");
 
 const Allocator = std.mem.Allocator;
 const max_response_bytes: usize = 64 * 1024;
-pub const max_session_bytes: usize = 64 * 1024;
-pub const max_revision_bytes: usize = 1024;
 
 extern "y2" fn y2_http_request(
     method_ptr: [*]const u8,
@@ -21,29 +19,6 @@ extern "y2" fn y2_http_request(
     status_out: *u16,
     response_ptr: [*]u8,
     response_cap: usize,
-) i32;
-
-extern "y2" fn y2_oauth_session_load(
-    bytes_ptr: [*]u8,
-    bytes_cap: usize,
-    revision_ptr: [*]u8,
-    revision_cap: usize,
-    revision_len_out: *usize,
-) i32;
-
-extern "y2" fn y2_oauth_session_commit(
-    bytes_ptr: [*]const u8,
-    bytes_len: usize,
-    expected_revision_ptr: [*]const u8,
-    expected_revision_len: usize,
-    revision_ptr: [*]u8,
-    revision_cap: usize,
-    revision_len_out: *usize,
-) i32;
-
-extern "y2" fn y2_oauth_session_remove(
-    expected_revision_ptr: [*]const u8,
-    expected_revision_len: usize,
 ) i32;
 
 pub const oauth_provider: oauth_transport.Provider = if (host_target.is_wasm)
@@ -150,139 +125,11 @@ fn checkRequestBounds(request: oauth_transport.Request) !void {
     }
 }
 
-pub const StoredSession = struct {
-    bytes: []u8,
-    revision: []u8,
-
-    pub fn deinit(self: *StoredSession, alloc: Allocator) void {
-        secret.zeroAndFree(alloc, self.bytes);
-        alloc.free(self.revision);
-        self.* = undefined;
-    }
-};
-
-pub const RemoveOutcome = enum { deleted, missing };
-
-pub const SessionStore = struct {
-    context: ?*anyopaque = null,
-    load_fn: *const fn (?*anyopaque, Allocator) anyerror!?StoredSession,
-    commit_fn: *const fn (?*anyopaque, Allocator, []const u8, ?[]const u8) anyerror![]u8,
-    remove_fn: *const fn (?*anyopaque, ?[]const u8) anyerror!RemoveOutcome,
-
-    pub fn load(self: SessionStore, alloc: Allocator) !?StoredSession {
-        return self.load_fn(self.context, alloc);
-    }
-
-    pub fn commit(
-        self: SessionStore,
-        alloc: Allocator,
-        bytes: []const u8,
-        expected_revision: ?[]const u8,
-    ) ![]u8 {
-        return self.commit_fn(self.context, alloc, bytes, expected_revision);
-    }
-
-    pub fn remove(self: SessionStore, expected_revision: ?[]const u8) !RemoveOutcome {
-        return self.remove_fn(self.context, expected_revision);
-    }
-};
-
-pub const oauth_session_store: SessionStore = if (host_target.is_wasm)
-    .{
-        .load_fn = loadSession,
-        .commit_fn = commitSession,
-        .remove_fn = removeSession,
-    }
-else
-    .{
-        .load_fn = unavailableSessionLoad,
-        .commit_fn = unavailableSessionCommit,
-        .remove_fn = unavailableSessionRemove,
-    };
-
-fn unavailableSessionLoad(_: ?*anyopaque, _: Allocator) !?StoredSession {
-    return error.OAuthSessionStoreUnavailable;
-}
-
-fn unavailableSessionCommit(_: ?*anyopaque, _: Allocator, _: []const u8, _: ?[]const u8) ![]u8 {
-    return error.OAuthSessionStoreUnavailable;
-}
-
-fn unavailableSessionRemove(_: ?*anyopaque, _: ?[]const u8) !RemoveOutcome {
-    return error.OAuthSessionStoreUnavailable;
-}
-
-fn loadSession(_: ?*anyopaque, alloc: Allocator) !?StoredSession {
-    const session_buffer = try alloc.alloc(u8, max_session_bytes);
-    defer secret.zeroAndFree(alloc, session_buffer);
-    const revision_buffer = try alloc.alloc(u8, max_revision_bytes);
-    defer alloc.free(revision_buffer);
-    var revision_len: usize = 0;
-    const session_len = y2_oauth_session_load(
-        session_buffer.ptr,
-        session_buffer.len,
-        revision_buffer.ptr,
-        revision_buffer.len,
-        &revision_len,
-    );
-    if (session_len == -2) return null;
-    if (session_len == -3) return error.OAuthSessionTooLarge;
-    if (session_len < 0 or
-        @as(usize, @intCast(session_len)) > session_buffer.len or
-        revision_len > revision_buffer.len)
-    {
-        return error.OAuthSessionStoreUnavailable;
-    }
-    const session_bytes = try alloc.dupe(u8, session_buffer[0..@intCast(session_len)]);
-    errdefer secret.zeroAndFree(alloc, session_bytes);
-    return .{
-        .bytes = session_bytes,
-        .revision = try alloc.dupe(u8, revision_buffer[0..revision_len]),
-    };
-}
-
-fn commitSession(
-    _: ?*anyopaque,
-    alloc: Allocator,
-    bytes: []const u8,
-    expected_revision: ?[]const u8,
-) ![]u8 {
-    if (bytes.len > max_session_bytes) return error.OAuthSessionTooLarge;
-    const revision_buffer = try alloc.alloc(u8, max_revision_bytes);
-    defer alloc.free(revision_buffer);
-    var revision_len: usize = 0;
-    const expected = expected_revision orelse "";
-    const status = y2_oauth_session_commit(
-        bytes.ptr,
-        bytes.len,
-        expected.ptr,
-        expected.len,
-        revision_buffer.ptr,
-        revision_buffer.len,
-        &revision_len,
-    );
-    if (status == -2) return error.OAuthSessionRevisionConflict;
-    if (status < 0 or revision_len > revision_buffer.len) {
-        return error.OAuthSessionStoreUnavailable;
-    }
-    return alloc.dupe(u8, revision_buffer[0..revision_len]);
-}
-
-fn removeSession(_: ?*anyopaque, expected_revision: ?[]const u8) !RemoveOutcome {
-    const expected = expected_revision orelse "";
-    return switch (y2_oauth_session_remove(expected.ptr, expected.len)) {
-        0 => .deleted,
-        1 => .missing,
-        -2 => error.OAuthSessionRevisionConflict,
-        else => error.OAuthSessionStoreUnavailable,
-    };
-}
-
 test "request bounds reject cancellation before touching the JS host" {
     var cancelled = std.atomic.Value(bool).init(true);
     try std.testing.expectError(error.Cancelled, checkRequestBounds(.{
         .method = .get,
-        .url = "https://identity.example",
+        .url = "https://auth.example.com",
         .cancel_flag = &cancelled,
     }));
 }

@@ -23,7 +23,6 @@ import {
 const TIMEOUT = 20_000;
 const REJECTED_GATEWAY_AUTH = {
   Y2_API_KEY: "e2e-placeholder",
-  REMOVED_LEGACY_OIDC_TOKEN: "",
   NO_COLOR: "1",
 };
 
@@ -36,7 +35,7 @@ function rejectedGatewayEnv(
   return {
     ...REJECTED_GATEWAY_AUTH,
     HOME: home,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: FAKE_GATEWAY_MODEL,
   };
@@ -109,7 +108,7 @@ describe.skipIf(!tmuxAvailable())("prompt history", () => {
         await session.sendText("PLAN10_PROMPT_HISTORY_SENTINEL");
         await session.waitForText("HTTP 401", TIMEOUT);
         await session.sendText("/help");
-        await session.waitForText("Commands 37", TIMEOUT);
+        await session.waitForText("Commands 36", TIMEOUT);
         await session.sendKeys("Escape");
         await session.waitForPane((pane) => !pane.includes("Enter Open"), TIMEOUT);
         await session.sendText("/quit");

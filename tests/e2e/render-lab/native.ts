@@ -740,7 +740,6 @@ function startShellCommand(
     "-u",
     "Y2_API_KEY",
     "-u",
-    "REMOVED_LEGACY_OIDC_TOKEN",
     `HOME=${shQuote(fixture.home)}`,
     `ZDOTDIR=${shQuote(fixture.zdotdir)}`,
     `HISTFILE=${shQuote(fixture.histfile)}`,

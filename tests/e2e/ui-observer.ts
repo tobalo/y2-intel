@@ -180,9 +180,8 @@ function gatewayEnv(
 ) {
   return {
     HOME: fixture.home,
-    Y2_API_KEY: "ui-observer-local",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "ui-observer-local",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_AUTO_UPGRADE: "0",

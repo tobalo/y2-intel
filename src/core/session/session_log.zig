@@ -4914,7 +4914,7 @@ test "usage sidecar restores exact optional metrics after read-only and writable
         7,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -5092,7 +5092,7 @@ test "indeterminate canonical usage retry repairs the rich sidecar" {
         7,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{
@@ -5164,7 +5164,7 @@ test "unwritable usage sidecar keeps canonical usage resumable and incomplete" {
         7,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     try usage.applyGeneration(alloc, .{

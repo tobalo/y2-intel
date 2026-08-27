@@ -82,14 +82,13 @@ async function startY2(
   const active = await TmuxSession.create({
     cmd: withGateway
       ? Y2_BIN
-      : `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
+      : `env -u Y2_API_KEY Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
     env: {
       HOME: testHome,
       ...(gateway
         ? {
-          Y2_API_KEY: "fake-input-navigation-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-input-navigation-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -322,7 +321,7 @@ tmuxTest(
     await waitForExactComposerRow(active, "┃ /");
 
     await active.sendKeys("Enter");
-    await active.waitForText("Commands 37", READY_TIMEOUT);
+    await active.waitForText("Commands 36", READY_TIMEOUT);
     await active.sendKeys("Escape");
     await active.waitForText("Run /help for commands", READY_TIMEOUT);
     expect(active.isAlive()).toBe(true);
@@ -1036,11 +1035,10 @@ tmuxTest(
       cwd: workspace,
       env: {
         HOME: testHome,
-        Y2_API_KEY: "fake-image-input-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        OPENAI_API_KEY: "fake-image-input-key",
+        OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
-        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
@@ -1201,11 +1199,10 @@ tmuxTest(
       cmd: Y2_BIN,
       env: {
         HOME: testHome,
-        Y2_API_KEY: "fake-repeated-image-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        OPENAI_API_KEY: "fake-repeated-image-key",
+        OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
-        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
@@ -1312,11 +1309,10 @@ tmuxTest(
       cmd: Y2_BIN,
       env: {
         HOME: testHome,
-        Y2_API_KEY: "fake-image-id-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        OPENAI_API_KEY: "fake-image-id-key",
+        OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
-        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
@@ -1404,11 +1400,10 @@ tmuxTest(
       cmd: Y2_BIN,
       env: {
         HOME: testHome,
-        Y2_API_KEY: "fake-image-yank-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        OPENAI_API_KEY: "fake-image-yank-key",
+        OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
-        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
@@ -1474,11 +1469,10 @@ tmuxTest(
       cmd: Y2_BIN,
       env: {
         HOME: testHome,
-        Y2_API_KEY: "fake-pending-image-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        OPENAI_API_KEY: "fake-pending-image-key",
+        OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
-        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/coding-agent/v1/models`,
+        Y2_E2E_GATEWAY_MODELS_URL: `${localGateway.baseUrl}/v1/models`,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",
       },
@@ -1592,9 +1586,8 @@ tmuxTest(
       cmd: Y2_BIN,
       env: {
         HOME: testHome,
-        Y2_API_KEY: "fake-current-rail-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: localGateway.baseUrl,
+        OPENAI_API_KEY: "fake-current-rail-key",
+        OPENAI_BASE_URL: localGateway.baseUrl,
         Y2_API_CHAT_URL: localGateway.chatUrl,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_AUTO_UPGRADE: "0",

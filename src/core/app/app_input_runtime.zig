@@ -3129,7 +3129,6 @@ const RoutingFakeApp = struct {
     load_more_session_count: usize = 0,
     selected_credential_source: ?types.CredentialSource = null,
     selected_auth_action: ?auth_runtime.AcquisitionAction = null,
-    selected_auth_team: ?usize = null,
     upgrade_apply_count: usize = 0,
     upgrade_denied_count: usize = 0,
     suspend_count: usize = 0,
@@ -3369,7 +3368,6 @@ const RoutingFakeApp = struct {
             .provider => {},
             .source => |source| _ = try self.selectCredentialSource(source),
             .action => |action| self.selected_auth_action = action,
-            .team => |index| self.selected_auth_team = index,
         }
     }
 
@@ -3771,7 +3769,7 @@ test "app_input_runtime routes auth picker navigation before composer history" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .api_key });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).routeModifiedHistory(&app, .down, 1);
@@ -3784,7 +3782,7 @@ test "app_input_runtime Tab cycles the active auth picker" {
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .api_key });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\t', 4096, 100);
@@ -3886,7 +3884,7 @@ test "app_input_runtime connections picker delegates typed acquisition actions" 
     const alloc = std.testing.allocator;
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
-    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .retired_login });
+    app.auth.source_inventory = auth_runtime.SourceSet.initMany(&.{ .api_key, .api_key });
     app.auth.openPicker(alloc);
 
     try Runtime(RoutingFakeApp).handleByte(&app, '\r', 4096, 100);
@@ -7589,7 +7587,6 @@ fn openRoutingModelMenu(app: *RoutingFakeApp, model_ids: []const []const u8) !vo
 }
 
 fn openRoutingAuthPicker(app: *RoutingFakeApp) !void {
-    app.auth.source_inventory.insert(.retired_oidc_token);
     app.auth.source_inventory.insert(.api_key);
     app.auth.openPicker(app.alloc);
     try std.testing.expect(app.auth.movePicker(1));

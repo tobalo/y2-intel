@@ -390,12 +390,12 @@ test "formatHttpErrorMessage renders API key and credits setup bodies" {
     );
 
     const credits_detail =
-        \\{"error":{"code":"credit_card_required","message":"Buy credits to use retired gateway."}}
+        \\{"error":{"code":"credit_card_required","message":"API credits are required."}}
     ;
     const credits_line = try formatHttpErrorMessage(std.testing.allocator, .forbidden, credits_detail);
     defer std.testing.allocator.free(credits_line);
     try std.testing.expectEqualStrings(
-        "API access denied · HTTP 403 · credit_card_required: Buy credits to use retired gateway.",
+        "API access denied · HTTP 403 · credit_card_required: API credits are required.",
         credits_line,
     );
 }

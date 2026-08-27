@@ -162,13 +162,6 @@ pub const top_level_specs = [_]TopLevelSpec{
         },
     },
     .{
-        .kind = .teams,
-        .token = "teams",
-        .usage = "teams",
-        .summary = "Report that account teams are unavailable for direct API providers",
-        .hidden_from_top_level_help = true,
-    },
-    .{
         .kind = .session,
         .token = "session",
         .usage = "session <last|id>|--id <id> [--json] | session resume [last|<id>] [--record] | session resume --id <id> [--record] | session migrate <id>|--id <id> [--allow-large] [--json] | session recover <id>|--id <id> [--json]",

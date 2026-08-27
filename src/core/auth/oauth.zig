@@ -4,9 +4,9 @@ const secret = @import("secret.zig");
 
 const Allocator = std.mem.Allocator;
 
-// Sign in with Retired credential supports exactly openid, email, profile and offline_access,
+// Device authorization supports exactly openid, email, profile and offline_access,
 // and silently filters anything else. y2 only needs identity plus a refresh token,
-// so it asks for those two and nothing more. An earlier `use:retired-gateway` entry was
+// so it asks for those two and nothing more. An earlier `profile` entry was
 // never a real scope: it was dropped on every grant and bought nothing.
 pub const default_scope = "openid offline_access";
 
@@ -382,7 +382,7 @@ fn requiredInteger(object: std.json.ObjectMap, key: []const u8) !i64 {
 fn check_metadata_allocation_failures(alloc: Allocator) !void {
     var metadata = try parseMetadata(
         alloc,
-        "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\",\"revocation_endpoint\":\"https://identity.example/revoke\"}",
+        "{\"issuer\":\"https://auth.example.com\",\"device_authorization_endpoint\":\"https://auth.example.com/device\",\"token_endpoint\":\"https://auth.example.com/token\",\"revocation_endpoint\":\"https://auth.example.com/revoke\"}",
     );
     defer metadata.deinit(alloc);
 }
@@ -390,7 +390,7 @@ fn check_metadata_allocation_failures(alloc: Allocator) !void {
 fn check_device_authorization_allocation_failures(alloc: Allocator) !void {
     var device = try parseDeviceAuthorization(
         alloc,
-        "{\"device_code\":\"device\",\"user_code\":\"user\",\"verification_uri\":\"https://identity.example/verify\",\"verification_uri_complete\":\"https://identity.example/verify?code=user\",\"expires_in\":600,\"interval\":5}",
+        "{\"device_code\":\"device\",\"user_code\":\"user\",\"verification_uri\":\"https://auth.example.com/verify\",\"verification_uri_complete\":\"https://auth.example.com/verify?code=user\",\"expires_in\":600,\"interval\":5}",
     );
     defer device.deinit(alloc);
 }
@@ -444,31 +444,31 @@ fn optionalBytesEqual(left: ?[]const u8, right: ?[]const u8) bool {
 }
 
 test "oauth discovery maps protocol input through the injected transport" {
-    const issuer = "https://identity.example";
+    const issuer = "https://auth.example.com";
     var probe = TransportProbe{
         .expected_method = .get,
         .expected_url = issuer ++ "/.well-known/openid-configuration",
-        .response_body = "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\"}",
+        .response_body = "{\"issuer\":\"https://auth.example.com\",\"device_authorization_endpoint\":\"https://auth.example.com/device\",\"token_endpoint\":\"https://auth.example.com/token\"}",
     };
 
     var metadata = try discover(std.testing.allocator, probe.provider(), issuer);
     defer metadata.deinit(std.testing.allocator);
 
     try std.testing.expect(probe.matched);
-    try std.testing.expectEqualStrings("https://identity.example/token", metadata.token_endpoint);
+    try std.testing.expectEqualStrings("https://auth.example.com/token", metadata.token_endpoint);
 }
 
 test "oauth device authorization owns form mapping while transport owns execution" {
     var probe = TransportProbe{
         .expected_method = .post_form,
-        .expected_url = "https://identity.example/device",
+        .expected_url = "https://auth.example.com/device",
         .expected_payload = "client_id=client%20id&scope=openid%20offline_access",
-        .response_body = "{\"device_code\":\"device\",\"user_code\":\"CODE\",\"verification_uri\":\"https://identity.example/verify\",\"expires_in\":600,\"interval\":5}",
+        .response_body = "{\"device_code\":\"device\",\"user_code\":\"CODE\",\"verification_uri\":\"https://auth.example.com/verify\",\"expires_in\":600,\"interval\":5}",
     };
     const metadata = Metadata{
-        .issuer = @constCast("https://identity.example"),
-        .device_authorization_endpoint = @constCast("https://identity.example/device"),
-        .token_endpoint = @constCast("https://identity.example/token"),
+        .issuer = @constCast("https://auth.example.com"),
+        .device_authorization_endpoint = @constCast("https://auth.example.com/device"),
+        .token_endpoint = @constCast("https://auth.example.com/token"),
     };
 
     var device = try requestDeviceAuthorization(
@@ -491,7 +491,7 @@ test "oauth polling forwards bounds and preserves pending responses" {
     });
     var probe = TransportProbe{
         .expected_method = .post_form,
-        .expected_url = "https://identity.example/token",
+        .expected_url = "https://auth.example.com/token",
         .expected_payload = "client_id=client&grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Adevice_code&device_code=device",
         .response_disposition = .rejected,
         .response_body = "{\"error\":\"authorization_pending\"}",
@@ -499,9 +499,9 @@ test "oauth polling forwards bounds and preserves pending responses" {
         .expect_deadline = true,
     };
     const metadata = Metadata{
-        .issuer = @constCast("https://identity.example"),
-        .device_authorization_endpoint = @constCast("https://identity.example/device"),
-        .token_endpoint = @constCast("https://identity.example/token"),
+        .issuer = @constCast("https://auth.example.com"),
+        .device_authorization_endpoint = @constCast("https://auth.example.com/device"),
+        .token_endpoint = @constCast("https://auth.example.com/token"),
     };
 
     const result = try pollDeviceTokenBounded(
@@ -527,8 +527,8 @@ test "a reduced grant names the scope the issuer withheld" {
     );
     // The scope y2 used to request was never advertised, so every grant dropped it.
     try std.testing.expectEqualStrings(
-        "use:retired-gateway",
-        missingGrantedScope("openid offline_access use:retired-gateway", "openid offline_access").?,
+        "profile",
+        missingGrantedScope("openid offline_access profile", "openid offline_access").?,
     );
     try std.testing.expect(missingGrantedScope("", "openid") == null);
 }
@@ -536,11 +536,11 @@ test "a reduced grant names the scope the issuer withheld" {
 test "oauth parses metadata" {
     var metadata = try parseMetadata(
         std.testing.allocator,
-        "{\"issuer\":\"https://identity.example\",\"device_authorization_endpoint\":\"https://identity.example/device\",\"token_endpoint\":\"https://identity.example/token\",\"revocation_endpoint\":\"https://identity.example/revoke\"}",
+        "{\"issuer\":\"https://auth.example.com\",\"device_authorization_endpoint\":\"https://auth.example.com/device\",\"token_endpoint\":\"https://auth.example.com/token\",\"revocation_endpoint\":\"https://auth.example.com/revoke\"}",
     );
     defer metadata.deinit(std.testing.allocator);
-    try std.testing.expectEqualStrings("https://identity.example", metadata.issuer);
-    try std.testing.expectEqualStrings("https://identity.example/device", metadata.device_authorization_endpoint);
+    try std.testing.expectEqualStrings("https://auth.example.com", metadata.issuer);
+    try std.testing.expectEqualStrings("https://auth.example.com/device", metadata.device_authorization_endpoint);
 }
 
 test "oauth maps provider errors" {

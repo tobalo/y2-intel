@@ -3172,7 +3172,7 @@ test "borderless separator with spaces around pipe is accepted" {
     defer out.deinit(alloc);
 
     const input =
-        "Característica | Retired credential | Cloudflare\n" ++
+        "Característica | Y2 | Cloudflare\n" ++
         "-------------- | ------ | ----------\n" ++
         "Enfoque principal | Frontend | Edge compute\n";
     try processor.push(alloc, input, &out);

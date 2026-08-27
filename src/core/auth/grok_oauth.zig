@@ -368,7 +368,7 @@ fn completeSignIn(
 fn saveSignIn(_: ?*anyopaque, alloc: Allocator, completion: login_flow.SignInCompletion) !void {
     const session = switch (completion) {
         .grok => |session| session,
-        .retired_credential, .chatgpt => return error.InvalidSignInCompletion,
+        .chatgpt => return error.InvalidSignInCompletion,
     };
     try grok_session.saveNewSession(alloc, session);
 }

@@ -7,7 +7,6 @@ import { runY2 } from "../evals/eval-helpers";
 const TIMEOUT = 15_000;
 const NO_GATEWAY_AUTH = {
   Y2_API_KEY: undefined,
-  REMOVED_LEGACY_OIDC_TOKEN: undefined,
   Y2_DISABLE_KEYCHAIN: "1",
 };
 
@@ -44,7 +43,7 @@ describe("web_fetch permission progress", () => {
       ]);
 
       expect(result.code).toBe(1);
-      expect(result.stderr).toContain("Y2 needs access to Retired credential retired gateway. Run y2 login to sign in, y2 setup to use an API key, or set Y2_API_KEY.");
+      expect(result.stderr).toContain("Y2 Information Dominance needs an API key. Run y2 setup or set Y2_API_KEY.");
       expectNoFetchProgress(result.stderr);
     },
     TIMEOUT,

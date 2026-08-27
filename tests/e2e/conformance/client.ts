@@ -154,7 +154,6 @@ try {
         ...process.env,
         HOME: home,
         Y2_API_KEY: "mcp-conformance-placeholder",
-        REMOVED_LEGACY_OIDC_TOKEN: "",
         Y2_AUTO_UPGRADE: "0",
         Y2_DISABLE_KEYCHAIN: "1",
         Y2_E2E_MCP_AUTH_AUTOMATE: "1",
@@ -164,7 +163,7 @@ try {
                 scenarioContext.client_secret,
             }
           : {}),
-        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        OPENAI_BASE_URL: gateway.baseUrl,
         Y2_API_CHAT_URL: gateway.chatUrl,
         Y2_MODEL: FAKE_GATEWAY_MODEL,
         Y2_SKIP_ONBOARDING: "1",

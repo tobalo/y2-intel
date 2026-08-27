@@ -614,9 +614,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-linked-menu-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-linked-menu-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -664,9 +663,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-linked-metadata-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-linked-metadata-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -713,7 +711,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 120,
@@ -756,7 +753,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 120,
@@ -808,9 +804,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
 
       const env = {
         HOME: home,
-        Y2_API_KEY: "fake-title-rename-key",
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
-        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        OPENAI_API_KEY: "fake-title-rename-key",
+        OPENAI_BASE_URL: gateway.baseUrl,
         Y2_API_CHAT_URL: gateway.chatUrl,
         Y2_MODEL: model,
         Y2_AUTO_UPGRADE: "0",
@@ -862,7 +857,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           ...env,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         stderrPath: resumedStderrPath,
@@ -904,9 +899,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-slash-footer-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-slash-footer-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: "openai/gpt-5",
           Y2_AUTO_UPGRADE: "0",
@@ -945,9 +939,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-slash-footer-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-slash-footer-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: "openai/gpt-5",
           Y2_AUTO_UPGRADE: "0",
@@ -999,7 +992,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       ).toBe(71);
       expect(closedComposerRow).toBe(73);
       await session.sendLiteralText("/");
-      await session.waitForText("Commands 37", 5_000);
+      await session.waitForText("Commands 36", 5_000);
       const afterSlash = await capture("after-slash");
       expect(visibleTranscriptTailRow(afterSlash)).toBe(62);
       expect(composerRow(afterSlash)).toBe(64);
@@ -1164,7 +1157,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1230,7 +1222,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           env: {
             HOME: home,
             Y2_API_KEY: undefined,
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
             Y2_AUTO_UPGRADE: "0",
           },
           width: 100,
@@ -1323,7 +1314,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         stderrPath,
@@ -1387,7 +1377,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         stderrPath,
@@ -1469,7 +1458,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         (current) =>
           current.includes("resume-helper") &&
           !current.includes("Enter Use") &&
-          !current.includes("Y2 needs access to Retired credential retired gateway"),
+          !current.includes("Y2 Information Dominance needs an API key"),
         5_000,
       );
       expect(composerContains(pane, "resume-helper")).toBe(true);
@@ -1498,7 +1487,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1531,7 +1519,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.sendKeys("Down");
       await session.sendKeys("Enter");
       pane = await session.waitForPane(
-        (current) => hasEmptyComposer(current) && !current.includes("Commands 37"),
+        (current) => hasEmptyComposer(current) && !current.includes("Commands 36"),
         5_000,
       );
       expect(composerContains(pane, "/clear")).toBe(false);
@@ -1595,7 +1583,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1659,7 +1646,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 60,
@@ -1668,7 +1654,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForComposer(10_000);
 
       await session.sendText("/help");
-      let pane = await session.waitForText("Commands 37", 5_000);
+      let pane = await session.waitForText("Commands 36", 5_000);
       expect(pane).toContain("/help");
       expect(pane).not.toContain("● /help");
       await session.sendKeys("Escape");
@@ -1718,7 +1704,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1799,7 +1784,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1859,7 +1843,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1896,7 +1879,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -1967,7 +1949,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -2045,7 +2026,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -2161,7 +2141,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 120,
@@ -2262,7 +2241,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 120,
@@ -2323,7 +2301,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           Y2_RECORD: tapePath,
         },
@@ -2583,7 +2560,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 120,
@@ -2690,11 +2666,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-models-menu-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-models-menu-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_MODEL: currentModel,
           Y2_AUTO_UPGRADE: "0",
           Y2_RECORD: fixture.tapePath,
@@ -2803,11 +2778,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-models-menu-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-models-menu-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_MODEL: modelIds[0],
           Y2_AUTO_UPGRADE: "0",
         },
@@ -2854,11 +2828,10 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath: fixture.stderrPath,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-model-picker-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-model-picker-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_MODEL: "openai/gpt-4o",
           Y2_AUTO_UPGRADE: "0",
         },
@@ -2898,7 +2871,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 120,
@@ -2940,9 +2912,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-active-skills-stream-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-active-skills-stream-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -2989,9 +2960,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath: fixture.stderrPath,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-active-slash-stream-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-active-slash-stream-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3052,9 +3022,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         stderrPath,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-catalog-approval-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-catalog-approval-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_PERMISSION_MODE: "ask",
@@ -3102,8 +3071,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            Y2_API_KEY: "fake-skill-token-key",
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_API_KEY: "fake-skill-token-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_AUTO_UPGRADE: "0",
@@ -3168,8 +3137,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            Y2_API_KEY: "fake-mention-guard-key",
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_API_KEY: "fake-mention-guard-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_AUTO_UPGRADE: "0",
@@ -3217,8 +3186,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            Y2_API_KEY: "fake-mention-space-key",
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_API_KEY: "fake-mention-space-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_AUTO_UPGRADE: "0",
@@ -3262,8 +3231,8 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         cwd: fixture.workspace,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-exact-picker-key",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-exact-picker-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3361,7 +3330,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 100,
@@ -3370,7 +3338,7 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
       await session.waitForComposer(10_000);
 
       await session.sendLiteralText("/");
-      await session.waitForText("Commands 37", 5_000);
+      await session.waitForText("Commands 36", 5_000);
 
       for (let i = 0; i < 5; i += 1) {
         await session.sendKeys("Down");
@@ -3429,7 +3397,6 @@ describe.skipIf(SKIP)("tui: slash menu", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
         },
         width: 42,

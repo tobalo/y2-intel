@@ -71,9 +71,8 @@ function gatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-auto-mode-reliability-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-auto-mode-reliability-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: MODEL,
     Y2_PERMISSION_MODE: "auto",

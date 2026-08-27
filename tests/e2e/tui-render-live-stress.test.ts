@@ -53,7 +53,6 @@ async function launch(run: number): Promise<{ session: TmuxSession; tracePath: s
     height: 30,
     env: {
       Y2_API_KEY: process.env.Y2_API_KEY,
-      REMOVED_LEGACY_OIDC_TOKEN: process.env.REMOVED_LEGACY_OIDC_TOKEN,
       Y2_TRACE_LOG: tracePath,
       Y2_TRACE_SCOPES: TRACE_SCOPES,
     },

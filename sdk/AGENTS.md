@@ -16,7 +16,7 @@ The SDK has two WebAssembly surfaces and one shared JavaScript host layer:
 | Native and WebAssembly capability policy | `src/core/hosts/runtime_profile.zig` |
 | Host-backed terminal session persistence | `src/core/app/app_session_runtime.zig` and `sdk/y2-sdk.js` |
 | Browser workspace contract and `terminal.exec` bridge | `src/core/hosts/js_host_workspace.zig` and `src/tools/terminal/browser_terminal.zig` |
-| Browser device login, OAuth session persistence, and URL opening | `src/core/auth/js_host_auth.zig`, `src/core/auth/oauth_session.zig`, and `src/core/hosts/js_host_url_opener.zig` |
+| Provider subscription OAuth and URL opening | `src/core/auth/chatgpt_oauth.zig`, `src/core/auth/grok_oauth.zig`, and `src/core/hosts/js_host_url_opener.zig` |
 | WASI target, optimization mode, threading, and artifact names | `build.zig` |
 | Core browser fixture and its automation contract | `sdk/index.html` and `sdk/tests/test-core-browser.mjs` |
 | Terminal fixture and static packaging contract | `sdk/term-demo.html` and `sdk/scripts/package-term-demo.mjs` |
@@ -29,7 +29,7 @@ Do not treat the demos or this file as the implementation contract. When prose a
 - Keep `sdk/y2-sdk.js` a dependency-free ECMAScript module. A bundler, framework, or runtime package must not become necessary to load the SDK.
 - Keep the core and terminal surfaces distinct. `y2-core.wasm` starts the headless ACP server; `y2-term.wasm` starts the interactive terminal. Shared loader changes must be validated against both.
 - Detect JavaScript Promise Integration (JSPI) by capability through `supportsJspi()`. Do not replace feature detection with browser or version sniffing. Keep loader errors, demo fallback states, and the compatibility statement in `sdk/README.md` consistent.
-- Treat JavaScript host stores as durable contracts. Session and OAuth snapshots are opaque bytes with optimistic revisions. Preserve `Y2_SESSION_REVISION_CONFLICT` and `Y2_OAUTH_SESSION_REVISION_CONFLICT`. Persist configuration only after y2 accepts it, and do not collapse prompt-history outcomes into generic success.
+- Treat JavaScript host stores as durable contracts. Session snapshots are opaque bytes with optimistic revisions. Preserve `Y2_SESSION_REVISION_CONFLICT`. Persist configuration only after y2 accepts it, and do not collapse prompt-history outcomes into generic success.
 - Preserve cancellation and lifecycle behavior. Fetch cancellation must reach the host `AbortSignal`; terminal subscriptions must be released exactly once; `abort()` must settle `exited` and must not leave input or resize listeners attached.
 - The WebAssembly runtime is not the native runtime. Keep native tools disabled. The optional workspace host may expose only foreground `terminal.exec` through its typed boundary and permission policy. Its schema is exactly `{ action: "exec", command }`; native profiles and durable terminal actions are unavailable. Any additional capability requires its own typed host boundary, permission review where applicable, and coverage on the affected surface.
 - Keep workspace version 1 constrained to an ephemeral, non-git workspace whose normalized `cwd` equals `root`. Preserve command and output limits, the 30-second maximum deadline, and Ctrl+C cancellation through the shared host-effect abort path.

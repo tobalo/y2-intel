@@ -5760,7 +5760,7 @@ test "web_fetch permits valid public hosts by default" {
     try std.testing.expectEqual(ToolPermissionDecision.once, (try tool_admission.requestPermissionOutcome(rt.context().admissionInput(), arena, .{
         .id = "fetch",
         .name = "web_fetch",
-        .arguments_json = "{\"url\":\"https://docs.identity.example/frameworks/nextjs\"}",
+        .arguments_json = "{\"url\":\"https://docs.auth.example.com/frameworks/nextjs\"}",
     }, .auto, &.{})).decision);
 }
 
@@ -8390,7 +8390,7 @@ const VisionGatewayFixture = struct {
             .usage = .{ .deferred = .{
                 .provider = .gateway,
                 .generation_id = response.generation_id orelse "gen_test",
-                .scope = "https://retired-gateway.invalid",
+                .scope = "https://example.invalid",
                 .tenant = request.credential.tenant,
                 .credential_source = request.credential.source orelse .api_key,
                 .credential_identity = credential_authority.derive(

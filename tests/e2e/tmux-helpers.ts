@@ -20,7 +20,6 @@ const TMUX_HEX_CHUNK_BYTES = 256;
 const COMPOSER_LINE = /^[ \t]*(?:┃|❯|>)(?:[ \t]|$)/;
 const AUTH_ENV_KEYS = [
   "Y2_API_KEY",
-  "REMOVED_LEGACY_OIDC_TOKEN",
 ] as const;
 const DEFAULT_UNSET_ENV_KEYS = [
   ...AUTH_ENV_KEYS,
@@ -31,7 +30,7 @@ const DEFAULT_UNSET_ENV_KEYS = [
   "Y2_PERMISSION_MODE",
 ] as const;
 const MIRRORED_ENV_KEYS = [
-  "Y2_GATEWAY_BASE_URL",
+  "OPENAI_BASE_URL",
   "Y2_API_CHAT_URL",
   "Y2_MAX_AGENT_STEPS",
   "Y2_MODEL",
@@ -122,50 +121,60 @@ export function hasEmptyComposer(pane: string): boolean {
   return pane.split("\n").some(isEmptyComposerLine);
 }
 
-export function fakeGatewaySse(events: object[]) {
+export function createFakeGatewaySseEncoder() {
   const toolIndexes = new Map<string, number>();
   let nextToolIndex = 0;
-  const openAiEvents = events.flatMap((rawEvent) => {
+  const encodeEvent = (rawEvent: object): string => {
     const event = rawEvent as Record<string, any>;
-    if (event.choices) return [event];
-    if (event.type === "text-delta") {
-      return [{
+    let openAiEvents: object[];
+    if (event.choices) {
+      openAiEvents = [event];
+    } else if (event.type === "reasoning-delta") {
+      openAiEvents = [{
+        id: event.id ?? "chat_fixture",
+        choices: [{ index: 0, delta: { reasoning_content: event.delta ?? "" }, finish_reason: null }],
+      }];
+    } else if (event.type === "reasoning-start" || event.type === "reasoning-end" ||
+      event.type === "text-start" || event.type === "text-end") {
+      openAiEvents = [];
+    } else if (event.type === "text-delta") {
+      openAiEvents = [{
         id: event.id ?? "chat_fixture",
         choices: [{ index: 0, delta: { content: event.delta ?? "" }, finish_reason: null }],
       }];
-    }
-    if (event.type === "tool-input-start") {
+    } else if (event.type === "tool-input-start") {
       const index = nextToolIndex++;
       toolIndexes.set(event.id, index);
-      return [{
+      openAiEvents = [{
         id: "chat_fixture",
         choices: [{ index: 0, delta: { tool_calls: [{ index, id: event.id, function: { name: event.toolName, arguments: "" } }] }, finish_reason: null }],
       }];
-    }
-    if (event.type === "tool-input-delta") {
+    } else if (event.type === "tool-input-delta") {
       const index = toolIndexes.get(event.id) ?? 0;
-      return [{
+      openAiEvents = [{
         id: "chat_fixture",
         choices: [{ index: 0, delta: { tool_calls: [{ index, function: { arguments: event.delta ?? "" } }] }, finish_reason: null }],
       }];
-    }
-    if (event.type === "tool-input-end" || event.type === "tool-result") return [];
-    if (event.type === "tool-call") {
-      if (toolIndexes.has(event.toolCallId)) return [];
-      const index = nextToolIndex++;
-      toolIndexes.set(event.toolCallId, index);
-      const input = typeof event.input === "string" ? event.input : JSON.stringify(event.input ?? {});
-      return [{
-        id: "chat_fixture",
-        choices: [{ index: 0, delta: { tool_calls: [{ index, id: event.toolCallId, function: { name: event.toolName, arguments: input } }] }, finish_reason: null }],
-      }];
-    }
-    if (event.type === "finish") {
+    } else if (event.type === "tool-input-end" || event.type === "tool-result") {
+      openAiEvents = [];
+    } else if (event.type === "tool-call") {
+      if (toolIndexes.has(event.toolCallId)) {
+        openAiEvents = [];
+      } else {
+        const index = nextToolIndex++;
+        toolIndexes.set(event.toolCallId, index);
+        const input = typeof event.input === "string" ? event.input : JSON.stringify(event.input ?? {});
+        openAiEvents = [{
+          id: "chat_fixture",
+          choices: [{ index: 0, delta: { tool_calls: [{ index, id: event.toolCallId, function: { name: event.toolName, arguments: input } }] }, finish_reason: null }],
+        }];
+      }
+    } else if (event.type === "finish") {
       const unified = event.finishReason?.unified ?? event.finishReason?.raw ?? "stop";
       const finishReason = unified === "tool-calls" ? "tool_calls"
         : unified === "content-filter" ? "content_filter"
         : unified;
-      return [{
+      openAiEvents = [{
         id: "chat_fixture",
         choices: [{ index: 0, delta: {}, finish_reason: finishReason }],
         usage: event.usage ? {
@@ -173,11 +182,22 @@ export function fakeGatewaySse(events: object[]) {
           completion_tokens: event.usage.outputTokens?.total,
         } : undefined,
       }];
+    } else {
+      openAiEvents = [event];
     }
-    return [event];
-  });
+    return openAiEvents.map((value) => `data: ${JSON.stringify(value)}\n\n`).join("");
+  };
+  return {
+    event: encodeEvent,
+    done: () => "data: [DONE]\n\n",
+  };
+}
+
+export function fakeGatewaySse(events: object[]) {
+  const encoder = createFakeGatewaySseEncoder();
+  const body = events.map(encoder.event).join("") + encoder.done();
   return new Response(
-    `${openAiEvents.map((event) => `data: ${JSON.stringify(event)}\n\n`).join("")}data: [DONE]\n\n`,
+    body,
     { headers: { "content-type": "text/event-stream" } },
   );
 }
@@ -383,7 +403,7 @@ function serveFakeGateway(
     port: 0,
     idleTimeout: 0,
     async fetch(req) {
-      if (new URL(req.url).pathname === "/coding-agent/v1/models") {
+      if (new URL(req.url).pathname === "/v1/models") {
         modelRequests.push({ headers: new Headers(req.headers), url: req.url });
         const models = typeof options.models === "function"
           ? await options.models(req)
@@ -420,7 +440,7 @@ function serveFakeGateway(
   });
   return {
     baseUrl: `http://127.0.0.1:${server.port}`,
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     requests,
     classifierRequests,
     generationRequests,

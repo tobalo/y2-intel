@@ -461,43 +461,6 @@ function createRuntime(options) {
       accepted === false ? 0 : 1).catch(() => 0);
   }
 
-  function oauthSessionLoad(outPtr, outCap, revisionPtr, revisionCap, revisionLenOut) {
-    if (!options.oauthSessionStore?.load) return -1;
-    return Promise.resolve().then(() => options.oauthSessionStore.load()).then((record) => {
-      if (!record) return -2;
-      const value = record.bytes instanceof Uint8Array ? record.bytes : new Uint8Array(record.bytes);
-      if (typeof record.revision !== "string") return -1;
-      const revision = encoder.encode(record.revision);
-      if (value.length > outCap || revision.length > revisionCap) return -3;
-      bytes(outPtr, value.length).set(value);
-      bytes(revisionPtr, revision.length).set(revision);
-      writeU32(revisionLenOut, revision.length);
-      return value.length;
-    }).catch(() => -1);
-  }
-
-  function oauthSessionCommit(valuePtr, valueLen, expectedPtr, expectedLen, revisionPtr, revisionCap, revisionLenOut) {
-    if (!options.oauthSessionStore?.commit) return -1;
-    const expectedRevision = expectedLen ? text(expectedPtr, expectedLen) : undefined;
-    const value = bytes(valuePtr, valueLen).slice();
-    return Promise.resolve().then(() => options.oauthSessionStore.commit(value, expectedRevision)).then((result) => {
-      if (typeof result?.revision !== "string") return -1;
-      const revision = encoder.encode(result.revision);
-      if (revision.length > revisionCap) return -1;
-      bytes(revisionPtr, revision.length).set(revision);
-      writeU32(revisionLenOut, revision.length);
-      return 0;
-    }).catch((error) => error?.code === "Y2_OAUTH_SESSION_REVISION_CONFLICT" ? -2 : -1);
-  }
-
-  function oauthSessionRemove(expectedPtr, expectedLen) {
-    if (!options.oauthSessionStore?.remove) return -1;
-    const expectedRevision = expectedLen ? text(expectedPtr, expectedLen) : undefined;
-    return Promise.resolve().then(() => options.oauthSessionStore.remove(expectedRevision)).then((result) =>
-      result === false || result === "missing" ? 1 : 0
-    ).catch((error) => error?.code === "Y2_OAUTH_SESSION_REVISION_CONFLICT" ? -2 : -1);
-  }
-
   function configGet(idPtr, idLen, outPtr, outCap) {
     if (!options.configStore?.get) return -2;
     const configId = text(idPtr, idLen);
@@ -775,9 +738,6 @@ function createRuntime(options) {
     y2_http_stream_close(handle) { const state = streams.get(handle); state?.controller.abort(); streams.delete(handle); },
     y2_http_request: new WebAssembly.Suspending(httpRequest),
     y2_open_url: new WebAssembly.Suspending(openUrl),
-    y2_oauth_session_load: new WebAssembly.Suspending(oauthSessionLoad),
-    y2_oauth_session_commit: new WebAssembly.Suspending(oauthSessionCommit),
-    y2_oauth_session_remove: new WebAssembly.Suspending(oauthSessionRemove),
     y2_config_get: new WebAssembly.Suspending(configGet),
     y2_config_set: new WebAssembly.Suspending(configSet),
     y2_prompt_history_load: new WebAssembly.Suspending(promptHistoryLoad),

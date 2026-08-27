@@ -93,7 +93,7 @@ await waitFor(() => grid().includes("Full detail"), "full transcript detail");
 runtime.write("\x0f");
 await waitFor(() => terminal.buffer.active.type === "normal", "full transcript close");
 
-await command("/login", "Retired credential sign-in failed. The current credential is unchanged.");
+await command("/login", "Pass Y2_API_KEY, or OPENAI_API_KEY with OPENAI_BASE_URL, through createY2Terminal().");
 await command("/resume", "Session resume is owned by the embedding SDK");
 await command("/mcp list", "No MCP servers configured");
 await command("/skills list", "Skills are unavailable in this host");

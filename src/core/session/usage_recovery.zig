@@ -282,7 +282,7 @@ test "recovery registry reads only marked durable session state" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     try runtime_usage.applyGeneration(alloc, .{

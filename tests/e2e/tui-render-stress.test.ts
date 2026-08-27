@@ -56,7 +56,7 @@ async function launch(
   const tracePath = join(workDir, "trace.log");
 
   const s = await TmuxSession.create({
-    cmd: `env -u Y2_API_KEY -u REMOVED_LEGACY_OIDC_TOKEN Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
+    cmd: `env -u Y2_API_KEY Y2_DISABLE_KEYCHAIN=1 Y2_SKIP_ONBOARDING=1 ${Y2_BIN}`,
     cwd: workDir,
     width,
     height,
@@ -99,7 +99,7 @@ describe.skipIf(SKIP)("tui: render stress", () => {
 
         const firstPrompt = `visible_user_prompt_${run}`;
         await session.sendText(firstPrompt);
-        await session.waitForText("Y2 needs access to Retired credential retired gateway", 5_000);
+        await session.waitForText("Y2 Information Dominance needs an API key", 5_000);
 
         const tailToken = `tail_${run}_visibl`;
         await session.sendKeys(`-l '${longInput(run)}'`);
@@ -114,7 +114,7 @@ describe.skipIf(SKIP)("tui: render stress", () => {
 
         await session.sendKeys("C-u");
         await session.sendText("/help");
-        await session.waitForText("Commands 37", 5_000);
+        await session.waitForText("Commands 36", 5_000);
         await session.sendKeys("Escape");
         await session.waitForPane((pane) => !pane.includes("Enter Open"), 5_000);
         await session.sendText("/status");

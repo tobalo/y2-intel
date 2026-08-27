@@ -47,7 +47,7 @@
   <section id="controls" aria-label="Session controls">
     <label>Model<input id="model" class="model" list="models" disabled><datalist id="models"></datalist></label>
     <label>Mode<select id="mode" disabled></select></label>
-    <label>Transport<select id="transport" disabled><option value="live">Live gateway</option><option value="mock">Mock stream</option><option value="stall">Stalled stream</option></select></label>
+    <label>Transport<select id="transport" disabled><option value="live">Live Agent Y2 API</option><option value="mock">Mock stream</option><option value="stall">Stalled stream</option></select></label>
   </section>
   <main id="timeline" aria-live="polite"></main>
   <form>
@@ -285,10 +285,15 @@
           wasm: location.hostname === "localhost" || location.hostname === "127.0.0.1"
             ? "../zig-out/bin/y2-core.wasm"
             : "./y2-core.wasm",
-          env: {
-            Y2_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
-            OPENAI_API_KEY: "browser-session",
-          },
+          env: transport === "live"
+            ? {
+                Y2_API_CHAT_URL: new URL("/api/harness/chat", location.origin).href,
+                OPENAI_API_KEY: "browser-session",
+              }
+            : {
+                OPENAI_BASE_URL: "https://models.example/v1",
+                OPENAI_API_KEY: "browser-session",
+              },
           fetch: dispatchFetch,
           onEvent: observe,
           onPermission: resolvePermission,

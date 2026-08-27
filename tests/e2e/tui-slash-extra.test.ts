@@ -109,7 +109,7 @@ function startFakeCreditsGateway() {
           "Bearer credits-fake-key",
       });
       return Response.json(
-        { error: { code: "credit_card_required", message: "Buy credits to use retired gateway." } },
+        { error: { code: "credit_card_required", message: "API credits are required." } },
         { status: 403 },
       );
     },
@@ -133,8 +133,7 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
         session = await TmuxSession.create({
           env: {
             HOME: home,
-            Y2_API_KEY: "credits-fake-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            OPENAI_API_KEY: "credits-fake-key",
             Y2_E2E_GATEWAY_CREDITS_URL: gateway.url,
           },
           width: 120,
@@ -143,7 +142,7 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
         await session.waitForComposer(10_000);
 
         await session.sendText("/credits");
-        await session.waitForText("Buy credits to use retired gateway.", 10_000);
+        await session.waitForText("API credits are required.", 10_000);
         await session.waitForComposer(10_000);
 
         const scrollback = await session.captureFullScrollback();
@@ -154,7 +153,7 @@ describe.skipIf(!tmuxAvailable())("tui: credits slash command", () => {
         }]);
         expect(scrollback).toContain("API access denied");
         expect(scrollback).toContain("HTTP 403");
-        expect(scrollback).toContain("Buy credits to use retired gateway.");
+        expect(scrollback).toContain("API credits are required.");
         expect(hasEmptyComposer(scrollback)).toBe(true);
       } finally {
         gateway.stop();
@@ -197,10 +196,8 @@ describe.skipIf(!tmuxAvailable() || CLIPBOARD_PROGRAM === null)("tui: clipboard 
           stderrPath,
           env: {
             HOME: homeDir,
-            Y2_API_KEY: "clipboard-fake-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-            Y2_API_CHAT_URL: gateway.chatUrl,
+            OPENAI_API_KEY: "clipboard-fake-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_TEST_CLIPBOARD_CAPTURE: capturePath,
@@ -254,10 +251,8 @@ describe.skipIf(!tmuxAvailable())("tui: active session transitions", () => {
           stderrPath,
           env: {
             HOME: homeDir,
-            Y2_API_KEY: "active-clear-fake-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-            Y2_API_CHAT_URL: gateway.chatUrl,
+            OPENAI_API_KEY: "active-clear-fake-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
           },
@@ -326,10 +321,8 @@ describe.skipIf(SKIP)("tui: extra slash commands", () => {
           cwd: workDir,
           env: {
             HOME: homeDir,
-            Y2_API_KEY: "clear-fake-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-            Y2_API_CHAT_URL: gateway.chatUrl,
+            OPENAI_API_KEY: "clear-fake-key",
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_TRACE_SCOPES: TRACE_SCOPES,

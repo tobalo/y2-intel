@@ -106,10 +106,9 @@ describe("yolo permission mode", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            Y2_API_KEY: "fake-yolo-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            OPENAI_API_KEY: "fake-yolo-key",
             Y2_AUTO_UPGRADE: "0",
-            Y2_GATEWAY_BASE_URL: fake.baseUrl,
+            OPENAI_BASE_URL: fake.baseUrl,
             Y2_API_CHAT_URL: fake.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
             Y2_TRACE_LOG: tracePath,
@@ -168,7 +167,6 @@ describe("yolo permission mode", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_PERMISSION_MODE: undefined,
         },
       });
@@ -215,10 +213,9 @@ describe("yolo permission mode", () => {
           cwd: fixture.workspace,
           env: {
             HOME: fixture.home,
-            Y2_API_KEY: "fake-yolo-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            OPENAI_API_KEY: "fake-yolo-key",
             Y2_AUTO_UPGRADE: "0",
-            Y2_GATEWAY_BASE_URL: fake.baseUrl,
+            OPENAI_BASE_URL: fake.baseUrl,
             Y2_API_CHAT_URL: fake.chatUrl,
             Y2_MODEL: FAKE_GATEWAY_MODEL,
           },
@@ -260,7 +257,6 @@ describe.skipIf(!tmuxAvailable())("yolo interactive mode", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           Y2_PERMISSION_MODE: undefined,
         },
@@ -347,10 +343,9 @@ describe.skipIf(!tmuxAvailable())("yolo interactive mode", () => {
         height: 40,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-live-permission-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          OPENAI_API_KEY: "fake-live-permission-key",
           Y2_AUTO_UPGRADE: "0",
-          Y2_GATEWAY_BASE_URL: fake.baseUrl,
+          OPENAI_BASE_URL: fake.baseUrl,
           Y2_API_CHAT_URL: fake.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_PERMISSION_MODE: undefined,
@@ -426,10 +421,9 @@ describe.skipIf(!tmuxAvailable())("yolo interactive mode", () => {
         height: 40,
         env: {
           HOME: fixture.home,
-          Y2_API_KEY: "fake-live-permission-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          OPENAI_API_KEY: "fake-live-permission-key",
           Y2_AUTO_UPGRADE: "0",
-          Y2_GATEWAY_BASE_URL: fake.baseUrl,
+          OPENAI_BASE_URL: fake.baseUrl,
           Y2_API_CHAT_URL: fake.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_PERMISSION_MODE: undefined,
@@ -493,7 +487,6 @@ describe.skipIf(!tmuxAvailable())("yolo interactive mode", () => {
         env: {
           HOME: fixture.home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           Y2_PERMISSION_MODE: undefined,
         },

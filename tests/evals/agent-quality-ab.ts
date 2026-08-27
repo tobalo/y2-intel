@@ -216,7 +216,7 @@ function sideBinary(config: AbConfig, side: AbSide): string {
 }
 
 function sanitizedEnvMetadata(model: string): Record<string, string> {
-  const keys = ["Y2_MODEL", "Y2_API_KEY", "REMOVED_LEGACY_OIDC_TOKEN", "NO_COLOR"];
+  const keys = ["Y2_MODEL", "Y2_API_KEY", "NO_COLOR"];
   const metadata: Record<string, string> = {};
   for (const key of keys) {
     const value = key === "Y2_MODEL" ? model : process.env[key];
@@ -286,7 +286,6 @@ export async function runAbTrial(
     NO_COLOR: "1",
     Y2_MODEL: config.model,
     Y2_API_KEY: process.env.Y2_API_KEY,
-    REMOVED_LEGACY_OIDC_TOKEN: process.env.REMOVED_LEGACY_OIDC_TOKEN,
   };
 
   const versionOutput = await versionFor(binaryPath, env);

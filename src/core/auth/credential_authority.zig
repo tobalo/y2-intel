@@ -21,9 +21,7 @@ pub fn derive(
     hash.update("y2-credential-authority-v1\x00");
     hash.update(@tagName(source));
     switch (source) {
-        .retired_oidc_token,
         .api_key,
-        .retired_login,
         .stored_key,
         => hash.update("\x00slot\x00"),
         .chatgpt_subscription,
@@ -58,6 +56,4 @@ test "credential authority uses non-secret Gateway credential slots" {
     const stored_key = derive(.stored_key, null).?;
     try std.testing.expect(api_key.eql(same_slot));
     try std.testing.expect(!api_key.eql(stored_key));
-    try std.testing.expect(derive(.retired_oidc_token, null) != null);
-    try std.testing.expect(derive(.retired_login, null) != null);
 }

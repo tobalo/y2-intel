@@ -208,7 +208,7 @@ function startImageGateway(
     port: 0,
     async fetch(req) {
       const url = new URL(req.url);
-      if (url.pathname === "/coding-agent/v1/models") {
+      if (url.pathname === "/v1/models") {
         catalogRequests += 1;
         return Response.json({
           data: [
@@ -235,7 +235,7 @@ function startImageGateway(
 
   return {
     baseUrl: `http://127.0.0.1:${server.port}`,
-    chatUrl: `http://127.0.0.1:${server.port}/v3/ai/language-model`,
+    chatUrl: `http://127.0.0.1:${server.port}/v1/chat/completions`,
     chatRequests,
     get catalogRequests() {
       return catalogRequests;
@@ -357,9 +357,8 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-vision-route-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-vision-route-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: model,
   };

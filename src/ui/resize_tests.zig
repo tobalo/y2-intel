@@ -5581,14 +5581,14 @@ test "long transcript picker filtering keeps footer anchored and close releases 
         .{
             .topic = "auth",
             .tone = .information,
-            .body = "Starting Retired credential sign-in",
+            .body = "Starting Codex sign-in",
         },
         true,
     );
     h.frame_redraw = true;
     try renderTestFooter(&h, &input, &approval, &h.frame_redraw);
     try h.flush();
-    try expectGridContains(&h, "Starting Retired credential sign-in");
+    try expectGridContains(&h, "Starting Codex sign-in");
 }
 
 test "picker growth advances history while shrink and dismissal do not" {

@@ -1,4 +1,5 @@
 import { expect } from "bun:test";
+import { parseGatewayRequest } from "./conditional-guidance-oracle";
 
 const permissionModeContext = {
   ask: "Runtime context: permission mode is ask. Sensitive tool calls may require user approval unless configured rules or session grants already decide them. Tool admission remains authoritative.",
@@ -10,10 +11,8 @@ export function expectPermissionModeContext(
   body: string,
   mode: keyof typeof permissionModeContext,
 ) {
-  const request = JSON.parse(body) as {
-    prompt: Array<{ role?: string; content?: unknown }>;
-  };
-  const messages = request.prompt.map((message) => ({
+  const request = parseGatewayRequest(body);
+  const messages = (request.prompt ?? []).map((message) => ({
     role: message.role,
     text: typeof message.content === "string" ? message.content : "",
   }));

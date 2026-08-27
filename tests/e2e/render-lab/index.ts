@@ -130,8 +130,8 @@ const OBSERVABILITY_FINAL_MARKER = "OBSERVABILITY_FINAL_RESPONSE";
 const OBSERVABILITY_PERMISSION_PROMPT = "Would you like to run the following command?";
 const OBSERVABILITY_PERMISSION_REVIEW = "Permission needed";
 const OBSERVABILITY_TOOL_COMMAND = "touch render-lab-observability-approved.txt";
-const LOCAL_GATEWAY_CHAT_PATH = "/v3/ai/language-model";
-const LOCAL_GATEWAY_MODELS_PATH = "/coding-agent/v1/models";
+const LOCAL_GATEWAY_CHAT_PATH = "/v1/chat/completions";
+const LOCAL_GATEWAY_MODELS_PATH = "/v1/models";
 const DEFAULT_BENCH_SIZES: RenderLabTerminalSize[] = [
   { cols: 80, rows: 24 },
   { cols: 120, rows: 40 },
@@ -2096,7 +2096,6 @@ class RenderLabTmux {
       "-u",
       "Y2_API_KEY",
       "-u",
-      "REMOVED_LEGACY_OIDC_TOKEN",
       "Y2_DISABLE_KEYCHAIN=1",
       "Y2_SKIP_ONBOARDING=1",
       `HOME=${shQuote(opts.fixture.home)}`,
@@ -2299,7 +2298,6 @@ function preflightBinaryOnly(): void {
 function testEnv(fixture: Fixture, manifest: RenderLabManifest): NodeJS.ProcessEnv {
   const env: NodeJS.ProcessEnv = { ...process.env };
   delete env.Y2_API_KEY;
-  delete env.REMOVED_LEGACY_OIDC_TOKEN;
   env.Y2_DISABLE_KEYCHAIN = "1";
   env.Y2_SKIP_ONBOARDING = "1";
   env.HOME = fixture.home;

@@ -24,7 +24,6 @@ TRAINING_E2E_TESTS = (
     "ask-presentation.test.ts",
     "config-persistence.test.ts",
     "prompt-history.test.ts",
-    "auth-refresh.test.ts",
     "file-tool-paths.test.ts",
     "file-tool-permissions.test.ts",
     "gateway-stream-lifecycle.test.ts",
@@ -53,7 +52,6 @@ TRAINING_E2E_TESTS = (
 
 VERIFICATION_E2E_TESTS = (
     "auto-mode-reliability.test.ts",
-    "oauth-keychain-migration.test.ts",
     "tui-auth-source-selection.test.ts",
     "tui-composer-edit-contracts.test.ts",
     "tui-cost.test.ts",
@@ -153,7 +151,6 @@ class PgsoCorpusTests(unittest.TestCase):
                 "OPENAI_BASE_URL",
                 "Y2_API_CHAT_URL",
                 "Y2_MODEL",
-                "REMOVED_LEGACY_OIDC_TOKEN",
             ],
             "timeout_seconds": 60,
             "requires_tmux": True,
@@ -371,8 +368,8 @@ class PgsoCorpusTests(unittest.TestCase):
             EXCLUDED_E2E_TESTS,
             tuple(test_file for test_file, _ in corpus.intentional_exclusions),
         )
-        self.assertEqual(35, len(corpus.scenarios))
-        self.assertEqual(51, len(corpus.candidate_scenarios))
+        self.assertEqual(34, len(corpus.scenarios))
+        self.assertEqual(49, len(corpus.candidate_scenarios))
         self.assertEqual(
             100,
             next(
@@ -390,7 +387,7 @@ class PgsoCorpusTests(unittest.TestCase):
             ),
         )
         self.assertEqual(
-            ("verify-oauth-keychain-migration",),
+            (),
             tuple(
                 scenario.name
                 for scenario in corpus.verification_scenarios

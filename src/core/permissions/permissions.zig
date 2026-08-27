@@ -2154,7 +2154,7 @@ test "web_search permission target is whole tool name" {
     const second: types.ToolCall = .{
         .id = "call_2",
         .name = "web_search",
-        .arguments_json = "{\"query\":\"current Retired credential news\",\"allowed_domains\":[\"identity.example\"]}",
+        .arguments_json = "{\"query\":\"current Y2 news\",\"allowed_domains\":[\"y2.dev\"]}",
     };
 
     try std.testing.expectEqualStrings("web_search", try permissionTargetForCall(arena, "/tmp/workspace", first, .none));
@@ -2173,7 +2173,7 @@ test "web_search session grant authorizes subsequent query" {
     const target = try permissionTargetForCall(arena, "/tmp/workspace", .{
         .id = "call_1",
         .name = "web_search",
-        .arguments_json = "{\"query\":\"current Retired credential news\"}",
+        .arguments_json = "{\"query\":\"current Y2 news\"}",
     }, .none);
 
     try std.testing.expect(sessionGrantAllowed(&grants, "web_search", target));

@@ -82,15 +82,14 @@ function gatewayEnv(
 ): Record<string, string | undefined> {
   return {
     HOME: home,
-    Y2_API_KEY: "fake-ask-presentation-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    OPENAI_API_KEY: "fake-ask-presentation-key",
     Y2_DISABLE_KEYCHAIN: "1",
     Y2_SKIP_ONBOARDING: "1",
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_PERMISSION_MODE: "auto",
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
-    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+    Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
   };
 }
 

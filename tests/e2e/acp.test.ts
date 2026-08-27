@@ -17,8 +17,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { Y2_BIN, HAS_API_KEY, REPO_ROOT, runY2 } from "../evals/eval-helpers";
 import {
-  AUTO_PERPLEXITY_SERIALIZED_TOOL_NAMES,
-  customProviderGuidanceState,
+  FULL_SERIALIZED_TOOL_NAMES,
   findUnavailableCapabilityReferences,
   parseGatewayRequest,
   serializedToolNames,
@@ -162,25 +161,10 @@ function noToolLength() {
   ]);
 }
 
-function retryAfterUnavailable(seconds: number): Response {
-  return new Response(
-    JSON.stringify({ error: { message: "provider temporarily unavailable" } }),
-    {
-      status: 503,
-      headers: {
-        "content-type": "application/json",
-        "retry-after": String(seconds),
-      },
-    },
-  );
-}
-
 function partialEofResponse(text: string): Response {
   return new Response(
     `data: ${JSON.stringify({
-      type: "text-delta",
-      id: "answer_1",
-      delta: text,
+      choices: [{ index: 0, delta: { content: text } }],
     })}\n\n`,
     { headers: { "content-type": "text/event-stream" } },
   );
@@ -192,9 +176,7 @@ function fakeGatewayEnv(
 ) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-acp-file-key",
-    REMOVED_LEGACY_OIDC_TOKEN: "",
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-acp-file-key",
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_AUTO_UPGRADE: "0",
@@ -216,7 +198,7 @@ function acpContentText(content: unknown): string {
 }
 
 function acpGatewayRequest(body: string) {
-  return JSON.parse(body) as {
+  return parseGatewayRequest(body) as {
     prompt: Array<{ role?: string; content: unknown }>;
     tools: Array<{
       name: string;
@@ -241,6 +223,14 @@ function acpTaggedBlock(body: string, tag: string): string {
 }
 
 function acpToolResultText(body: string, callId: string): string {
+  const parsed = JSON.parse(body) as {
+    messages?: Array<{ role?: unknown; tool_call_id?: unknown; content?: unknown }>;
+  };
+  const tool_message = parsed.messages?.find((message) =>
+    message.role === "tool" && message.tool_call_id === callId
+  );
+  if (tool_message) return acpContentText(tool_message.content);
+
   const parts = acpGatewayRequest(body).prompt.flatMap((message) =>
     Array.isArray(message.content) ? message.content : []
   ) as Array<Record<string, unknown>>;
@@ -249,6 +239,15 @@ function acpToolResultText(body: string, callId: string): string {
   );
   if (!result) throw new Error(`Missing tool result for ${callId}`);
   return acpContentText(result.output);
+}
+
+function hasAcpToolResult(body: string, callId: string): boolean {
+  try {
+    acpToolResultText(body, callId);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 function occurrenceCount(text: string, needle: string): number {
@@ -503,7 +502,7 @@ function writeSeededY2Auth(home: string, teamId?: string): void {
   const authPath = join(y2Dir, "auth.json");
   const auth: Record<string, string | number> = {
     version: 1,
-    issuer: "https://identity.example",
+    issuer: "https://auth.example.com",
     client_id: "test-client",
     access_token: SEEDED_GATEWAY_TOKEN,
     refresh_token: "seeded-refresh-token",
@@ -1116,7 +1115,7 @@ async function runPromptBlocks(
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     const msg = await client.readLine(Math.min(30_000, Math.max(1_000, deadline - Date.now()))) as any;
-    if (msg.id === promptId && msg.result) {
+    if (msg.id === promptId) {
       promptResult = msg;
       break;
     }
@@ -1139,28 +1138,6 @@ async function runMcpToolPrompt(
   expect(
     acpToolResultText(gateway.requests[requestStart + 2]!.body, callId),
   ).toContain(expectedResult);
-}
-
-async function continueRecovery(client: AcpClient, timeoutMs = LIVE_TIMEOUT) {
-  const promptId = Math.floor(Math.random() * 100000) + 1000;
-  client.send({
-    jsonrpc: "2.0",
-    id: promptId,
-    method: "session/prompt",
-    params: {
-      prompt: [],
-      _meta: { y2: { continueRecovery: true } },
-    },
-  });
-
-  const messages: any[] = [];
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    const msg = await client.readLine(Math.min(30_000, Math.max(1_000, deadline - Date.now()))) as any;
-    if (msg.id === promptId) return { promptResult: msg, messages };
-    messages.push(msg);
-  }
-  throw new Error(`ACP recovery continuation timed out; messages=${JSON.stringify(messages)}`);
 }
 
 describe("acp: model-independent", () => {
@@ -1273,7 +1250,7 @@ describe("acp: model-independent", () => {
         const prompt = await runPrompt(
           client,
           "Use only the active session's MCP resources and prompts.",
-          TIMEOUT,
+          5_000,
         );
         expect(prompt.promptResult.result.stopReason).toBe("end_turn");
         expect(gateway.requests).toHaveLength(8);
@@ -1338,16 +1315,11 @@ describe("acp: model-independent", () => {
   );
 
   test(
-    "ACP reports a paused recovery and continues it only on explicit metadata",
+    "ACP returns an interrupted OpenAI stream error without hanging",
     async () => {
       const root = createIsolatedRoot("y2-acp-model-recovery-");
       const partialText = "ACP partial output before EOF.";
-      const finalTextSuffix = "ACP recovery completed.";
-      const gateway = startFakeGateway([
-        partialEofResponse(partialText),
-        ...Array.from({ length: 9 }, () => retryAfterUnavailable(0)),
-        finalText(`${partialText}${finalTextSuffix}`),
-      ]);
+      const gateway = startFakeGateway([partialEofResponse(partialText)]);
       try {
         client = await AcpClient.create({
           cwd: root.workspace,
@@ -1355,35 +1327,17 @@ describe("acp: model-independent", () => {
         });
         await startCodeSession(client);
 
-        const paused = await runPrompt(
+        const interrupted = await runPrompt(
           client,
-          "Preserve this ACP prompt through recovery.",
+          "Exercise an interrupted OpenAI-compatible stream.",
           TIMEOUT,
         );
-        expect(paused.promptResult.result.stopReason).toBe("refused");
-        expect(gateway.requests).toHaveLength(10);
-        const pausedUpdates = JSON.stringify(paused.messages);
-        expect(pausedUpdates).toContain("modelResponseRecovery");
-        expect(pausedUpdates).toContain('"state":"paused"');
-        expect(pausedUpdates).toContain('"durable":true');
-        expect(pausedUpdates).toContain(
-          "HTTP 503 · provider temporarily unavailable",
-        );
-        expect(pausedUpdates).toContain(partialText);
-
-        const resumed = await continueRecovery(client, TIMEOUT);
-        expect(resumed.promptResult.error).toBeUndefined();
-        expect(resumed.promptResult.result.stopReason).toBe("end_turn");
-        expect(gateway.requests).toHaveLength(11);
-        const resumedUpdates = JSON.stringify(resumed.messages);
-        expect(resumedUpdates).toContain('"state":"recovered"');
-        expect(resumedUpdates).not.toContain("provider temporarily unavailable");
-        expect(gateway.requests[10]!.body).toContain(
-          "Preserve this ACP prompt through recovery.",
-        );
-        const allUpdates = JSON.stringify([...paused.messages, ...resumed.messages]);
-        expect(occurrenceCount(allUpdates, partialText)).toBe(1);
-        expect(occurrenceCount(allUpdates, finalTextSuffix)).toBe(1);
+        expect(interrupted.promptResult.error).toEqual({
+          code: -32603,
+          message: "OpenAIChatStreamIncomplete",
+        });
+        expect(JSON.stringify(interrupted.messages)).toContain(partialText);
+        expect(gateway.requests).toHaveLength(1);
         expect(client.stderr).toBe("");
       } finally {
         await client?.close();
@@ -1416,19 +1370,11 @@ describe("acp: model-independent", () => {
           .map((message) => acpContentText(message.content))
           .join("\n");
         expect(prompt).toContain(submitted);
-        expect(request.tools).toHaveLength(26);
+        expect(request.tools).toHaveLength(24);
         const toolNames = serializedToolNames(oracleRequest);
-        expect(toolNames).toEqual(
-          AUTO_PERPLEXITY_SERIALIZED_TOOL_NAMES,
-        );
+        expect(toolNames).toEqual(FULL_SERIALIZED_TOOL_NAMES);
         expect(toolNames.filter((name) => name === "terminal")).toHaveLength(1);
-        expect(toolNames.filter((name) => name === "perplexity_search"))
-          .toHaveLength(1);
         expect(findUnavailableCapabilityReferences(oracleRequest)).toEqual([]);
-        expect(customProviderGuidanceState(oracleRequest)).toEqual({
-          providerToolIndices: [23],
-          guidanceMessageIndices: [1],
-        });
         expect(gateway.requests[0]!.body).not.toContain(
           "Treat it as interrupting any previous tool plan.",
         );
@@ -1490,119 +1436,6 @@ describe("acp: model-independent", () => {
   );
 
   test(
-    "ACP reload replays pending execution once and clears recovery after completion",
-    async () => {
-      const root = createIsolatedRoot("y2-acp-reload-model-recovery-");
-      const toolEvidence = "ACP_RESTART_TOOL_EVIDENCE";
-      const partialText = "ACP_RESTART_PARTIAL_SENTINEL";
-      const finalTextSuffix = "ACP_RESTART_FINAL_SENTINEL";
-      writeFileSync(join(root.workspace, "recovery-fixture.txt"), `${toolEvidence}\n`);
-      const gateway = startFakeGateway([
-        fakeGatewayToolCall("recovery_read_1", "read_file", {
-          path: "recovery-fixture.txt",
-        }),
-        partialEofResponse(partialText),
-        ...Array.from({ length: 9 }, () => retryAfterUnavailable(0)),
-        finalText(`${partialText}${finalTextSuffix}`),
-      ]);
-      try {
-        client = await AcpClient.create({
-          cwd: root.workspace,
-          env: fakeGatewayEnv(root, gateway),
-        });
-        const sessionId = await startCodeSession(client);
-        const paused = await runPrompt(
-          client,
-          "Preserve this ACP prompt across a process restart.",
-          TIMEOUT,
-        );
-        expect(paused.promptResult.result.stopReason).toBe("refused");
-        expect(gateway.requests).toHaveLength(11);
-
-        await client.close();
-        client = await AcpClient.create({
-          cwd: root.workspace,
-          env: fakeGatewayEnv(root, gateway),
-        });
-        await client.request("initialize", { protocolVersion: 1 }, 10);
-        client.send({
-          jsonrpc: "2.0",
-          id: 11,
-          method: "session/load",
-          params: { sessionId, mcpServers: [] },
-        });
-        const loadMessages: any[] = [];
-        let loadResponse: any = null;
-        while (loadResponse === null) {
-          const message = await client.readLine() as any;
-          if (message.id === 11) {
-            loadResponse = message;
-          } else {
-            loadMessages.push(message);
-          }
-        }
-        expect(loadResponse.error).toBeUndefined();
-        const loadUpdates = JSON.stringify(loadMessages);
-        expect(loadUpdates).toContain("modelResponseRecovery");
-        expect(loadUpdates).toContain(
-          "Preserve this ACP prompt across a process restart.",
-        );
-        expect(loadUpdates).toContain("Previous tool execution:");
-        expect(loadUpdates).toContain("Tool read_file (success):");
-        expect(occurrenceCount(loadUpdates, toolEvidence)).toBe(1);
-        expect(occurrenceCount(loadUpdates, partialText)).toBe(1);
-
-        const resumed = await continueRecovery(client, TIMEOUT);
-        expect(resumed.promptResult.error).toBeUndefined();
-        expect(resumed.promptResult.result.stopReason).toBe("end_turn");
-        expect(gateway.requests).toHaveLength(12);
-        expect(gateway.requests[11]!.body).toContain(toolEvidence);
-        const restartedUpdates = JSON.stringify([
-          ...loadMessages,
-          ...resumed.messages,
-        ]);
-        expect(occurrenceCount(restartedUpdates, partialText)).toBe(1);
-        expect(occurrenceCount(restartedUpdates, finalTextSuffix)).toBe(1);
-
-        await client.close();
-        client = await AcpClient.create({
-          cwd: root.workspace,
-          env: fakeGatewayEnv(root, gateway),
-        });
-        await client.request("initialize", { protocolVersion: 1 }, 20);
-        client.send({
-          jsonrpc: "2.0",
-          id: 21,
-          method: "session/load",
-          params: { sessionId, mcpServers: [] },
-        });
-        const completedLoadMessages: any[] = [];
-        let completedLoadResponse: any = null;
-        while (completedLoadResponse === null) {
-          const message = await client.readLine() as any;
-          if (message.id === 21) {
-            completedLoadResponse = message;
-          } else {
-            completedLoadMessages.push(message);
-          }
-        }
-        expect(completedLoadResponse.error).toBeUndefined();
-        const completedLoadUpdates = JSON.stringify(completedLoadMessages);
-        expect(completedLoadUpdates).not.toContain("modelResponseRecovery");
-        expect(occurrenceCount(completedLoadUpdates, toolEvidence)).toBe(1);
-        expect(occurrenceCount(completedLoadUpdates, partialText)).toBe(1);
-        expect(occurrenceCount(completedLoadUpdates, finalTextSuffix)).toBe(1);
-        expect(client.stderr).toBe("");
-      } finally {
-        await client?.close();
-        gateway.stop();
-        rmSync(root.root, { recursive: true, force: true });
-      }
-    },
-    TIMEOUT,
-  );
-
-  test(
     "ACP sends a prompt above the old CLI limit with one capability snapshot",
     async () => {
       const root = createIsolatedRoot("y2-acp-large-prompt-");
@@ -1625,20 +1458,16 @@ describe("acp: model-independent", () => {
           env: fakeGatewayEnv(root, gateway),
         });
         await startCodeSession(client);
-        expect(gateway.modelRequests).toHaveLength(1);
+        expect(gateway.modelRequests).toHaveLength(0);
 
         const result = await runPrompt(client, submitted, 60_000);
 
         expect(result.promptResult.result.stopReason).toBe("end_turn");
         expect(gateway.requests).toHaveLength(1);
-        expect(gateway.modelRequests).toHaveLength(1);
-        const request = JSON.parse(gateway.requests[0]!.body) as {
-          maxOutputTokens?: number;
-          prompt: Array<{ role: string; content: Array<{ type: string; text?: string }> }>;
-        };
-        expect(request.maxOutputTokens).toBe(64_000);
+        expect(gateway.modelRequests).toHaveLength(0);
+        const request = acpGatewayRequest(gateway.requests[0]!.body);
         const user = request.prompt.findLast((message) => message.role === "user");
-        expect(user?.content.find((part) => part.type === "text")?.text).toBe(submitted);
+        expect(acpContentText(user?.content)).toBe(submitted);
         expect(client.stderr).toBe("");
       } finally {
         await client?.close();
@@ -2006,7 +1835,6 @@ describe("acp: model-independent", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
           timeoutMs: TIMEOUT,
         });
@@ -2018,7 +1846,6 @@ describe("acp: model-independent", () => {
           env: {
             HOME: root.home,
             Y2_API_KEY: "e2e-placeholder",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
         const resp = await client.request(
@@ -4322,7 +4149,6 @@ describe("acp: model-independent", () => {
           env: {
             HOME: root.home,
             Y2_API_KEY: "e2e-placeholder",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
 
@@ -4371,7 +4197,6 @@ describe("acp: model-independent", () => {
           env: {
             HOME: root.home,
             Y2_API_KEY: "e2e-placeholder",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
         expect(
@@ -4483,13 +4308,11 @@ describe("acp: model-independent", () => {
           finalText("ACP external write accepted"),
         ]);
         try {
-          writeSeededY2Auth(acceptedRoot.home, "team_123");
           client = await AcpClient.create({
             cwd: acceptedRoot.workspace,
             env: {
               ...fakeGatewayEnv(acceptedRoot, acceptedGateway),
               Y2_API_KEY: undefined,
-              REMOVED_LEGACY_OIDC_TOKEN: undefined,
               Y2_DISABLE_KEYCHAIN: "1",
             },
           });
@@ -4502,11 +4325,11 @@ describe("acp: model-independent", () => {
           expect(readFileSync(acceptedTarget, "utf-8")).toBe("Y2_ACP_AUTO_ACCEPTED");
           expect(acceptedGateway.classifierRequests).toHaveLength(1);
           expect(acceptedGateway.classifierRequests[0]!.headers.get("authorization")).toBe(
-            `Bearer ${SEEDED_GATEWAY_TOKEN}`,
+            "Bearer fake-acp-file-key",
           );
           expect(
             acceptedGateway.classifierRequests[0]!.headers.get("x-retired_credential-retired-gateway-team"),
-          ).toBe("team_123");
+          ).toBeNull();
           expect(acceptedGateway.classifierRequests[0]!.body).toContain(
             acceptedPrompt,
           );
@@ -4846,7 +4669,7 @@ describe("acp: model-independent", () => {
           message.params?.update?.sessionUpdate === "agent_message_chunk"
         );
         expect(authUpdate?.params.update.content.text).toBe(
-          "Y2_API_KEY authentication failed · HTTP 401",
+          "API key authentication failed · HTTP 401",
         );
         const serialized = JSON.stringify({ messages, response });
         expect(serialized).not.toContain("fake-acp-file-key");
@@ -5039,9 +4862,9 @@ describe("acp: model-independent", () => {
           ),
         ).toBe(false);
         expect(gateway.requests).toHaveLength(2);
-        expect(gateway.requests[1].body).toContain(`"toolCallId":"${malformedCallId}"`);
-        expect(gateway.requests[1].body).toContain('"input":{}');
-        expect(gateway.requests[1].body).toContain("tool_execution_failed");
+        expect(acpToolResultText(gateway.requests[1].body, malformedCallId)).toContain(
+          "tool_execution_failed",
+        );
         expect(gateway.requests[1].body).not.toContain(malformedArguments);
         expect(readFileSync(tracePath, "utf8")).not.toContain(malformedArguments);
         expect(client.stderr).toBe("");
@@ -5067,15 +4890,14 @@ describe("acp: model-independent", () => {
           env: {
             HOME: root.home,
             Y2_API_KEY: "",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
             Y2_DISABLE_KEYCHAIN: "1",
           },
         });
         const resp = await client.request("initialize", { protocolVersion: 1 }, 1) as any;
         expect(resp.error).toBeDefined();
-        expect(resp.error.message).toContain("y2 login");
         expect(resp.error.message).toContain("y2 setup");
         expect(resp.error.message).toContain("Y2_API_KEY");
+        expect(resp.error.message).toContain("OPENAI_API_KEY");
         expect(client.stderr).toBe("");
       } finally {
         await client?.close();
@@ -5089,7 +4911,7 @@ describe("acp: model-independent", () => {
     "invalid JSON returns parse error without stderr",
     async () => {
       client = await AcpClient.create({
-        env: { Y2_API_KEY: "", REMOVED_LEGACY_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "" },
       });
       (client as any).proc.stdin!.write("this is not json\n");
       const resp = await client.readLine() as any;
@@ -5104,7 +4926,7 @@ describe("acp: model-independent", () => {
     "exact and oversized request frames preserve the ACP connection boundary",
     async () => {
       client = await AcpClient.create({
-        env: { Y2_API_KEY: "", REMOVED_LEGACY_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "" },
       });
       const stdin = (client as any).proc.stdin!;
       const frameLimit = 8 * 1024 * 1024;
@@ -5155,7 +4977,7 @@ describe("acp: model-independent", () => {
     "method before initialize returns error -32600",
     async () => {
       client = await AcpClient.create({
-        env: { Y2_API_KEY: "", REMOVED_LEGACY_OIDC_TOKEN: "" },
+        env: { Y2_API_KEY: "" },
       });
       const resp = await client.request("session/new", {}, 1) as any;
       expect(resp.error).toBeDefined();
@@ -5180,7 +5002,6 @@ describe("acp: model-independent", () => {
           env: {
             HOME: realpathSync(home),
             Y2_API_KEY: "e2e-placeholder",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
             Y2_E2E_FAIL_ON_DURABLE_MUTATION: "1",
           },
         });
@@ -5327,7 +5148,6 @@ describe("acp: model-independent", () => {
           env: {
             HOME: realpathSync(home),
             Y2_API_KEY: "e2e-placeholder",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
             Y2_E2E_FAIL_ON_DURABLE_MUTATION: "1",
           },
         });
@@ -5354,7 +5174,6 @@ describe("acp: model-independent", () => {
         omitHome: true,
         env: {
           Y2_API_KEY: "e2e-placeholder",
-          REMOVED_LEGACY_OIDC_TOKEN: "",
         },
       });
       expect(
@@ -5415,7 +5234,6 @@ describe("acp: model-independent", () => {
           env: {
             HOME: home,
             Y2_API_KEY: "e2e-placeholder",
-            REMOVED_LEGACY_OIDC_TOKEN: "",
           },
         });
         expect(
@@ -6263,8 +6081,7 @@ describe("acp: model-independent", () => {
       const root = createIsolatedRoot("y2-acp-subagent-tools-");
       const childPrompt = "Inspect the workspace without making changes.";
       const routeChildAndParent = (body: string) => {
-        if (body.includes('"toolCallId":"acp_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (hasAcpToolResult(body, "acp_create_1")) {
           expect(acpToolResultText(body, "acp_create_1")).toContain(
             '"status":"created"',
           );
@@ -6343,28 +6160,19 @@ describe("acp: model-independent", () => {
         let childCompleted = false;
         let parentCompleted = false;
         const route = (body: string) => {
-          if (
-            body.includes(`"toolCallId":"${childCallId}"`) &&
-            body.includes('"type":"tool-result"')
-          ) {
+          if (hasAcpToolResult(body, childCallId)) {
             expect(acpToolResultText(body, childCallId)).toContain(
               `ACP_CHILD_SESSION_RESULT:${childMode}`,
             );
             childCompleted = true;
             return finalText(`ACP_${childMode.toUpperCase()}_MCP_CHILD_DONE`);
           }
-          if (
-            body.includes(`"toolCallId":"${childSelectId}"`) &&
-            body.includes('"type":"tool-result"')
-          ) {
+          if (hasAcpToolResult(body, childSelectId)) {
             return fakeGatewayToolCall(childCallId, MCP_TOOL_NAME, {
               text: childMode,
             });
           }
-          if (
-            body.includes(`"toolCallId":"${parentCreateId}"`) &&
-            body.includes('"type":"tool-result"')
-          ) {
+          if (hasAcpToolResult(body, parentCreateId)) {
             const created = JSON.parse(
               acpToolResultText(body, parentCreateId),
             ) as { child_id: string; status: string };
@@ -6468,7 +6276,7 @@ describe("acp: model-independent", () => {
         if (body.includes("Acknowledge the completed one-off result.")) {
           return finalText("ACP_ONE_OFF_RETIREMENT_ACK_DONE");
         }
-        if (body.includes('"toolCallId":"acp_one_off_load_create"')) {
+        if (hasAcpToolResult(body, "acp_one_off_load_create")) {
           return finalText("ACP_ONE_OFF_LOAD_PARENT_DONE");
         }
         if (body.includes(childPrompt)) {
@@ -6649,8 +6457,7 @@ describe("acp: model-independent", () => {
           return finalText("ACP_PARENT_NO_REDELIVERY");
         }
         if (parentPhase === "inspect_result" &&
-            body.includes('"toolCallId":"acp_delivery_inspect_1"') &&
-            body.includes('"type":"tool-result"')) {
+            hasAcpToolResult(body, "acp_delivery_inspect_1")) {
           expectNoAcpParentDeliveries(body);
           secondContinuationChecked = true;
           parentPhase = "third_prompt";
@@ -6678,8 +6485,7 @@ describe("acp: model-independent", () => {
           });
         }
         if (parentPhase === "create_result" &&
-            body.includes('"toolCallId":"acp_delivery_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+            hasAcpToolResult(body, "acp_delivery_create_1")) {
           if (!parentCompletion) {
             const created = JSON.parse(
               acpToolResultText(body, "acp_delivery_create_1"),
@@ -6812,15 +6618,13 @@ describe("acp: model-independent", () => {
           parts.push(part);
           return finalText(`ACP_64K_PART_${parts.length}_DONE`);
         }
-        if (body.includes('"toolCallId":"acp_64k_send_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (hasAcpToolResult(body, "acp_64k_send_1")) {
           expect(acpToolResultText(body, "acp_64k_send_1")).toContain(
             '"status":"message_queued"',
           );
           return finalText("ACP_64K_CHILD_PRIVATE_DONE");
         }
-        if (body.includes('"toolCallId":"acp_64k_create_1"') &&
-            body.includes('"type":"tool-result"')) {
+        if (hasAcpToolResult(body, "acp_64k_create_1")) {
           const created = JSON.parse(
             acpToolResultText(body, "acp_64k_create_1"),
           ) as { child_id: string; status: string };
@@ -6959,11 +6763,8 @@ describe("acp: model-independent", () => {
         sendPrompt(client, 196, "Hold the code-mode prompt.");
         await waitForCondition("the code-mode Gateway request", () => gateway.requests.length === 1);
         const codeRequest = parseGatewayRequest(gateway.requests[0]!.body);
-        expect(serializedToolNames(codeRequest)).toEqual(
-          AUTO_PERPLEXITY_SERIALIZED_TOOL_NAMES,
-        );
+        expect(serializedToolNames(codeRequest)).toEqual(FULL_SERIALIZED_TOOL_NAMES);
         expect(findUnavailableCapabilityReferences(codeRequest)).toEqual([]);
-        expect(customProviderGuidanceState(codeRequest).guidanceMessageIndices).toEqual([1]);
 
         client.send({
           jsonrpc: "2.0",
@@ -7360,87 +7161,12 @@ describe("acp: model-independent", () => {
   );
 });
 
-describe("acp: model catalog authentication", () => {
+describe("acp: model selection", () => {
   let client: AcpClient;
 
   afterEach(async () => {
     if (client) await client.close();
   });
-
-  for (const scenario of [
-    {
-      name: "includes team-private model options for seeded team auth",
-      teamId: "team_123",
-      expectedAuthorization: `Bearer ${SEEDED_GATEWAY_TOKEN}`,
-      expectedTeamId: "team_123",
-      expectPrivate: true,
-    },
-    {
-      name: "uses public model options for seeded login without a selected team",
-      teamId: undefined,
-      expectedAuthorization: null,
-      expectedTeamId: null,
-      expectPrivate: false,
-    },
-  ]) {
-    test(
-      `session/new ${scenario.name}`,
-      async () => {
-        const root = createIsolatedRoot("y2-acp-team-model-options-");
-        const gateway = startFakeGateway([], {
-          models(request) {
-            const url = new URL(request.url);
-            const seededAuth = request.headers.get("authorization") ===
-              `Bearer ${SEEDED_GATEWAY_TOKEN}`;
-            const hasTeam = url.searchParams.get("teamId") === "team_123";
-            return [
-              { id: FAKE_GATEWAY_MODEL, type: "language", tags: ["tool-use"] },
-              ...(seededAuth && hasTeam
-                ? [{ id: "private/blue-hornbill", type: "language", tags: ["tool-use"] }]
-                : []),
-            ];
-          },
-        });
-        try {
-          writeSeededY2Auth(root.home, scenario.teamId);
-          client = await AcpClient.create({
-            cwd: root.workspace,
-            env: {
-              ...fakeGatewayEnv(root, gateway),
-              Y2_API_KEY: undefined,
-              REMOVED_LEGACY_OIDC_TOKEN: undefined,
-              Y2_DISABLE_KEYCHAIN: "1",
-            },
-          });
-          await client.request("initialize", { protocolVersion: 1 }, 1);
-          const resp = await client.request("session/new", {}, 2) as any;
-          expect(gateway.modelRequests).toHaveLength(1);
-          const modelRequest = gateway.modelRequests[0]!;
-          expect(modelRequest.headers.get("authorization")).toBe(
-            scenario.expectedAuthorization,
-          );
-          expect(new URL(modelRequest.url).searchParams.get("teamId")).toBe(
-            scenario.expectedTeamId,
-          );
-          expect(modelRequest.headers.get("x-retired_credential-retired-gateway-team")).toBeNull();
-
-          const modelOpt = resp.result.configOptions.find((o: any) => o.id === "model");
-          expect(modelOpt).toBeDefined();
-          const optionsText = JSON.stringify(modelOpt.options);
-          if (scenario.expectPrivate) {
-            expect(optionsText).toContain("private/blue-hornbill");
-          } else {
-            expect(optionsText).not.toContain("private/blue-hornbill");
-          }
-        } finally {
-          await client?.close();
-          gateway.stop();
-          rmSync(root.root, { recursive: true, force: true });
-        }
-      },
-      TIMEOUT,
-    );
-  }
 
   test(
     "--model flag overrides selected model without inheriting the default Fast mode",

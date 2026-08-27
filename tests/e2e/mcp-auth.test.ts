@@ -593,8 +593,7 @@ function baseEnv(root: ReturnType<typeof createRoot>) {
   return {
     HOME: root.home,
     PATH: `${root.bin}${delimiter}${process.env.PATH ?? ""}`,
-    Y2_API_KEY: "fake-mcp-auth-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    OPENAI_API_KEY: "fake-mcp-auth-key",
     Y2_AUTO_UPGRADE: "0",
     Y2_PERMISSION_MODE: "auto",
     Y2_MODEL: MODEL,
@@ -817,7 +816,7 @@ describe("MCP remote authentication lifecycle", () => {
       try {
         const env = {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         };
         tui = await TmuxSession.create({
@@ -892,7 +891,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 25_000,
@@ -979,7 +978,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 25_000,
@@ -1068,7 +1067,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_E2E_MCP_AUTH_AUTOMATE: "1",
         },
@@ -1194,7 +1193,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 30_000,
@@ -1287,7 +1286,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 25_000,
@@ -1359,7 +1358,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 30_000,
@@ -1416,7 +1415,7 @@ describe("MCP remote authentication lifecycle", () => {
           env: {
             ...baseEnv(root),
             Y2_E2E_MCP_AUTH_AUTOMATE: "1",
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -1464,7 +1463,7 @@ describe("MCP remote authentication lifecycle", () => {
         env: {
           ...baseEnv(root),
           Y2_E2E_MCP_AUTH_AUTOMATE: "1",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         timeoutMs: 20_000,
@@ -1530,7 +1529,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -1602,7 +1601,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -1649,7 +1648,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -1706,7 +1705,7 @@ describe("MCP remote authentication lifecycle", () => {
             cwd: root.workspace,
             env: {
               ...keychainEnv,
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
             },
             timeoutMs: 20_000,
@@ -1745,7 +1744,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...keychainEnv,
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           width: 110,
@@ -1795,7 +1794,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -1869,7 +1868,7 @@ describe("MCP remote authentication lifecycle", () => {
       });
       const tuiEnv = {
         ...baseEnv(root),
-        Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+        OPENAI_BASE_URL: gateway.baseUrl,
         Y2_API_CHAT_URL: gateway.chatUrl,
       };
       tui = await TmuxSession.create({
@@ -1926,7 +1925,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -1961,7 +1960,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2018,7 +2017,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 120,
@@ -2073,7 +2072,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 140,
@@ -2113,7 +2112,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2149,7 +2148,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2297,7 +2296,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_E2E_MCP_AUTH_AUTOMATE: "1",
           },
@@ -2334,7 +2333,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -2369,7 +2368,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,
@@ -2647,7 +2646,7 @@ describe("MCP remote authentication lifecycle", () => {
             cwd: root.workspace,
             env: {
               ...baseEnv(root),
-              Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+              OPENAI_BASE_URL: gateway.baseUrl,
               Y2_API_CHAT_URL: gateway.chatUrl,
             },
             timeoutMs: 25_000,
@@ -2690,7 +2689,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 25_000,
@@ -2735,7 +2734,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2798,7 +2797,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2831,7 +2830,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2891,7 +2890,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -2968,7 +2967,7 @@ describe("MCP remote authentication lifecycle", () => {
         cwd: root.workspace,
         env: {
           ...baseEnv(root),
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
         },
         width: 110,
@@ -3014,7 +3013,7 @@ describe("MCP remote authentication lifecycle", () => {
           cwd: root.workspace,
           env: {
             ...baseEnv(root),
-            Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+            OPENAI_BASE_URL: gateway.baseUrl,
             Y2_API_CHAT_URL: gateway.chatUrl,
           },
           timeoutMs: 20_000,

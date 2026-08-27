@@ -227,12 +227,10 @@ function createRoot(
 function fixtureEnv(root: FixtureRoot, activeGateway: ReturnType<typeof startFakeGateway>) {
   return {
     HOME: root.home,
-    Y2_API_KEY: "fake-mcp-stdio-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
+    OPENAI_API_KEY: "fake-mcp-stdio-key",
     Y2_AUTO_UPGRADE: "0",
     Y2_PERMISSION_MODE: "auto",
-    Y2_GATEWAY_BASE_URL: activeGateway.baseUrl,
-    Y2_API_CHAT_URL: activeGateway.chatUrl,
+    OPENAI_BASE_URL: activeGateway.baseUrl,
     Y2_API_CHAT_URL: activeGateway.chatUrl,
     Y2_MODEL: MODEL,
     Y2_TRACE_LOG: root.traceLogPath,

@@ -110,12 +110,11 @@ async function startY2(
     cwd: workspace,
     env: {
       HOME: home,
-      Y2_API_KEY: withGateway ? "fake-edit-contract-key" : undefined,
-      REMOVED_LEGACY_OIDC_TOKEN: undefined,
-      Y2_GATEWAY_BASE_URL: gateway?.baseUrl,
+      OPENAI_API_KEY: withGateway ? "fake-edit-contract-key" : undefined,
+      OPENAI_BASE_URL: gateway?.baseUrl,
       Y2_API_CHAT_URL: gateway?.chatUrl,
       Y2_E2E_GATEWAY_MODELS_URL: gateway
-        ? `${gateway.baseUrl}/coding-agent/v1/models`
+        ? `${gateway.baseUrl}/v1/models`
         : undefined,
       Y2_MODEL: withGateway ? FAKE_GATEWAY_MODEL : undefined,
       Y2_AUTO_UPGRADE: "0",

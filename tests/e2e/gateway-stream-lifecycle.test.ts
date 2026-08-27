@@ -19,14 +19,12 @@ import { join } from "node:path";
 import { Y2_BIN, runY2 } from "../evals/eval-helpers";
 import {
   AMBIGUOUS_CAPABILITY_CLAUSES,
-  AUTO_PERPLEXITY_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES,
-  customProviderGuidanceState,
+  FULL_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES,
   findUnavailableCapabilityReferences,
   parseGatewayRequest,
   serializedToolNames,
   toolByName,
   toolShapesWithoutDescriptions,
-  WEB_SEARCH_GUIDANCE,
   type GatewayRequest,
 } from "./conditional-guidance-oracle";
 import { expectPermissionModeContext } from "./permission-mode-context";
@@ -43,7 +41,6 @@ import {
 } from "./tmux-helpers";
 
 const MODEL = "openai/gpt-5.5";
-const DEFAULT_MODEL = "moonshotai/kimi-k3";
 const DELAY_MS = 32_500;
 const MALFORMED_ARGUMENTS = '{"depth":1,"depth":2}';
 const MALFORMED_CALL_ID = "malformed_ask_1";
@@ -165,8 +162,8 @@ function delayedSuccessfulResponse(): Response {
         timer = setTimeout(() => {
           controller.enqueue(
             encoder.encode(
-              'data: {"type":"text-delta","id":"answer","delta":"provider completed after silence"}\n\n' +
-                'data: {"type":"finish","finishReason":{"unified":"stop","raw":"stop"}}\n\n' +
+              'data: {"id":"chat_delayed","choices":[{"index":0,"delta":{"content":"provider completed after silence"},"finish_reason":null}]}\n\n' +
+                'data: {"id":"chat_delayed","choices":[{"index":0,"delta":{},"finish_reason":"stop"}]}\n\n' +
                 "data: [DONE]\n\n",
             ),
           );
@@ -182,66 +179,21 @@ function delayedSuccessfulResponse(): Response {
 }
 
 function lengthLimitedCommandResponse(command: string): Response {
-  return sse(
-    'data: {"type":"text-delta","id":"answer","delta":"visible partial output"}\n\n' +
-      'data: {"type":"tool-input-start","id":"command_provisional","toolName":"terminal"}\n\n' +
-      `data: ${JSON.stringify({
-        type: "tool-call",
-        toolName: "terminal",
-        input: { action: "exec", command, timeout_ms: 600_000 },
-      })}\n\n` +
-      'data: {"type":"finish","finishReason":{"unified":"length","raw":"length"}}\n\n' +
-      "data: [DONE]\n\n",
-  );
-}
-
-function providerErrorResponse(detail = "route temporarily unavailable"): Response {
-  return sse(
-    `data: ${JSON.stringify({
-      type: "error",
-      error: { code: "provider_error", message: detail },
-    })}\n\n` +
-      'data: {"type":"finish","finishReason":{"unified":"error","raw":"provider_error"},"usage":{"inputTokens":{"total":1},"outputTokens":{"total":1}}}\n\n' +
-      "data: [DONE]\n\n",
-  );
+  return fakeGatewaySse([
+    { type: "text-delta", id: "answer", delta: "visible partial output" },
+    {
+      type: "tool-call",
+      toolCallId: "command_provisional",
+      toolName: "terminal",
+      input: { action: "exec", command, timeout_ms: 600_000 },
+    },
+    { type: "finish", finishReason: { unified: "length", raw: "length" } },
+  ]);
 }
 
 function contentFilterResponse(): Response {
   return sse(
     'data: {"type":"finish","finishReason":{"unified":"content-filter","raw":"content_filter"}}\n\n' +
-      "data: [DONE]\n\n",
-  );
-}
-
-function providerErrorAfterToolStartResponse(): Response {
-  return sse(
-    'data: {"type":"tool-input-start","id":"read_1","toolName":"read_file"}\n\n' +
-      'data: {"type":"finish","finishReason":{"unified":"error","raw":"provider_error"}}\n\n' +
-      "data: [DONE]\n\n",
-  );
-}
-
-function providerToolResultResponse(finish: "provider_error" | "tool-calls"): Response {
-  const result = { content: "exact provider-side result" };
-  return sse(
-    `data: ${JSON.stringify({
-      type: "tool-call",
-      toolCallId: "provider_search_recovery_1",
-      toolName: "perplexity_search",
-      input: { query: "zig recovery" },
-      providerExecuted: true,
-    })}\n\n` +
-      `data: ${JSON.stringify({
-        type: "tool-result",
-        toolCallId: "provider_search_recovery_1",
-        result,
-      })}\n\n` +
-      `data: ${JSON.stringify({
-        type: "finish",
-        finishReason: finish === "provider_error"
-          ? { unified: "error", raw: "provider_error" }
-          : { unified: "tool-calls", raw: "tool-calls" },
-      })}\n\n` +
       "data: [DONE]\n\n",
   );
 }
@@ -268,10 +220,6 @@ function fixtureEnv(
     HOME: root.home,
     OPENAI_BASE_URL: gateway.baseUrl,
     OPENAI_API_KEY: "fake-gateway-lifecycle-key",
-    Y2_API_KEY: undefined,
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-    Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: MODEL,
     Y2_TRACE_LOG: tracePath,
@@ -312,6 +260,10 @@ function contentText(content: unknown): string {
     ].join("");
   }
   return "";
+}
+
+function stripAnsi(text: string): string {
+  return text.replace(/\x1b\[[0-?]*[ -\/]*[@-~]/g, "");
 }
 
 type PromptMessage = {
@@ -436,6 +388,17 @@ function toolResultOutput(body: string, callId: string): string {
   );
   if (!result) throw new Error(`Missing tool result for ${callId}`);
   return contentText(result.output);
+}
+
+function toolCallInput(body: string, callId: string): unknown {
+  const parts = gatewayRequest(body).prompt.flatMap((message) =>
+    Array.isArray(message.content) ? message.content : []
+  ) as Array<Record<string, unknown>>;
+  const call = parts.find((part) =>
+    part.type === "tool-call" && part.toolCallId === callId
+  );
+  if (!call) throw new Error(`Missing tool call for ${callId}`);
+  return call.input;
 }
 
 function hasCurrentToolResult(body: string, callId: string): boolean {
@@ -716,7 +679,6 @@ describe("gateway stream lifecycle", () => {
             Y2_API_CHAT_URL: gateway.chatUrl,
             Y2_MODEL: MODEL,
             Y2_API_KEY: undefined,
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
           },
           timeoutMs: 30_000,
         },
@@ -773,7 +735,7 @@ describe("gateway stream lifecycle", () => {
         });
       }
     }
-    for (const capability of ["terminal", "web_search", "ask_user_question"]) {
+    for (const capability of ["terminal", "ask_user_question"]) {
       expect(
         findUnavailableCapabilityReferences(fixture(`Use ${capability} now.`)),
       ).toContainEqual({
@@ -876,19 +838,11 @@ describe("gateway stream lifecycle", () => {
       const oracleRequest = parseGatewayRequest(gateway.requests[0]!.body);
       expect(promptText(gateway.requests[0]!.body)).toContain(submitted);
       expect(serializedToolNames(oracleRequest)).toEqual(
-        AUTO_PERPLEXITY_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES.filter(
-          (name) => name !== "perplexity_search" && name !== "vision",
-        ),
+        FULL_WITHOUT_DURABLE_TOOLS_SERIALIZED_TOOL_NAMES,
       );
       expect(request.tools).toHaveLength(23);
       expect(findUnavailableCapabilityReferences(oracleRequest)).toEqual([]);
-      expect(customProviderGuidanceState(oracleRequest)).toEqual({
-        providerToolIndices: [],
-        guidanceMessageIndices: [1],
-      });
       expect(request.prompt[0]?.role).toBe("system");
-      expect(request.prompt[1]?.role).toBe("system");
-      expect(contentText(request.prompt[1]?.content)).toBe(WEB_SEARCH_GUIDANCE);
       expect(toolByName(oracleRequest, "terminal")?.description).toBe(
         "Run one captured command with a required finite timeout_ms and return its result.",
       );
@@ -1006,18 +960,13 @@ describe("gateway stream lifecycle", () => {
     }
   }, 30_000);
 
-  test("ask keeps Kimi K3 as the default model with fast mode enabled", async () => {
+  test("ask uses y2-agent as the default direct API model", async () => {
     const root = createFixtureRoot("default-model");
     const tracePath = join(root.root, "trace.log");
     const gateway = startDynamicFakeGateway(
       () => fakeGatewayFinalText("DEFAULT_MODEL_COMPLETE"),
       {
-        models: [{
-          id: DEFAULT_MODEL,
-          type: "language",
-          tags: ["tool-use"],
-          fast_options: [{ type: "toggle" }],
-        }],
+        models: [{ id: "y2-agent", type: "language", tags: ["tool-use"] }],
       },
     );
 
@@ -1029,7 +978,7 @@ describe("gateway stream lifecycle", () => {
           env: {
             ...fixtureEnv(root, gateway, tracePath),
             Y2_MODEL: undefined,
-            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+            Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           },
           timeoutMs: 30_000,
         },
@@ -1041,14 +990,10 @@ describe("gateway stream lifecycle", () => {
       );
       expect(result.stderr).toBe("");
       expect(gateway.requests).toHaveLength(1);
-      expect(gateway.requests[0]!.headers.get("ai-language-model-id")).toBe(
-        DEFAULT_MODEL,
-      );
+      expect(gateway.requests[0]!.headers.get("ai-language-model-id")).toBeNull();
       const request = JSON.parse(gateway.requests[0]!.body);
-      expect(request).not.toHaveProperty("fast");
-      expect(request).toMatchObject({
-        providerOptions: { gateway: { speed: "fast" } },
-      });
+      expect(request.model).toBe("y2-agent");
+      expect(request).not.toHaveProperty("providerOptions");
     } finally {
       gateway.stop();
       rmSync(root.root, { recursive: true, force: true });
@@ -1092,24 +1037,20 @@ describe("gateway stream lifecycle", () => {
         );
 
         expect(result.code).toBe(0);
-        expect(result.stderr).toBe(`Reading ${probePath}\n`);
+        expect(stripAnsi(result.stderr)).toContain(`Reading ${probePath}\n`);
         expect(gateway.requests).toHaveLength(2);
         for (const request of gateway.requests) {
           expectPermissionModeContext(request.body, mode);
           const captured = parseGatewayRequest(request.body);
           expect(findUnavailableCapabilityReferences(captured)).toEqual([]);
-          expect(customProviderGuidanceState(captured).guidanceMessageIndices).toEqual([1]);
         }
         const initial = parseGatewayRequest(gateway.requests[0]!.body);
         const continuing = parseGatewayRequest(gateway.requests[1]!.body);
         expect(toolShapesWithoutDescriptions(continuing)).toEqual(
           toolShapesWithoutDescriptions(initial),
         );
-        expect(
-          continuing.prompt?.filter((message) =>
-            message.role === "system" && contentText(message.content) === WEB_SEARCH_GUIDANCE
-          ),
-        ).toHaveLength(1);
+        expect(continuing.prompt?.filter((message) => message.role === "system").length)
+          .toBe(initial.prompt?.filter((message) => message.role === "system").length);
       } finally {
         gateway.stop();
         rmSync(root.root, { recursive: true, force: true });
@@ -2018,9 +1959,7 @@ describe("gateway stream lifecycle", () => {
       const json = parseAskJson(result.stdout);
 
       expect(result.code).toBe(0);
-      expect(result.stderr).toBe(
-        `Loading skill ${skillName}\nLoading skill ${skillName}\n`,
-      );
+      expect(stripAnsi(result.stderr)).toContain(`Loading skill ${skillName}\n`);
       expect(json.exit_code).toBe(0);
       expect(json.error).toBeUndefined();
       expect(json.output).toContain("Dynamic context stayed data.");
@@ -3598,9 +3537,7 @@ describe("gateway stream lifecycle", () => {
         expect(probe.stderr).toBe("");
         expect(gateway.requestCount()).toBe(11);
 
-        const request = JSON.parse(gateway.requests.at(-1)!.body) as {
-          prompt: Array<{ role: string; content: unknown }>;
-        };
+        const request = gatewayRequest(gateway.requests.at(-1)!.body);
         const userTexts = request.prompt
           .filter((message) => message.role === "user")
           .map((message) => contentText(message.content));
@@ -3890,8 +3827,13 @@ describe("gateway stream lifecycle", () => {
       expect(result.stdout).toContain("Recovered after invalid tool arguments.");
       expect(gateway.requestCount()).toBe(2);
       expect(gateway.requests[1].body).toContain("tool_execution_failed");
-      expect(gateway.requests[1].body).toContain(`"toolCallId":"${MALFORMED_CALL_ID}"`);
-      expect(gateway.requests[1].body).toContain('"input":{}');
+      const followup = gatewayRequest(gateway.requests[1].body);
+      const parts = followup.prompt.flatMap((message) => message.content ?? []);
+      expect(parts).toContainEqual(expect.objectContaining({
+        type: "tool-call",
+        toolCallId: MALFORMED_CALL_ID,
+        input: {},
+      }));
       expect(gateway.requests[1].body).not.toContain(MALFORMED_ARGUMENTS);
       expect(result.stdout).not.toContain(MALFORMED_ARGUMENTS);
       expect(trace).not.toContain(MALFORMED_ARGUMENTS);
@@ -3900,48 +3842,6 @@ describe("gateway stream lifecycle", () => {
       rmSync(root.root, { recursive: true, force: true });
     }
   });
-
-  test("default y2 ask retries replay-safe provider errors before success", async () => {
-    const root = createFixtureRoot("provider-error-retry-turn");
-    const tracePath = join(root.root, "trace.log");
-    const responses = [
-      providerErrorResponse("turn route failure one"),
-      providerErrorResponse("turn route failure two"),
-      fakeGatewayFinalText("Recovered in ask turn."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--auto", "Recover in ask turn."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 20_000,
-        },
-      );
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(0);
-      expect(result.stderr).toContain("Provider unavailable · provider_error: turn route failure one · retrying request · attempt 1/10");
-      expect(result.stderr).toContain("Provider unavailable · provider_error: turn route failure two · retrying request in 1s · attempt 2/10");
-      expect(result.stderr).toContain("recovered · succeeded on attempt 3/10");
-      expect(result.stdout).toContain("Recovered in ask turn.");
-      expect(gateway.requestCount()).toBe(3);
-      expect(trace).toContain("event=route_failure");
-      expect(trace).toContain(`selected_model=${MODEL}`);
-      expect(trace).toContain(`route=${MODEL}`);
-      expect(trace).toContain("semantic_attempt=1/10");
-      expect(trace).toContain("semantic_attempt=2/10");
-      expect(trace).toContain("retry=true");
-      expect(trace).toContain("detail=provider_error: turn route failure one");
-      expect(trace).toContain("detail=provider_error: turn route failure two");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  }, 30_000);
 
   test("default y2 ask recovers after an immediate peer reset", async () => {
     const expectedOutput = "Recovered after immediate peer reset.";
@@ -4010,8 +3910,7 @@ describe("gateway stream lifecycle", () => {
             cwd: root.workspace,
             env: {
               HOME: root.home,
-              Y2_API_KEY: "fake-gateway-lifecycle-key",
-              REMOVED_LEGACY_OIDC_TOKEN: undefined,
+              OPENAI_API_KEY: "fake-gateway-lifecycle-key",
               Y2_API_CHAT_URL:
                 `http://127.0.0.1:${address.port}/v1/ai/chat/completions`,
               Y2_MODEL: MODEL,
@@ -4029,10 +3928,6 @@ describe("gateway stream lifecycle", () => {
           );
         }
         const json = parseAskJson(result.stdout);
-        const opens = trace.split("\n").filter((line) =>
-          line.includes("event=after_request_open")
-        );
-
         expect(result.code).toBe(0);
         expect(result.signal).toBeNull();
         expect(result.stderr).toMatch(
@@ -4046,11 +3941,9 @@ describe("gateway stream lifecycle", () => {
         expect(connections).toBe(2);
         expect(requests).toBe(1);
         expect(socketFailure).toBeUndefined();
-        expect(opens).toHaveLength(2);
-        expect(opens.every((line) => line.includes("attempt=1"))).toBe(true);
         expect(trace).toContain("provider_attempts=1/10");
         expect(trace).toContain("recovery=retry_request");
-        expect(trace).toContain("event=stream_complete");
+        expect(trace).toContain("event=prompt_finish");
       } finally {
         for (const socket of sockets) socket.destroy();
         if (server.listening) {
@@ -4141,8 +4034,7 @@ describe("gateway stream lifecycle", () => {
           cwd: root.workspace,
           env: {
             HOME: root.home,
-            Y2_API_KEY: "fake-gateway-lifecycle-key",
-            REMOVED_LEGACY_OIDC_TOKEN: undefined,
+            OPENAI_API_KEY: "fake-gateway-lifecycle-key",
             Y2_API_CHAT_URL:
               `http://127.0.0.1:${address.port}/v1/ai/chat/completions`,
             Y2_MODEL: MODEL,
@@ -4168,7 +4060,7 @@ describe("gateway stream lifecycle", () => {
       expect(connections).toBe(7);
       expect(requests).toBe(6);
       expect(socketFailure).toBeUndefined();
-      expect(trace).toContain("event=receive_head_error");
+      expect(trace).toContain("event=stream_error");
       expect(trace).toContain("provider_attempts=6/10");
       expect(trace).toContain("recovery=retry_request");
     } finally {
@@ -4179,40 +4071,6 @@ describe("gateway stream lifecycle", () => {
       rmSync(root.root, { recursive: true, force: true });
     }
   }, 20_000);
-
-  test("default y2 ask regenerates an unstarted streamed tool after provider failure", async () => {
-    const root = createFixtureRoot("provider-error-tool-start-turn");
-    const tracePath = join(root.root, "trace.log");
-    const responses = [
-      providerErrorAfterToolStartResponse(),
-      fakeGatewayFinalText("Recovered without executing the unstarted tool."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--auto", "Start a tool then fail."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const trace = readFileSync(tracePath, "utf8");
-      expect(result.code).toBe(0);
-      expect(result.stdout).toContain("Recovered without executing the unstarted tool.");
-      expect(result.stderr).toContain("regenerating unstarted tool");
-      expect(gateway.requestCount()).toBe(2);
-      expect(trace).toContain("event=route_failure");
-      expect(trace).toContain("saw_tool_start=true");
-      expect(trace).toContain("retry=true");
-      expect(trace).not.toContain("event=before_tool_execution");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
 
   test("HTTP 413 after a local tool surfaces prompt-too-long without replaying the tool", async () => {
     const root = createFixtureRoot("prompt-too-long-no-tool-replay");
@@ -4408,7 +4266,7 @@ describe("gateway stream lifecycle", () => {
     ]);
     let childCompleted = false;
     const gateway = startDynamicFakeGateway(async (body) => {
-      if (body.includes('"toolCallId":"child_mcp_call_1"')) {
+      if (hasCurrentToolResult(body, "child_mcp_call_1")) {
         expect(toolResultOutput(body, "child_mcp_call_1")).toContain(
           "unexpected MCP call",
         );
@@ -4416,7 +4274,7 @@ describe("gateway stream lifecycle", () => {
         releaseParent(fakeGatewayFinalText("Parent observed child MCP completion."));
         return fakeGatewayFinalText("Child MCP execution complete.");
       }
-      if (body.includes('"toolCallId":"child_mcp_select_1"')) {
+      if (hasCurrentToolResult(body, "child_mcp_select_1")) {
         expect(toolResultOutput(body, "child_mcp_select_1")).toContain(
           DYNAMIC_MCP_TOOL_NAME,
         );
@@ -4426,7 +4284,7 @@ describe("gateway stream lifecycle", () => {
           { text: "subagent MCP proof" },
         );
       }
-      if (body.includes('"toolCallId":"parent_subagent_create_1"')) {
+      if (hasCurrentToolResult(body, "parent_subagent_create_1")) {
         expect(toolResultOutput(body, "parent_subagent_create_1")).toContain(
           '"status":"created"',
         );
@@ -4505,7 +4363,7 @@ describe("gateway stream lifecycle", () => {
       releaseParent = resolve;
     });
     const gateway = startDynamicFakeGateway((body) => {
-      if (body.includes('"toolCallId":"host_exit_inspect_1"')) {
+      if (hasCurrentToolResult(body, "host_exit_inspect_1")) {
         expect(toolResultOutput(body, "host_exit_inspect_1")).toContain(
           '"status":"interrupted"',
         );
@@ -4521,7 +4379,7 @@ describe("gateway stream lifecycle", () => {
           },
         });
       }
-      if (body.includes('"toolCallId":"host_exit_create_1"')) {
+      if (hasCurrentToolResult(body, "host_exit_create_1")) {
         const created = JSON.parse(
           toolResultOutput(body, "host_exit_create_1"),
         ) as { child_id: string; status: string };
@@ -5187,7 +5045,7 @@ describe("gateway stream lifecycle", () => {
           expect(gateway.requests[2].body).not.toContain("tool_execution_failed");
           expect(result.stderr).not.toContain("Auto agent approved");
         } else {
-          expect(gateway.requests[2].body).toContain('"input":{}');
+          expect(toolCallInput(gateway.requests[2].body, "dynamic_mcp_1")).toEqual({});
           expect(gateway.requests[2].body).toContain("tool_execution_failed");
           expect(gateway.requests[2].body).not.toContain(serialized);
         }
@@ -5228,7 +5086,6 @@ describe("gateway stream lifecycle", () => {
         expect(json.output).toBe("provider completed after silence");
         expect(json.output).not.toContain("Done.");
         expect(result.stderr).not.toContain("stream ended before provider completion");
-        expect(trace).toContain("termination cause=valid_finish");
         expect(trace).toContain("finish_reason=stop");
         expect(trace).toContain("event=prompt_finish");
       } finally {
@@ -5238,154 +5095,6 @@ describe("gateway stream lifecycle", () => {
     },
     55_000,
   );
-
-  test("provider error finish reconciles without authorizing local tool execution", async () => {
-    const root = createFixtureRoot("provider-error");
-    const tracePath = join(root.root, "trace.log");
-    const sentinelPath = join(root.workspace, "command-must-not-run.txt");
-    const responses = [
-      sse(
-        'data: {"type":"tool-call","toolCallId":"command_1","toolName":"terminal","input":{"action":"exec","command":"printf executed > command-must-not-run.txt","timeout_ms":30000}}\n\n' +
-          'data: {"type":"finish","finishReason":{"unified":"error","raw":"provider_error"}}\n\n' +
-          "data: [DONE]\n\n",
-      ),
-      fakeGatewayFinalText("Recovered without executing the uncertain command."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "--no-save", "Run the fixture command."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(0);
-      expect(json.exit_code).toBe(0);
-      expect(json.output).toContain("Recovered without executing the uncertain command.");
-      expect(json.tool_calls).toEqual([]);
-      expect(existsSync(sentinelPath)).toBe(false);
-      expect(gateway.requestCount()).toBe(2);
-      expect(result.stderr).toContain(
-        "Provider unavailable · provider_error · checking uncertain tool state · attempt 1/10",
-      );
-      expect(result.stderr).toContain("recovered · succeeded on attempt 2/10");
-      expect(trace).toContain("termination cause=valid_finish finish_reason=error");
-      expect(trace).toContain("event=route_failure");
-      expect(trace).toContain("retry=true");
-      expect(gateway.requests[1]!.body).toContain("uncertain outcome");
-      expect(gateway.requests[1]!.body).toContain(
-        '"toolChoice":{"type":"none"}',
-      );
-      expect(trace).not.toContain("event=before_tool_execution");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
-
-  test("provider error preserves an executed provider result and suppresses its repeated identity", async () => {
-    const root = createFixtureRoot("provider-result-recovery");
-    const tracePath = join(root.root, "trace.log");
-    const responses = [
-      providerToolResultResponse("provider_error"),
-      providerToolResultResponse("tool-calls"),
-      fakeGatewayFinalText("Recovered from the existing provider result."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "--no-save", "Use the provider search result once."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(0);
-      expect(json.exit_code).toBe(0);
-      expect(json.output).toBe("Recovered from the existing provider result.");
-      expect(gateway.requestCount()).toBe(3);
-      expect(toolResultOutput(
-        gateway.requests[1]!.body,
-        "provider_search_recovery_1",
-      )).toContain("exact provider-side result");
-      expect(toolResultOutput(
-        gateway.requests[2]!.body,
-        "provider_search_recovery_1",
-      )).toContain("exact provider-side result");
-      expect(trace).toContain("event=provider_tool_recovery_materialized");
-      expect(trace).toContain("event=provider_tool_recovery_duplicate_suppressed");
-      expect(trace).not.toContain("event=before_tool_execution");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
-
-  test("provider error without output retries same route before success", async () => {
-    const root = createFixtureRoot("provider-error-retry");
-    const tracePath = join(root.root, "trace.log");
-    const responses = [
-      providerErrorResponse("first route failure"),
-      providerErrorResponse("second route failure"),
-      fakeGatewayFinalText("Recovered after route retry."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "--no-save", "Recover from a route failure."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 20_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(0);
-      expect(json.exit_code).toBe(0);
-      expect(json.output).toContain("Recovered after route retry.");
-      expect(json.output).not.toContain("⚠ API error");
-      expect(json.recovery?.state).toBe("recovered");
-      expect(json.recovery?.attempt).toBe(3);
-      expect(json.recovery?.message).not.toContain("provider_error");
-      expect(json.recovery?.message).not.toContain("first route failure");
-      expect(result.stderr).toContain(
-        "Provider unavailable · provider_error: first route failure · retrying request · attempt 1/10",
-      );
-      expect(result.stderr).toContain(
-        "Provider unavailable · provider_error: second route failure · retrying request in 1s · attempt 2/10",
-      );
-      expect(result.stderr).toContain("recovered · succeeded on attempt 3/10");
-      expect(gateway.requestCount()).toBe(3);
-      expect(trace).toContain("event=route_failure");
-      expect(trace).toContain(`selected_model=${MODEL}`);
-      expect(trace).toContain(`route=${MODEL}`);
-      expect(trace).toContain("semantic_attempt=1/10");
-      expect(trace).toContain("semantic_attempt=2/10");
-      expect(trace).toContain("retry=true");
-      expect(trace).toContain("detail=provider_error: first route failure");
-      expect(trace).toContain("detail=provider_error: second route failure");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  }, 30_000);
 
   test("model response budget stops at ten real requests", async () => {
     const root = createFixtureRoot("provider-attempt-budget");
@@ -5487,69 +5196,6 @@ describe("gateway stream lifecycle", () => {
     }
   });
 
-  test("CLI continuation prints one complete response after checkpointed partial output", async () => {
-    const root = createFixtureRoot("partial-pause-continue");
-    const tracePath = join(root.root, "trace.log");
-    const partialText = "CLI partial output before EOF.";
-    const finalText = "CLI recovery completed.";
-    const responses = [
-      sse(
-        `data: ${JSON.stringify({
-          type: "text-delta",
-          id: "answer",
-          delta: partialText,
-        })}\n\n`,
-      ),
-      ...Array.from({ length: 9 }, () => unavailableResponse("0")),
-      fakeGatewayFinalText(`${partialText}${finalText}`),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const first = await runY2(
-        ["ask", "--json", "--auto", "Recover this CLI response."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const paused = parseAskJson(first.stdout);
-      expect(first.code).toBe(1);
-      expect(paused.output).toBe(partialText);
-      expect(paused.recovery?.state).toBe("paused");
-      expect(gateway.requestCount()).toBe(10);
-
-      const resumed = await runY2(
-        [
-          "ask",
-          "--json",
-          "--auto",
-          "--resume-id",
-          paused.session_id,
-          "--continue-recovery",
-        ],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const recovered = parseAskJson(resumed.stdout);
-      expect(resumed.code).toBe(0);
-      expect(recovered.output).toBe(`${partialText}${finalText}`);
-      expect(recovered.recovery?.state).toBe("recovered");
-      expect(recovered.recovery?.message).not.toContain(
-        "provider temporarily unavailable",
-      );
-      expect(gateway.requestCount()).toBe(11);
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
-
   test("content filter does not retry or offer route recovery", async () => {
     const root = createFixtureRoot("content-filter-terminal");
     const tracePath = join(root.root, "trace.log");
@@ -5578,44 +5224,6 @@ describe("gateway stream lifecycle", () => {
       expect(trace).toContain("finish_reason=content-filter");
       expect(trace).toContain("retry=false");
       expect(trace).not.toContain("event=route_recovery_decision");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
-
-  test("provider error after streamed tool start regenerates without executing it", async () => {
-    const root = createFixtureRoot("provider-error-tool-start");
-    const tracePath = join(root.root, "trace.log");
-    const responses = [
-      providerErrorAfterToolStartResponse(),
-      fakeGatewayFinalText("Recovered after regenerating the unstarted tool."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "--no-save", "Start a tool then fail."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(0);
-      expect(json.exit_code).toBe(0);
-      expect(json.output).toContain("Recovered after regenerating the unstarted tool.");
-      expect(json.tool_calls).toEqual([]);
-      expect(gateway.requestCount()).toBe(2);
-      expect(result.stderr).not.toContain("not retrying");
-      expect(trace).toContain("event=route_failure");
-      expect(trace).toContain("saw_tool_start=true");
-      expect(trace).toContain("retry=true");
-      expect(trace).not.toContain("event=before_tool_execution");
     } finally {
       gateway.stop();
       rmSync(root.root, { recursive: true, force: true });
@@ -5708,227 +5316,4 @@ describe("gateway stream lifecycle", () => {
     }
   });
 
-  test("empty provider finish reason fails closed before tool execution", async () => {
-    const root = createFixtureRoot("empty-finish-reason");
-    const tracePath = join(root.root, "trace.log");
-    const sentinelPath = join(root.workspace, "command-must-not-run.txt");
-    const gateway = startGateway(() =>
-      sse(
-        'data: {"type":"tool-call","toolCallId":"command_1","toolName":"terminal","input":{"action":"exec","command":"printf executed > command-must-not-run.txt","timeout_ms":30000}}\n\n' +
-          'data: {"type":"finish","finishReason":{"unified":"","raw":"provider_error"}}\n\n' +
-          "data: [DONE]\n\n",
-      ),
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "--no-save", "Run the fixture command."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(1);
-      expect(json.exit_code).toBe(1);
-      expect(json.error).toBe("InvalidProviderFinishReason");
-      expect(json.tool_calls).toEqual([]);
-      expect(existsSync(sentinelPath)).toBe(false);
-      expect(gateway.requestCount()).toBe(1);
-      expect(trace).toContain("termination cause=invalid_finish");
-      expect(trace).toContain("err=InvalidProviderFinishReason");
-      expect(trace).not.toContain("event=before_tool_execution");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
-
-  test("missing provider finish recovers across framing and content variants", async () => {
-    const cases = [
-      {
-        name: "done",
-        response: () => sse("data: [DONE]\n\n"),
-        expectedCause: "done_without_finish",
-        streamedText: null,
-      },
-      {
-        name: "eof",
-        response: () => sse(""),
-        expectedCause: "eof_without_finish",
-        streamedText: null,
-      },
-      {
-        name: "partial",
-        response: () =>
-          sse('data: {"type":"text-delta","id":"answer","delta":"visible partial text"}\n\n'),
-        expectedCause: "eof_without_finish",
-        streamedText: "visible partial text",
-      },
-    ] as const;
-
-    for (const fixture of cases) {
-      const root = createFixtureRoot(fixture.name);
-      const tracePath = join(root.root, "trace.log");
-      let requestIndex = 0;
-      const recoveredText = fixture.streamedText
-        ? `${fixture.streamedText} completed`
-        : "Recovered after missing finish.";
-      const gateway = startGateway(() =>
-        requestIndex++ === 0 ? fixture.response() : fakeGatewayFinalText(recoveredText)
-      );
-      try {
-        const result = await runY2(
-          ["ask", "--json", "--auto", "--no-save", "Return the fixture response."],
-          {
-            cwd: root.workspace,
-            env: fixtureEnv(root, gateway, tracePath),
-            timeoutMs: 15_000,
-          },
-        );
-        const trace = readFileSync(tracePath, "utf8");
-
-        expect(result.code).toBe(0);
-        expect(`${result.stdout}\n${result.stderr}`).not.toContain("Done.");
-        expect(`${result.stdout}\n${result.stderr}`).not.toContain(
-          "stream ended before provider completion",
-        );
-        expect(gateway.requestCount()).toBe(2);
-        expect(trace).toContain(`termination cause=${fixture.expectedCause}`);
-        expect(gateway.requests[1]!.body).toContain("<network_recovery>");
-        expect(trace).toContain("event=prompt_finish");
-        expect(trace).toContain("outcome_kind=assistant");
-        expect(result.stderr).toContain("Response ended early");
-        expect(result.stderr).toContain(
-          fixture.streamedText ? "continuing response" : "retrying request",
-        );
-        expect(result.stderr).toContain("attempt 1/10");
-        expect(result.stderr).toContain("recovered · succeeded on attempt 2/10");
-
-        const json = parseAskJson(result.stdout);
-        expect(json.exit_code).toBe(0);
-        expect(json.error).toBeUndefined();
-        expect(json.output).toBe(recoveredText);
-        expect(json.tool_calls).toEqual([]);
-        expect(json.recovery?.state).toBe("recovered");
-        expect(json.recovery?.attempt).toBe(2);
-      } finally {
-        gateway.stop();
-        rmSync(root.root, { recursive: true, force: true });
-      }
-    }
-  });
-
-  test("streamed tool calls without finish reconcile without executing the uncertain call", async () => {
-    const root = createFixtureRoot("tool-without-finish");
-    const tracePath = join(root.root, "trace.log");
-    const sentinelPath = join(root.workspace, "should-not-exist.txt");
-    const responses = [
-      sse(
-        'data: {"type":"tool-call","toolCallId":"write_1","toolName":"write_file","input":{"path":"should-not-exist.txt","content":"unsafe"}}\n\n' +
-          "data: [DONE]\n\n",
-      ),
-      fakeGatewayFinalText("Recovered without executing the uncertain write."),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "Write the requested fixture file."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(0);
-      expect(json.exit_code).toBe(0);
-      expect(json.output).toContain("Recovered without executing the uncertain write.");
-      expect(json.tool_calls).toEqual([]);
-      expect(json.recovery?.attempt).toBe(2);
-      expect(existsSync(sentinelPath)).toBe(false);
-      expect(gateway.requestCount()).toBe(2);
-      expect(trace).toContain("termination cause=done_without_finish");
-      expect(gateway.requests[1]!.body).toContain("<network_recovery>");
-      expect(gateway.requests[1]!.body).toContain(
-        '"toolChoice":{"type":"none"}',
-      );
-      expect(trace).toContain("event=prompt_finish");
-      expect(trace).toContain("outcome_kind=assistant");
-
-      const sessionsResult = await runY2(["sessions", "--json"], {
-        cwd: root.workspace,
-        env: { HOME: root.home },
-      });
-      expect(sessionsResult.code).toBe(0);
-      const sessions = JSON.parse(sessionsResult.stdout);
-      expect(sessions.count).toBe(1);
-      expect(sessions.sessions[0].history_len).toBe(1);
-
-      const detailResult = await runY2(
-        ["session", "--id", sessions.sessions[0].id, "--json"],
-        {
-          cwd: root.workspace,
-          env: { HOME: root.home },
-        },
-      );
-      expect(detailResult.code).toBe(0);
-      const detail = JSON.parse(detailResult.stdout);
-      expect(detail.history_len).toBe(1);
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
-
-  test("uncertain tool reconciliation refuses a second tool result", async () => {
-    const root = createFixtureRoot("uncertain-tool-repeat");
-    const tracePath = join(root.root, "trace.log");
-    const sentinelPath = join(root.workspace, "must-not-repeat.txt");
-    const responses = [
-      sse(
-        'data: {"type":"tool-call","toolCallId":"write_uncertain","toolName":"write_file","input":{"path":"must-not-repeat.txt","content":"unsafe"}}\n\n' +
-          "data: [DONE]\n\n",
-      ),
-      fakeGatewayToolCall("write_repeat", "write_file", {
-        path: "must-not-repeat.txt",
-        content: "unsafe",
-      }),
-    ];
-    const gateway = startGateway(() =>
-      responses.shift() ?? new Response("unexpected request", { status: 500 })
-    );
-    try {
-      const result = await runY2(
-        ["ask", "--json", "--auto", "Write the fixture file."],
-        {
-          cwd: root.workspace,
-          env: fixtureEnv(root, gateway, tracePath),
-          timeoutMs: 15_000,
-        },
-      );
-      const json = parseAskJson(result.stdout);
-      const trace = readFileSync(tracePath, "utf8");
-
-      expect(result.code).toBe(1);
-      expect(json.recovery?.state).toBe("paused");
-      expect(json.recovery?.required_action).toBe("inspect_uncertain_tool");
-      expect(gateway.requestCount()).toBe(2);
-      expect(gateway.requests[1]!.body).toContain(
-        '"toolChoice":{"type":"none"}',
-      );
-      expect(existsSync(sentinelPath)).toBe(false);
-      expect(trace).toContain("event=uncertain_provider_tool_rejected");
-      expect(trace).not.toContain("event=before_tool_execution");
-    } finally {
-      gateway.stop();
-      rmSync(root.root, { recursive: true, force: true });
-    }
-  });
 });

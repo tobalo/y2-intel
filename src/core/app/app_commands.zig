@@ -3726,7 +3726,7 @@ test "trace auth summary preserves missing and loaded status text" {
 
     var credential = credentials.Credential{
         .token = try alloc.dupe(u8, "token"),
-        .source = .retired_login,
+        .source = .api_key,
     };
     defer credential.deinit(alloc);
     _ = app.auth.adoptCredential(alloc, &credential);
@@ -3734,7 +3734,7 @@ test "trace auth summary preserves missing and loaded status text" {
     defer loaded.deinit();
     try writeAuthStateSummary(&loaded.writer, &app);
     try std.testing.expectEqualStrings(
-        "auth: source=y2 login refreshable=true gateway_team=unset\n",
+        "auth: source=API key refreshable=false gateway_team=unset\n",
         loaded.written(),
     );
 }

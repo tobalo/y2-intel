@@ -54,9 +54,8 @@ function notificationEnv(
 ) {
   return {
     HOME: home,
-    Y2_API_KEY: "fake-notification-key",
-    REMOVED_LEGACY_OIDC_TOKEN: undefined,
-    Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+    OPENAI_API_KEY: "fake-notification-key",
+    OPENAI_BASE_URL: gateway.baseUrl,
     Y2_API_CHAT_URL: gateway.chatUrl,
     Y2_MODEL: FAKE_GATEWAY_MODEL,
     Y2_AUTO_UPGRADE: "0",

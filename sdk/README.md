@@ -291,7 +291,6 @@ Hosts may provide adapters for runtime state and external effects:
 | `onPermission` | Resolves agent permission requests |
 | `configStore` | Persists accepted configuration values |
 | `sessionStore` | Persists agent or terminal sessions |
-| `oauthSessionStore` | Persists browser device-login sessions |
 | `promptHistoryStore` | Stores terminal prompt history |
 | `openUrl` | Opens authentication and verification URLs |
 | `workspace` | Provides the constrained browser workspace adapter |

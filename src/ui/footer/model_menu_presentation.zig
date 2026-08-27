@@ -340,7 +340,7 @@ fn loadedCatalogStatusText(state: model_cache_runtime.ModelMenuCatalogState) ?[]
         const reason = state.public_only_reason orelse return "Using the public model catalog.";
         return switch (reason) {
             .no_credential => "Configure Y2_API_KEY or OPENAI_API_KEY to use this model.",
-            .retired_login_team_required, .retired_login_refresh_required, .credential_refresh_failed => "Retired credential credentials are unsupported.",
+            .credential_refresh_failed => "The configured credential could not refresh.",
             .authenticated_credential_rejected => "Your API credential was rejected.",
             .chatgpt_subscription => "Codex models require an authenticated Codex catalog.",
             .grok_subscription => "Grok models require an authenticated Grok catalog.",
@@ -349,7 +349,6 @@ fn loadedCatalogStatusText(state: model_cache_runtime.ModelMenuCatalogState) ?[]
     if (state.access_level == .authenticated) {
         const source = state.source orelse return "Using the configured API model catalog.";
         return switch (source) {
-            .retired_login, .retired_oidc_token => "Retired credential credentials are unsupported.",
             .api_key => "API endpoint: authenticated from the environment.",
             .stored_key => "API endpoint: authenticated with the stored API key.",
             .chatgpt_subscription => "Codex catalog: authenticated with a subscription.",
@@ -520,8 +519,8 @@ test "model menu states and navigation budget stay bounded" {
 
 test "model menu status follows provenance and retryable failure precedence" {
     try std.testing.expectEqualStrings(
-        "Retired credential credentials are unsupported.",
-        loadedCatalogStatusText(.{ .access_level = .authenticated, .source = .retired_login }).?,
+        "API endpoint: authenticated from the environment.",
+        loadedCatalogStatusText(.{ .access_level = .authenticated, .source = .api_key }).?,
     );
 
     const cases = [_]struct {
@@ -529,9 +528,7 @@ test "model menu status follows provenance and retryable failure precedence" {
         expected: []const u8,
     }{
         .{ .state = .{ .public_only_reason = .no_credential, .private_models_hidden = true }, .expected = "Configure Y2_API_KEY or OPENAI_API_KEY to use this model." },
-        .{ .state = .{ .public_only_reason = .retired_login_team_required, .private_models_hidden = true }, .expected = "Retired credential credentials are unsupported." },
-        .{ .state = .{ .public_only_reason = .retired_login_refresh_required, .private_models_hidden = true }, .expected = "Retired credential credentials are unsupported." },
-        .{ .state = .{ .public_only_reason = .credential_refresh_failed, .private_models_hidden = true }, .expected = "Retired credential credentials are unsupported." },
+        .{ .state = .{ .public_only_reason = .credential_refresh_failed, .private_models_hidden = true }, .expected = "The configured credential could not refresh." },
         .{ .state = .{ .public_only_reason = .authenticated_credential_rejected, .private_models_hidden = true }, .expected = "Your API credential was rejected." },
         .{ .state = .{ .failure = .{ .category = .transport, .retryable = true } }, .expected = "Could not reach the model API; retry /models." },
         .{ .state = .{ .access_level = .public_only, .public_only_reason = .no_credential, .private_models_hidden = true, .failure = .{ .category = .rate_limited, .retryable = true } }, .expected = "The API rate limited model discovery; retry /models." },

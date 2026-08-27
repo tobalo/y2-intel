@@ -133,7 +133,6 @@ async function launchRecordedSurfaceSession(
     env: {
       HOME: home,
       Y2_API_KEY: undefined,
-      REMOVED_LEGACY_OIDC_TOKEN: undefined,
       Y2_AUTO_UPGRADE: "0",
       Y2_RECORD: join(root, "session.y2tape"),
       Y2_RECORD_INPUT: "1",
@@ -1118,7 +1117,6 @@ async function runLargeSkillResizeAttempt(attempt: number): Promise<string> {
       env: {
         HOME: fixture.home,
         Y2_API_KEY: undefined,
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
         Y2_AUTO_UPGRADE: "0",
         Y2_RECORD: tapePath,
         Y2_RECORD_INPUT: "1",
@@ -1319,7 +1317,6 @@ async function runRapidSkillResizeAttempt(
       env: {
         HOME: fixture.home,
         Y2_API_KEY: undefined,
-        REMOVED_LEGACY_OIDC_TOKEN: undefined,
         Y2_AUTO_UPGRADE: "0",
         Y2_RECORD: tapePath,
         Y2_RECORD_INPUT: "1",
@@ -1553,9 +1550,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-long-resize-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-long-resize-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -1632,11 +1628,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-resize-command-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          OPENAI_API_KEY: "fake-resize-command-key",
           Y2_AUTO_UPGRADE: "0",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-          Y2_API_CHAT_URL: gateway.chatUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_RECORD: tapePath,
@@ -1765,10 +1759,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-retention-scrollback-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-          Y2_API_CHAT_URL: gateway.chatUrl,
+          OPENAI_API_KEY: "fake-retention-scrollback-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_MAX_AGENT_STEPS: "4",
@@ -1868,9 +1860,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-approval-cancel-resize-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-approval-cancel-resize-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -2023,9 +2014,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-thematic-rule-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-thematic-rule-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -2111,9 +2101,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-nested-blockquote-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-nested-blockquote-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -2257,11 +2246,9 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-gated-resize-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
+          OPENAI_API_KEY: "fake-gated-resize-key",
           Y2_AUTO_UPGRADE: "0",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
-          Y2_API_CHAT_URL: gateway.chatUrl,
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_RECORD: tapePath,
@@ -2388,7 +2375,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           Y2_RECORD: tapePath,
           Y2_RECORD_INPUT: "1",
@@ -2424,7 +2410,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       await session.waitForText("/help", 10_000);
       await waitForSelectedSlashLabel(session, "/help");
       const shrinkStage = await session.captureFullScrollback();
-      expect(shrinkStage).toContain("Commands 37 · Type to filter");
+      expect(shrinkStage).toContain("Commands 36 · Type to filter");
       expect(shrinkStage).toContain("1–4");
       writeFileSync(join(root, "scrollback-after-shrink.txt"), shrinkStage);
 
@@ -2519,7 +2505,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         env: {
           HOME: home,
           Y2_API_KEY: undefined,
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           NO_COLOR: "1",
         },
@@ -2678,7 +2663,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
           gateway
             ? {
                 Y2_E2E_GATEWAY_MODELS_URL:
-                  `${gateway.baseUrl}/coding-agent/v1/models`,
+                  `${gateway.baseUrl}/v1/models`,
               }
             : {},
         );
@@ -2804,9 +2789,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-wide-user-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-wide-user-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3018,9 +3002,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: root.workspace,
         env: {
           HOME: root.home,
-          Y2_API_KEY: "fake-resize-file-approval-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-resize-file-approval-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3159,9 +3142,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: root.workspace,
         env: {
           HOME: root.home,
-          Y2_API_KEY: "fake-resize-gate-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-resize-gate-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3245,9 +3227,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: root.workspace,
         env: {
           HOME: root.home,
-          Y2_API_KEY: "fake-post-approval-resize-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-post-approval-resize-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",
@@ -3302,11 +3283,10 @@ describe.skipIf(SKIP)("tui: resize", () => {
         120,
         40,
         {
-          Y2_API_KEY: "fake-resize-activity-key",
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-resize-activity-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_API_CHAT_URL: gateway.chatUrl,
-          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/coding-agent/v1/models`,
+          Y2_E2E_GATEWAY_MODELS_URL: `${gateway.baseUrl}/v1/models`,
           Y2_E2E_GATEWAY_CREDITS_URL: undefined,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
         },
@@ -3401,11 +3381,11 @@ describe.skipIf(SKIP)("tui: resize", () => {
     async () => {
       session = await launchAt(120, 40);
       await session.sendText("/help");
-      await session.waitForText("Commands 37", 5_000);
+      await session.waitForText("Commands 36", 5_000);
       await session.resizeWindow(76, 24, 400);
 
       const grid = await session.capturePaneGrid();
-      expect(grid.join("\n")).toContain("Commands 37");
+      expect(grid.join("\n")).toContain("Commands 36");
       expect(findHelpScreen(grid)).not.toBeNull();
 
       await session.sendKeys("Escape");
@@ -3423,7 +3403,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
     async () => {
       session = await launchAt(120, 40);
       await session.sendText("/help");
-      await session.waitForText("Commands 37", 5_000);
+      await session.waitForText("Commands 36", 5_000);
 
       const captureScrollback = () =>
         execSync(`tmux capture-pane -t ${session!.name} -p -S -`, {
@@ -3431,7 +3411,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
           stdio: "pipe",
         });
       const expectHelpCatalog = (grid: string[]) => {
-        expect(grid.join("\n")).toContain("Commands 37");
+        expect(grid.join("\n")).toContain("Commands 36");
         expect(grid.join("\n")).not.toContain("Run /help for commands");
         expect(findHelpScreen(grid)).not.toBeNull();
       };
@@ -3447,7 +3427,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
       const restored = captureScrollback();
       expect(restored.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
       expect(restored.match(/Run \/help for commands/g)).toHaveLength(1);
-      expect(restored).not.toContain("Commands 37");
+      expect(restored).not.toContain("Commands 36");
       expect(findFooter(await session.capturePaneGrid())).not.toBeNull();
     },
     TIMEOUT,
@@ -3492,7 +3472,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         env: {
           HOME: home,
           Y2_API_KEY: "test-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_AUTO_UPGRADE: "0",
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_RECORD: tapePath,
@@ -3651,7 +3630,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         stderrPath,
         env: {
           Y2_API_KEY: "test-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3711,7 +3689,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         stderrPath,
         env: {
           Y2_API_KEY: "test-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3793,7 +3770,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         stderrPath,
         env: {
           Y2_API_KEY: "test-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3904,7 +3880,6 @@ describe.skipIf(SKIP)("tui: resize", () => {
         stderrPath,
         env: {
           Y2_API_KEY: "test-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_TRACE_LOG: tracePath,
           Y2_TRACE_SCOPES: "input,worker,resize",
@@ -3961,7 +3936,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         expect(await session.captureFullScrollback()).toContain(marker);
 
         await session.sendText("/help");
-        await session.waitForText("Commands 37", 5_000);
+        await session.waitForText("Commands 36", 5_000);
         await session.resizeWindow(84, 28, 500);
 
         const catalog = await session.capturePaneGrid();
@@ -3976,7 +3951,7 @@ describe.skipIf(SKIP)("tui: resize", () => {
         expect(scrollback.match(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/g)).toHaveLength(1);
         expect(scrollback.match(/Run \/help for commands/g)).toHaveLength(1);
         expect(scrollback.split("\n")[0]).toMatch(/Y2 INFORMATION DOMINANCE v\d+\.\d+\.\d+\b/);
-        expect(scrollback).not.toContain("Commands 37");
+        expect(scrollback).not.toContain("Commands 36");
         const finalGrid = await session.capturePaneGrid();
         expect(findFooter(finalGrid), finalGrid.join("\n")).not.toBeNull();
 
@@ -4019,9 +3994,8 @@ describe.skipIf(SKIP)("tui: resize", () => {
         cwd: workspace,
         env: {
           HOME: home,
-          Y2_API_KEY: "fake-theme-reset-key",
-          REMOVED_LEGACY_OIDC_TOKEN: undefined,
-          Y2_GATEWAY_BASE_URL: gateway.baseUrl,
+          OPENAI_API_KEY: "fake-theme-reset-key",
+          OPENAI_BASE_URL: gateway.baseUrl,
           Y2_API_CHAT_URL: gateway.chatUrl,
           Y2_MODEL: FAKE_GATEWAY_MODEL,
           Y2_AUTO_UPGRADE: "0",

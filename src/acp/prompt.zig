@@ -2680,7 +2680,7 @@ test "ACP usage checkpoints maintain the profile recovery marker" {
         1,
         .observed_generation,
         "gen_01ARZ3NDEKTSV4RRFFQ69G5FAV",
-        "https://retired-gateway.invalid",
+        "https://example.invalid",
         null,
     );
     var pending = try usage.snapshot(alloc);
@@ -3170,14 +3170,14 @@ test "ACP auth failure emits a valid detail-free JSON-RPC notification" {
     var state = try initTestAcpState(alloc, "/tmp/workspace", .ask);
     defer state.deinit();
     state.writer = .{ .stdout = capture };
-    state.active_session.?.credential_source = .retired_oidc_token;
+    state.active_session.?.credential_source = .api_key;
     var ctx = AcpContext{
         .alloc = alloc,
         .state = &state,
         .session_id = "session_1",
     };
     try std.testing.expectEqual(
-        types.CredentialSource.retired_oidc_token,
+        types.CredentialSource.api_key,
         ctx.toolContext().credential_source.?,
     );
 
@@ -3202,7 +3202,7 @@ test "ACP auth failure emits a valid detail-free JSON-RPC notification" {
     const update = parsed.value.object.get("params").?.object.get("update").?.object;
     const content = update.get("content").?.object;
     try std.testing.expectEqualStrings(
-        "REMOVED_LEGACY_OIDC_TOKEN authentication failed · HTTP 401",
+        "API key authentication failed · HTTP 401",
         content.get("text").?.string,
     );
     try std.testing.expect(std.mem.find(u8, captured, "access-token-secret") == null);

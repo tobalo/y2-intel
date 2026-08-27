@@ -522,11 +522,14 @@ pub fn dupeRedactedToolCall(alloc: Allocator, call: ToolCall) !ToolCall {
     errdefer alloc.free(id);
     const name = try alloc.dupe(u8, call.name);
     errdefer alloc.free(name);
-    const arguments_json = try redactToolArgumentsJsonForTool(
-        alloc,
-        call.name,
-        call.arguments_json,
-    );
+    const arguments_json = if (call.argument_integrity == .malformed_json)
+        try alloc.dupe(u8, "{}")
+    else
+        try redactToolArgumentsJsonForTool(
+            alloc,
+            call.name,
+            call.arguments_json,
+        );
     errdefer alloc.free(arguments_json);
     const provisional_id = if (call.provisional_id) |value| try durableIdentifier(alloc, value) else null;
     errdefer if (provisional_id) |value| alloc.free(value);
@@ -966,6 +969,20 @@ test "durable execution memory redacts credential keys without hiding benign met
         "[REDACTED]",
         parsed.value.object.get("client_secret").?.string,
     );
+}
+
+test "durable execution memory replaces malformed tool arguments" {
+    const call = ToolCall{
+        .id = "call_bad",
+        .name = "terminal",
+        .arguments_json = "{\"command\":\"touch unsafe\"",
+        .argument_integrity = .malformed_json,
+    };
+    const redacted = try dupeRedactedToolCall(std.testing.allocator, call);
+    defer types.freeToolCall(std.testing.allocator, redacted);
+
+    try std.testing.expectEqualStrings("{}", redacted.arguments_json);
+    try std.testing.expectEqual(types.ToolArgumentIntegrity.valid, redacted.argument_integrity);
 }
 
 test "durable execution memory pseudonymizes sensitive call ids consistently" {
