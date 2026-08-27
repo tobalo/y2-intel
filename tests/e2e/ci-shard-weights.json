@@ -54,8 +54,5 @@
   { "file": "web-fetch-fake-network.test.ts", "weight": 3 },
   { "file": "web-fetch-live.test.ts", "weight": 1 },
   { "file": "web-fetch-permission-progress.test.ts", "weight": 1 },
-  { "file": "web-search-fake-gateway.test.ts", "weight": 5 },
-  { "file": "web-search-live.test.ts", "weight": 1 },
-  { "file": "web-search-permission-progress.test.ts", "weight": 11 },
   { "file": "yolo-permission-mode.test.ts", "weight": 29 }
 ]
