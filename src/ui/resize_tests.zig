@@ -4828,7 +4828,7 @@ test "startup reservation scrolls to fit first paint without wiping pre-y2 rows"
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09\nFX10\n",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209\nY210\n",
         true,
     );
     try h.renderTranscriptFrameIfDirty();
@@ -4836,8 +4836,8 @@ test "startup reservation scrolls to fit first paint without wiping pre-y2 rows"
 
     try expectRowPrefix(&h, 1, "PRE15");
     try expectRowPrefix(&h, 6, "$ y2");
-    try expectRowPrefix(&h, 10, "FX01");
-    try expectRowPrefix(&h, 19, "FX10");
+    try expectRowPrefix(&h, 10, "Y201");
+    try expectRowPrefix(&h, 19, "Y210");
 }
 
 test "post-paint overflow waits for synchronized paint before scrolling" {
@@ -4851,7 +4851,7 @@ test "post-paint overflow waits for synchronized paint before scrolling" {
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09\nFX10\n",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209\nY210\n",
         true,
     );
     try h.renderTranscriptFrameIfDirty();
@@ -4910,7 +4910,7 @@ test "first post-paint overflow releases wrapped launch rows through frame scrol
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09\nFX10\n",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209\nY210\n",
         true,
     );
     try h.renderTranscriptFrameIfDirty();
@@ -4947,22 +4947,22 @@ test "settled resize reserves welcome rows before replaying viewport" {
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09\nFX10\nFX11",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209\nY210\nY211",
         true,
     );
     try h.renderTranscriptFrameIfDirty();
     try h.flush();
 
-    try expectRowPrefix(&h, 10, "FX01");
-    try expectRowPrefix(&h, 20, "FX11");
+    try expectRowPrefix(&h, 10, "Y201");
+    try expectRowPrefix(&h, 20, "Y211");
 
     try h.driveResize(80, 23, 4, true);
 
     try std.testing.expectEqual(h.shell.owned_top_row, h.shell.viewport_top_row);
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
     try std.testing.expectEqual(@as(u16, 11), h.shell.min_visible_viewport_rows);
-    try expectRowPrefix(&h, 1, "FX01");
-    try expectRowPrefix(&h, 11, "FX11");
+    try expectRowPrefix(&h, 1, "Y201");
+    try expectRowPrefix(&h, 11, "Y211");
 
     try h.driveResize(80, 22, 4, true);
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
@@ -4980,7 +4980,7 @@ test "settled resize clears reflowed rows above the launch-owned viewport" {
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09\nFX10\nFX11",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209\nY210\nY211",
         true,
     );
     try h.renderTranscriptFrameIfDirty();
@@ -4998,8 +4998,8 @@ test "settled resize clears reflowed rows above the launch-owned viewport" {
     try h.flush();
 
     try expectGridNotContains(&h, "PRE-Y2-ROW");
-    try expectRowPrefix(&h, 1, "FX01");
-    try expectRowPrefix(&h, 11, "FX11");
+    try expectRowPrefix(&h, 1, "Y201");
+    try expectRowPrefix(&h, 11, "Y211");
 }
 
 test "recovering from collapsed resize scroll-compacts stale viewport rows" {
@@ -5013,14 +5013,14 @@ test "recovering from collapsed resize scroll-compacts stale viewport rows" {
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209",
         true,
     );
     try h.renderTranscriptFrameIfDirty();
     try h.flush();
 
     try expectRowPrefix(&h, 1, "PRE-Y2");
-    try expectRowPrefix(&h, 5, "FX01");
+    try expectRowPrefix(&h, 5, "Y201");
 
     try h.driveResize(80, 5, 4, true);
     try h.driveResize(80, 24, 4, true);
@@ -5028,8 +5028,8 @@ test "recovering from collapsed resize scroll-compacts stale viewport rows" {
     try std.testing.expectEqual(@as(u16, 1), h.shell.owned_top_row);
     try std.testing.expectEqual(@as(u16, 1), h.shell.viewport_top_row);
     try expectGridNotContains(&h, "PRE-Y2");
-    try expectRowPrefix(&h, 1, "FX01");
-    try expectRowPrefix(&h, 9, "FX09");
+    try expectRowPrefix(&h, 1, "Y201");
+    try expectRowPrefix(&h, 9, "Y209");
 }
 
 test "empty pre-paint defers scrolling until first content frame" {
@@ -5066,7 +5066,7 @@ test "empty pre-paint defers scrolling until first content frame" {
     try h.shell.writeTranscript(
         alloc,
         &h.metrics,
-        "FX01\nFX02\nFX03\nFX04\nFX05\nFX06\nFX07\nFX08\nFX09\nFX10\nFX11\nFX12\n",
+        "Y201\nY202\nY203\nY204\nY205\nY206\nY207\nY208\nY209\nY210\nY211\nY212\n",
         true,
     );
     try std.testing.expectEqual(@as(u16, 20), h.shell.viewport_top_row);
@@ -5085,8 +5085,8 @@ test "empty pre-paint defers scrolling until first content frame" {
     try std.testing.expect(std.mem.find(u8, emitted, "\x1b[3J") == null);
     try expectRowPrefix(&h, 1, "PRE11");
     try expectRowPrefix(&h, 9, "PRE19");
-    try expectRowPrefix(&h, 10, "FX01");
-    try expectRowPrefix(&h, 21, "FX12");
+    try expectRowPrefix(&h, 10, "Y201");
+    try expectRowPrefix(&h, 21, "Y212");
 }
 
 test "slash picker dismissal releases reserved picker rows" {
@@ -5796,7 +5796,7 @@ test "footer suppresses slash skill rows for streaming model-shaped input" {
         .name = "model-helper",
         .description = "model helper",
         .path = "/tmp/model-helper/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
 
     var input = InputRuntime{};

@@ -4051,7 +4051,7 @@ test "app_input_runtime Escape dismisses an idle inline skill completion" {
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.textReplacementState().replace(alloc, "explain $man");
@@ -4089,7 +4089,7 @@ test "app_input_runtime active operation Escape keeps precedence over inline ski
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.stream.active = true;
@@ -4121,7 +4121,7 @@ test "app_input_runtime skills menu navigation clamps before prompt history" {
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_fx },
+        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_y2 },
         .{ .name = "workspace", .description = "", .path = "/tmp/workspace/SKILL.md", .source = .workspace_shared },
     };
     app.skills.items = @constCast(&skills);
@@ -4141,7 +4141,7 @@ test "app_input_runtime skills menu navigation remains interactive while streami
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_fx },
+        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_y2 },
         .{ .name = "workspace", .description = "", .path = "/tmp/workspace/SKILL.md", .source = .workspace_shared },
     };
     app.skills.items = @constCast(&skills);
@@ -4158,10 +4158,10 @@ test "app_input_runtime command skills navigation uses the inline composer windo
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "one", .description = "", .path = "/tmp/one/SKILL.md", .source = .global_fx },
-        .{ .name = "two", .description = "", .path = "/tmp/two/SKILL.md", .source = .global_fx },
-        .{ .name = "three", .description = "", .path = "/tmp/three/SKILL.md", .source = .global_fx },
-        .{ .name = "four", .description = "", .path = "/tmp/four/SKILL.md", .source = .global_fx },
+        .{ .name = "one", .description = "", .path = "/tmp/one/SKILL.md", .source = .global_y2 },
+        .{ .name = "two", .description = "", .path = "/tmp/two/SKILL.md", .source = .global_y2 },
+        .{ .name = "three", .description = "", .path = "/tmp/three/SKILL.md", .source = .global_y2 },
+        .{ .name = "four", .description = "", .path = "/tmp/four/SKILL.md", .source = .global_y2 },
     };
     app.shell.layout = .{
         .rows = 16,
@@ -4190,7 +4190,7 @@ test "app_input_runtime Escape closes an idle skills menu before empty-composer 
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4234,7 +4234,7 @@ test "app_input_runtime command skills menu reuses composer input as its query" 
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4254,7 +4254,7 @@ test "app_input_runtime command skills search owns dollar and model-shaped text"
         .name = "model-helper",
         .description = "",
         .path = "/tmp/model-helper/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4276,7 +4276,7 @@ test "app_input_runtime command skills query follows history and ctrl-c clear" {
         .name = "older",
         .description = "",
         .path = "/tmp/older/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.composer_history.installTextEntries(alloc, &.{"older"});
@@ -4300,7 +4300,7 @@ test "app_input_runtime Escape closes a command skills menu and clears its tempo
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.textReplacementState().replace(alloc, "man");
@@ -4321,7 +4321,7 @@ test "app_input_runtime Space edits and filters a command skills query" {
         .name = "managed",
         .description = "managed description",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4371,7 +4371,7 @@ test "app_input_runtime Tab cycles skills menu sources before autocomplete" {
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_fx },
+        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_y2 },
         .{ .name = "codex", .description = "", .path = "/tmp/codex/SKILL.md", .source = .global_codex },
     };
     app.skills.items = @constCast(&skills);
@@ -4390,7 +4390,7 @@ test "app_input_runtime Tab cycles skills menu sources while streaming" {
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_fx },
+        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_y2 },
         .{ .name = "codex", .description = "", .path = "/tmp/codex/SKILL.md", .source = .global_codex },
     };
     app.skills.items = @constCast(&skills);
@@ -4478,7 +4478,7 @@ test "app_input_runtime Shift+Tab reverses skills source without changing permis
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_fx },
+        .{ .name = "managed", .description = "", .path = "/tmp/managed/SKILL.md", .source = .global_y2 },
         .{ .name = "claw", .description = "", .path = "/tmp/claw/SKILL.md", .source = .global_claw },
     };
     app.skills.items = @constCast(&skills);
@@ -4547,7 +4547,7 @@ test "app_input_runtime Enter binds a selected skill token" {
         .name = "review",
         .description = "",
         .path = "/tmp/review/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4579,7 +4579,7 @@ test "app_input_runtime Enter reports a skill binding rejected by the input limi
         .name = "review",
         .description = "",
         .path = "/tmp/review/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.textReplacementState().replace(alloc, "$r suffix");
@@ -4605,7 +4605,7 @@ test "app_input_runtime redraws a closed skill picker when the input limit notic
         .name = "review",
         .description = "",
         .path = "/tmp/review/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.textReplacementState().replace(alloc, "$r suffix");
@@ -4636,7 +4636,7 @@ test "app_input_runtime keeps the skill picker open when binding allocation fail
         .name = "review",
         .description = "",
         .path = "/tmp/review/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4662,7 +4662,7 @@ test "app_input_runtime Enter replaces the full command skills query" {
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.textReplacementState().replace(alloc, "man");
@@ -4684,7 +4684,7 @@ test "app_input_runtime command skills query tracks bracketed paste" {
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -4705,7 +4705,7 @@ test "app_input_runtime dollar opens skills menu and Escape preserves raw text" 
         .name = "scale",
         .description = "",
         .path = "/tmp/scale/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
 
@@ -4732,7 +4732,7 @@ test "app_input_runtime non-leading dollar stays in the composer" {
         .name = "scale",
         .description = "",
         .path = "/tmp/scale/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     const inputs = [_][]const u8{ " $", "hello $" };
 
@@ -4754,7 +4754,7 @@ test "app_input_runtime Tab and Right Arrow accept visible inline skill completi
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
 
     for ([_]enum { tab, right }{ .tab, .right }) |key| {
@@ -4821,7 +4821,7 @@ test "app_input_runtime Right Arrow collapses selection before inline completion
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
@@ -4849,7 +4849,7 @@ test "app_input_runtime ctrl-l preserves an active inline picker" {
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     var app = try RoutingFakeApp.init(alloc);
     defer app.deinit();
@@ -4913,7 +4913,7 @@ test "app_input_runtime inline skill acceptance preserves input on limit rejecti
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try feedRoutingBytes(&app, "explain $man");
@@ -4937,7 +4937,7 @@ test "app_input_runtime no-match dollar text keeps spaces and submits raw" {
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
 
@@ -4965,7 +4965,7 @@ test "app_input_runtime space after matched dollar token inserts and closes menu
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
 
@@ -4991,7 +4991,7 @@ test "app_input_runtime matched dollar token still binds on enter" {
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
 
@@ -5038,7 +5038,7 @@ test "app_input_runtime enter submits after delete-forward removes the dollar an
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
 
@@ -5066,7 +5066,7 @@ test "app_input_runtime zero-match dollar query recovers matches on backspace" {
         .name = "managed",
         .description = "",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
 
@@ -5740,7 +5740,7 @@ test "app_input_runtime model picker Enter ignores hidden slash skill matches" {
         .name = "model-helper",
         .description = "model helper",
         .path = "/tmp/model-helper/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     const completions = [_][]const u8{"xai/grok-build-1"};
 
@@ -5873,7 +5873,7 @@ test "app_input_runtime stream model-shaped keys stay model-owned" {
         .name = "model-helper",
         .description = "model helper",
         .path = "/tmp/model-helper/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     const completions = [_][]const u8{"xai/grok-build-1"};
     const cases = [_]struct {
@@ -5913,7 +5913,7 @@ test "app_input_runtime Enter submits a dismissed slash skill query as text" {
         .name = "custom-skill",
         .description = "custom skill",
         .path = "/tmp/custom-skill/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
 
     var app = try RoutingFakeApp.init(alloc);
@@ -5939,7 +5939,7 @@ test "app_input_runtime Enter binds a slash skill after multiline whitespace" {
         .name = "custom-skill",
         .description = "custom skill",
         .path = "/tmp/custom-skill/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
 
     var app = try RoutingFakeApp.init(alloc);
@@ -5962,7 +5962,7 @@ test "app_input_runtime retired slash alias no longer shadows a matching skill" 
         .name = "input-helper",
         .description = "input helper",
         .path = "/tmp/input-helper/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
 
     var app = try RoutingFakeApp.init(alloc);
@@ -8128,7 +8128,7 @@ test "app_input_runtime backslash enter is consumed by an active command skills 
         .name = "review",
         .description = "",
         .path = "/tmp/review/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     app.skills.openMenu();
@@ -13425,7 +13425,7 @@ test "app_input_runtime small paste opens skills menu for matching dollar token"
         .name = "scale",
         .description = "",
         .path = "/tmp/scale/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.paste.buffer.appendSlice(alloc, "use $sca now");
@@ -13448,7 +13448,7 @@ test "app_input_runtime multi dollar paste preserves spaces and opens first matc
         .name = "y2-test-strategy",
         .description = "",
         .path = "/tmp/y2-test-strategy/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     const pasted = "Need $y2-test and $notaskill in pasted text";
@@ -13476,7 +13476,7 @@ test "app_input_runtime no-match dollar paste remains raw without opening skills
         .name = "scale",
         .description = "",
         .path = "/tmp/scale/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     const pasted = "Need $notaskill in pasted text";

@@ -1330,7 +1330,7 @@ test "mixed slash completion uses skill relevance order" {
             .name = "metadata-first",
             .description = "zig workflow",
             .path = "/tmp/.y2/skills/metadata-first",
-            .source = .global_fx,
+            .source = .global_y2,
         },
         .{
             .name = "zig-best-practices",

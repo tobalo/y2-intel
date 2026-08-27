@@ -1614,13 +1614,13 @@ test "surface footer measurement reserves rows for vertical slash completions" {
 test "surface footer measurement reserves six inline skill choices" {
     const alloc = std.testing.allocator;
     const skills = [_]@import("../../core/skills/skill_runtime.zig").Skill{
-        .{ .name = "one", .description = "", .path = "/tmp/one", .source = .global_fx },
-        .{ .name = "two", .description = "", .path = "/tmp/two", .source = .global_fx },
-        .{ .name = "three", .description = "", .path = "/tmp/three", .source = .global_fx },
-        .{ .name = "four", .description = "", .path = "/tmp/four", .source = .global_fx },
-        .{ .name = "five", .description = "", .path = "/tmp/five", .source = .global_fx },
-        .{ .name = "six", .description = "", .path = "/tmp/six", .source = .global_fx },
-        .{ .name = "seven", .description = "", .path = "/tmp/seven", .source = .global_fx },
+        .{ .name = "one", .description = "", .path = "/tmp/one", .source = .global_y2 },
+        .{ .name = "two", .description = "", .path = "/tmp/two", .source = .global_y2 },
+        .{ .name = "three", .description = "", .path = "/tmp/three", .source = .global_y2 },
+        .{ .name = "four", .description = "", .path = "/tmp/four", .source = .global_y2 },
+        .{ .name = "five", .description = "", .path = "/tmp/five", .source = .global_y2 },
+        .{ .name = "six", .description = "", .path = "/tmp/six", .source = .global_y2 },
+        .{ .name = "seven", .description = "", .path = "/tmp/seven", .source = .global_y2 },
     };
     var input = InputRuntime{};
     defer input.deinit(alloc);

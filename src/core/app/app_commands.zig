@@ -4141,7 +4141,7 @@ test "skills list opens menu without transcript inventory" {
             .name = "managed",
             .description = "managed skill",
             .path = "/tmp/managed/SKILL.md",
-            .source = .global_fx,
+            .source = .global_y2,
         },
         .{
             .name = "workspace",
@@ -4203,7 +4203,7 @@ test "skills show focuses matching menu row without transcript body" {
             .name = "managed",
             .description = "managed skill",
             .path = "/tmp/managed/SKILL.md",
-            .source = .global_fx,
+            .source = .global_y2,
         },
         .{
             .name = "workspace",
@@ -4233,7 +4233,7 @@ test "skills show exposes duplicate rows without focusing a precedence winner" {
             .name = "review",
             .description = "managed review",
             .path = "/tmp/managed/review",
-            .source = .global_fx,
+            .source = .global_y2,
         },
         .{
             .name = "review",
@@ -4284,7 +4284,7 @@ test "skills remove prefers a managed match after a workspace duplicate" {
             .name = "review",
             .description = "managed review",
             .path = managed_skill,
-            .source = .global_fx,
+            .source = .global_y2,
         },
     };
     var app = SkillsInstallReplayApp{
@@ -4312,7 +4312,7 @@ test "skills show missing name keeps not found notice" {
         .name = "managed",
         .description = "managed skill",
         .path = "/tmp/managed/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     var app = SkillsInstallReplayApp{ .alloc = alloc, .skills = .{ .items = @constCast(&skills) } };
     defer app.deinit();

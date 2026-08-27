@@ -103,7 +103,7 @@ fn writeTempFile(tmp: *std.testing.TmpDir, sub_path: []const u8, content: []cons
 }
 
 const test_root_policy: skill_contract.RootPolicy = .{
-    .managed_root_source = .global_fx,
+    .managed_root_source = .global_y2,
 };
 
 test "loadSkills returns empty defaults when HOME is missing" {
@@ -150,7 +150,7 @@ test "loadSkills loads managed skills under HOME" {
     try std.testing.expectEqual(@as(usize, 1), loaded.skills.len);
     try std.testing.expectEqualStrings("demo", loaded.skills[0].name);
     try std.testing.expectEqualStrings("Demo skill", loaded.skills[0].description);
-    try std.testing.expectEqual(skill_runtime.SkillSource.global_fx, loaded.skills[0].source);
+    try std.testing.expectEqual(skill_runtime.SkillSource.global_y2, loaded.skills[0].source);
     try std.testing.expectEqual(@as(usize, 0), loaded.diagnostics.len);
 }
 

@@ -5027,7 +5027,7 @@ test "core.app_render_runtime projects only the visible inline completion suffix
         .name = "managed-menu",
         .description = "",
         .path = "/tmp/managed-menu/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     app.skills.items = @constCast(&skills);
     try app.input_runtime.textReplacementState().replace(alloc, "explain $man");
@@ -5523,7 +5523,7 @@ test "core.app_render_runtime main skill menu origins share the inline footer" {
         .name = "pure-core",
         .description = "Keep data transformations pure.",
         .path = "/skills/pure-core/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     var app = CoordinatorTestApp{
         .alloc = alloc,
@@ -5655,13 +5655,13 @@ test "core.app_render_runtime width-changed queued editor keeps mention navigati
     defer file.close(io_mod.getIo());
 
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "one", .description = "", .path = "/tmp/one", .source = .global_fx },
-        .{ .name = "two", .description = "", .path = "/tmp/two", .source = .global_fx },
-        .{ .name = "three", .description = "", .path = "/tmp/three", .source = .global_fx },
-        .{ .name = "four", .description = "", .path = "/tmp/four", .source = .global_fx },
-        .{ .name = "five", .description = "", .path = "/tmp/five", .source = .global_fx },
-        .{ .name = "six", .description = "", .path = "/tmp/six", .source = .global_fx },
-        .{ .name = "seven", .description = "", .path = "/tmp/seven", .source = .global_fx },
+        .{ .name = "one", .description = "", .path = "/tmp/one", .source = .global_y2 },
+        .{ .name = "two", .description = "", .path = "/tmp/two", .source = .global_y2 },
+        .{ .name = "three", .description = "", .path = "/tmp/three", .source = .global_y2 },
+        .{ .name = "four", .description = "", .path = "/tmp/four", .source = .global_y2 },
+        .{ .name = "five", .description = "", .path = "/tmp/five", .source = .global_y2 },
+        .{ .name = "six", .description = "", .path = "/tmp/six", .source = .global_y2 },
+        .{ .name = "seven", .description = "", .path = "/tmp/seven", .source = .global_y2 },
     };
     var app = CoordinatorTestApp{
         .alloc = alloc,
@@ -5845,7 +5845,7 @@ test "core.app_render_runtime file approval returns to the preserved inline skil
         .name = "pure-core",
         .description = "Keep data transformations pure.",
         .path = "/skills/pure-core/SKILL.md",
-        .source = .global_fx,
+        .source = .global_y2,
     }};
     const preview_lines = [_]diff_mod.PreviewLine{
         .{ .op = .addition, .new_line = 1, .text = "after" },

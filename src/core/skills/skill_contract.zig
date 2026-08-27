@@ -6,14 +6,14 @@ pub const max_name_bytes: usize = 256;
 pub const max_description_bytes: usize = 4 * 1024;
 
 pub const SkillSource = enum {
-    workspace_fx,
+    workspace_y2,
     workspace_shared,
     workspace_opencode,
     workspace_codex,
     workspace_claude,
     workspace_agents,
     workspace_claw,
-    global_fx,
+    global_y2,
     global_opencode,
     global_codex,
     global_claude,

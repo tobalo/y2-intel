@@ -19,7 +19,7 @@ const test_workspace_roots = [_]skill_contract.RootSpec{
 };
 const test_root_policy: skill_contract.RootPolicy = .{
     .workspace_roots = &test_workspace_roots,
-    .managed_root_source = .global_fx,
+    .managed_root_source = .global_y2,
 };
 
 /// Borrows a previously discovered skill inventory for one invocation.
@@ -1047,7 +1047,7 @@ fn checkSkillErrorFormattingAllocationFailures(alloc: Allocator) !void {
 
     const duplicates = [_]skill_runtime.Skill{
         .{ .name = "workflow", .description = "A", .path = "/tmp/a/workflow", .source = .workspace_shared },
-        .{ .name = "workflow", .description = "B", .path = "/tmp/b/workflow", .source = .global_fx },
+        .{ .name = "workflow", .description = "B", .path = "/tmp/b/workflow", .source = .global_y2 },
     };
     const ambiguous = try formatAmbiguousSkill(alloc, &duplicates, "workflow", tool_result_limits.default_max_tool_result_bytes);
     alloc.free(ambiguous);
@@ -1483,7 +1483,7 @@ test "explicit binding plan preserves supplied order and adds prompt matches onc
     const alloc = std.testing.allocator;
     const skills = [_]skill_runtime.Skill{
         .{ .name = "review", .description = "Review changes", .path = "/skills/review", .source = .workspace_shared },
-        .{ .name = "release", .description = "Prepare a release", .path = "/skills/release", .source = .global_fx },
+        .{ .name = "release", .description = "Prepare a release", .path = "/skills/release", .source = .global_y2 },
     };
     const bindings = [_]ExplicitBinding{
         .{ .name = "release", .path = "/skills/release" },
@@ -2031,7 +2031,7 @@ test "ambiguous skill failure uses configured bound and exact omitted count" {
 
     const duplicates = [_]skill_runtime.Skill{
         .{ .name = "workflow", .description = "A", .path = long_location, .source = .workspace_shared },
-        .{ .name = "workflow", .description = "B", .path = long_location, .source = .global_fx },
+        .{ .name = "workflow", .description = "B", .path = long_location, .source = .global_y2 },
     };
     const output = try formatAmbiguousSkill(alloc, &duplicates, "workflow", 1024);
     defer alloc.free(output);

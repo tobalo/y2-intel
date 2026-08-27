@@ -641,7 +641,7 @@ fn testDeps() BootstrapDeps(TestApp) {
         .load_skills = loadSkillsForTest,
         .skill_root_policy = .{
             .workspace_roots = &test_workspace_skill_roots,
-            .managed_root_source = .global_fx,
+            .managed_root_source = .global_y2,
             .global_roots = &test_global_skill_roots,
         },
         .welcome_message = welcomeMessageForTest,
@@ -767,7 +767,7 @@ fn loadSkillsForTest(
     errdefer alloc.free(diagnostics);
     diagnostics[0] = .{
         .path = try alloc.dupe(u8, "/skills/hostile\npath/body-sentinel"),
-        .source = .global_fx,
+        .source = .global_y2,
         .scope = .candidate,
         .cause = .{ .invalid_metadata = .missing_name },
     };

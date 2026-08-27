@@ -19,14 +19,14 @@ describe("eval: terminal exec", () => {
     async () => {
       workDir = createWorkDir();
       const result = await runEval(
-        'Run the command `echo HELLO_FROM_FX` and tell me exactly what it printed.',
+        'Run the command `echo HELLO_FROM_Y2` and tell me exactly what it printed.',
         {
           cwd: workDir,
           timeoutSec: 60,
         },
       );
-      assertTerminalExecMatches(result, /^echo HELLO_FROM_FX$/);
-      expect(result.json.output).toContain("HELLO_FROM_FX");
+      assertTerminalExecMatches(result, /^echo HELLO_FROM_Y2$/);
+      expect(result.json.output).toContain("HELLO_FROM_Y2");
       expect(result.json.exit_code).toBe(0);
     },
     TIMEOUT,

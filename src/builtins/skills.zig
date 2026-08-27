@@ -13,7 +13,7 @@ const RootSpec = skill_contract.RootSpec;
 /// home, in precedence order. `.y2/skills` and `skills/` belong to the product;
 /// the rest are compatibility roots for other agent installs.
 const workspace_roots = [_]RootSpec{
-    .{ .source = .workspace_fx, .path = ".y2/skills" },
+    .{ .source = .workspace_y2, .path = ".y2/skills" },
     .{ .source = .workspace_shared, .path = "skills" },
     .{ .source = .workspace_opencode, .path = ".opencode/skills" },
     .{ .source = .workspace_codex, .path = ".codex/skills" },
@@ -33,7 +33,7 @@ const global_roots = [_]RootSpec{
 
 pub const root_policy: skill_contract.RootPolicy = .{
     .workspace_roots = &workspace_roots,
-    .managed_root_source = .global_fx,
+    .managed_root_source = .global_y2,
     .global_roots = &global_roots,
 };
 
@@ -1150,7 +1150,7 @@ test "copySkillDir preserves the installed skill across allocation failures" {
 
 test "workspace skill roots scan the product root before compatibility roots" {
     const expected = [_]RootSpec{
-        .{ .source = .workspace_fx, .path = ".y2/skills" },
+        .{ .source = .workspace_y2, .path = ".y2/skills" },
         .{ .source = .workspace_shared, .path = "skills" },
         .{ .source = .workspace_opencode, .path = ".opencode/skills" },
         .{ .source = .workspace_codex, .path = ".codex/skills" },
@@ -1166,7 +1166,7 @@ test "workspace skill roots scan the product root before compatibility roots" {
     }
 
     for (workspace_roots) |spec| {
-        try std.testing.expect(spec.source != .global_fx);
+        try std.testing.expect(spec.source != .global_y2);
     }
 }
 
@@ -1186,7 +1186,7 @@ test "global skill roots cover compatibility installs only" {
     }
 
     for (global_roots) |spec| {
-        try std.testing.expect(spec.source != .global_fx);
+        try std.testing.expect(spec.source != .global_y2);
     }
 }
 

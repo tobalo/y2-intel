@@ -5099,7 +5099,7 @@ fn testConfig() Config {
         .url_opener = host.unavailable_url_opener,
         .secret_store = host.unavailable_secret_store,
         .prompt_policy = .{ .system_prompt = "system" },
-        .skill_root_policy = .{ .managed_root_source = .global_fx },
+        .skill_root_policy = .{ .managed_root_source = .global_y2 },
         .ignored_list_entries = &.{},
         .max_list_entries = 10,
         .max_read_file_bytes = 1024,

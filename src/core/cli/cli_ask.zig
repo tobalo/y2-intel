@@ -3818,7 +3818,7 @@ fn testConfig() Config {
             .system_prompt = "system",
             .model_prompt_overlay_fn = testModelPromptOverlay,
         },
-        .skill_root_policy = .{ .managed_root_source = .global_fx },
+        .skill_root_policy = .{ .managed_root_source = .global_y2 },
         .ignored_list_entries = &.{},
         .max_list_entries = 10,
         .max_read_file_bytes = 1024,

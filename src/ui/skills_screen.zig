@@ -151,7 +151,7 @@ test "skills screen preserves the final cell of an exact-width row" {
 test "skills screen places the unchanged composer above the catalog without transcript chrome" {
     const alloc = std.testing.allocator;
     const skills = [_]skill_runtime.Skill{
-        .{ .name = "pure-core", .description = "Keep data transformations pure.", .path = "/skills/pure-core/SKILL.md", .source = .global_fx },
+        .{ .name = "pure-core", .description = "Keep data transformations pure.", .path = "/skills/pure-core/SKILL.md", .source = .global_y2 },
         .{ .name = "y2-guide", .description = "Route Y2 work to the right skill.", .path = "/skills/y2-guide/SKILL.md", .source = .global_codex },
     };
     const projection: render_input.SkillsMenuProjection = .{
